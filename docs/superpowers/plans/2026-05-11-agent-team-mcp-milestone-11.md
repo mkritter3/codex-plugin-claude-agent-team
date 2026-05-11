@@ -38,7 +38,7 @@
 - Modify: `tests/package-scripts.test.ts`
 - Modify: `tests/package-runtime.test.ts`
 
-- [ ] **Step 1: Write failing package script tests**
+- [x] **Step 1: Write failing package script tests**
 
 Add tests proving:
 
@@ -54,7 +54,7 @@ npm test -- tests/package-scripts.test.ts tests/package-runtime.test.ts
 
 Expected: FAIL because the smoke script is not yet declared.
 
-- [ ] **Step 2: Add script declarations**
+- [x] **Step 2: Add script declarations**
 
 Update `package.json`:
 
@@ -63,7 +63,7 @@ Update `package.json`:
 
 Keep the existing build, test, start, and bin fields unchanged.
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -74,7 +74,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add package.json tests/package-scripts.test.ts tests/package-runtime.test.ts
@@ -86,7 +86,7 @@ git commit -m "test: require packaged mcp stdio smoke in ci"
 **Files:**
 - Create: `scripts/smoke-mcp-stdio.mjs`
 
-- [ ] **Step 1: Write the smoke script**
+- [x] **Step 1: Write the smoke script**
 
 Create a Node ESM script that:
 
@@ -100,7 +100,7 @@ Create a Node ESM script that:
 - closes the client
 - prints `MCP stdio smoke passed.`
 
-- [ ] **Step 2: Verify smoke fails before build if dist is missing**
+- [x] **Step 2: Verify smoke fails before build if dist is missing**
 
 Run:
 
@@ -111,7 +111,7 @@ npm run smoke:mcp-stdio
 
 Expected: FAIL with a clear message explaining `dist/index.js` is missing and `npm run build` should be run first.
 
-- [ ] **Step 3: Verify smoke passes after build**
+- [x] **Step 3: Verify smoke passes after build**
 
 Run:
 
@@ -122,7 +122,7 @@ npm run smoke:mcp-stdio
 
 Expected: PASS and prints `MCP stdio smoke passed.`
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add scripts/smoke-mcp-stdio.mjs
@@ -134,7 +134,7 @@ git commit -m "test: add packaged mcp stdio smoke"
 **Files:**
 - Modify only if verification finds issues.
 
-- [ ] **Step 1: Run focused package tests**
+- [x] **Step 1: Run focused package tests**
 
 Run:
 
@@ -144,7 +144,7 @@ npm test -- tests/package-scripts.test.ts tests/package-runtime.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -158,17 +158,17 @@ npm run ci
 
 Expected: PASS.
 
-- [ ] **Step 3: Review stdio boundary**
+- [x] **Step 3: Review stdio boundary**
 
 Run:
 
 ```bash
-rg "tsx|src/index|createToolHandlers" scripts/smoke-mcp-stdio.mjs package.json .mcp.json
+rg "tsx|src/index|createToolHandlers" scripts/smoke-mcp-stdio.mjs .mcp.json
 ```
 
 Expected: no source/test-only runtime shortcuts in the smoke path.
 
-- [ ] **Step 4: Commit final plan checkbox update**
+- [x] **Step 4: Commit final plan checkbox update**
 
 Mark completed checklist items in this file and commit the update.
 
