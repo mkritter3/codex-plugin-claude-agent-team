@@ -15,7 +15,7 @@ export class UnknownRoleError extends AgentTeamError {
 
 export class ProviderCapabilityError extends AgentTeamError {
   readonly roleId: RoleId;
-  readonly providerId?: string;
+  readonly providerId: string | undefined;
   readonly missingCapabilities: readonly ProviderCapability[];
 
   constructor(input: {
