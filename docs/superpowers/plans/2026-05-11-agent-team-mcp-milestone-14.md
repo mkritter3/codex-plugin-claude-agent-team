@@ -4,7 +4,7 @@
 
 **Goal:** Make `agent_team_doctor` a truthful runtime preflight for host readiness, MCP module loadability, and Claude Code CLI subscription-backed execution before users dispatch live sidecars.
 
-**Status:** Deferred from Milestone 13 after read-only parallel audit found a higher-value in-flight communication gap: outbox plus `awaiting-input` is the next mailbox milestone. Keep this plan as the next doctor-readiness backlog slice.
+**Status:** Selected as Milestone 14 after Milestone 13 completed the outbox plus `awaiting-input` mailbox slice. This is now the next runtime-readiness implementation target.
 
 **Architecture:** Keep doctor orchestration provider-neutral. Host checks belong in `src/doctor.ts`; provider-specific auth readiness belongs behind the provider runtime health contract. Claude Code CLI remains the primary v1 transport, and the doctor should fail closed when the CLI is missing or `claude auth status` cannot confirm an authenticated CLI session. Auth override warnings continue to flow through the existing provider environment inspection path so future providers can add their own checks without coupling the doctor core to Claude internals.
 
@@ -232,6 +232,6 @@ Expected: no Claude-specific command names or env var lists in `src/doctor.ts`; 
 Mark completed checklist items in this file and commit the update.
 
 ```bash
-git add docs/superpowers/plans/2026-05-11-agent-team-mcp-milestone-13.md
+git add docs/superpowers/plans/2026-05-11-agent-team-mcp-milestone-14.md
 git commit -m "docs: mark doctor readiness milestone complete"
 ```
