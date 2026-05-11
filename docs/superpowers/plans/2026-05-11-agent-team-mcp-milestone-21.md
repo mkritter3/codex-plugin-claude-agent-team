@@ -40,7 +40,7 @@
 - Create: `src/providers/claude-code-cli/agent-definition-store.ts`
 - Add: `tests/providers/claude-code-cli/agent-definition-store.test.ts`
 
-- [ ] **Step 1: Write failing artifact store tests**
+- [x] **Step 1: Write failing artifact store tests**
 
 Add tests proving:
 
@@ -57,7 +57,7 @@ npm test -- tests/providers/claude-code-cli/agent-definition-store.test.ts
 
 Expected: FAIL because the artifact store does not exist.
 
-- [ ] **Step 2: Implement artifact store**
+- [x] **Step 2: Implement artifact store**
 
 Create helpers in `src/providers/claude-code-cli/agent-definition-store.ts`:
 
@@ -67,7 +67,7 @@ Create helpers in `src/providers/claude-code-cli/agent-definition-store.ts`:
 
 Use `buildClaudeAgentDefinitions`, `serializeClaudeAgentDefinitions`, and `validateClaudeAgentDefinitions` from M19. Write JSON using the shared atomic JSON writer. Compute the hash with Node `crypto.createHash("sha256")` over the deterministic serialized definitions.
 
-- [ ] **Step 3: Run focused artifact store tests**
+- [x] **Step 3: Run focused artifact store tests**
 
 Run:
 
@@ -78,7 +78,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/providers/claude-code-cli/agent-definition-store.ts tests/providers/claude-code-cli/agent-definition-store.test.ts
@@ -92,7 +92,7 @@ git commit -m "feat: persist claude agent definitions"
 - Modify: `src/doctor.ts`
 - Modify: `tests/doctor.test.ts`
 
-- [ ] **Step 1: Write failing workspace-context doctor test**
+- [x] **Step 1: Write failing workspace-context doctor test**
 
 Add a doctor test with a fake runtime proving:
 
@@ -107,7 +107,7 @@ npm test -- tests/doctor.test.ts
 
 Expected: FAIL because `ProviderHealthCheckInput` does not currently include workspace root.
 
-- [ ] **Step 2: Add provider-neutral workspaceRoot to health input**
+- [x] **Step 2: Add provider-neutral workspaceRoot to health input**
 
 Update `ProviderHealthCheckInput` in `src/providers/types.ts`:
 
@@ -117,7 +117,7 @@ readonly workspaceRoot: string;
 
 Update `runDoctor` so every provider `runtime.healthCheck` receives that workspace root.
 
-- [ ] **Step 3: Run focused doctor tests**
+- [x] **Step 3: Run focused doctor tests**
 
 Run:
 
@@ -128,7 +128,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/providers/types.ts src/doctor.ts tests/doctor.test.ts
@@ -141,7 +141,7 @@ git commit -m "feat: pass workspace to provider health"
 - Modify: `src/providers/claude-code-cli/runtime.ts`
 - Modify: `tests/providers/claude-code-cli/runtime-health.test.ts`
 
-- [ ] **Step 1: Write failing Claude health artifact tests**
+- [x] **Step 1: Write failing Claude health artifact tests**
 
 Add a runtime health test proving:
 
@@ -157,7 +157,7 @@ npm test -- tests/providers/claude-code-cli/runtime-health.test.ts
 
 Expected: FAIL because runtime health only validates generated definitions in memory.
 
-- [ ] **Step 2: Wire artifact store into Claude runtime health**
+- [x] **Step 2: Wire artifact store into Claude runtime health**
 
 In `src/providers/claude-code-cli/runtime.ts`:
 
@@ -166,7 +166,7 @@ In `src/providers/claude-code-cli/runtime.ts`:
 - if the store throws, return a fail check with the error and a concrete repair message
 - preserve existing CLI binary, auth, generated-definition, and subscription OAuth checks
 
-- [ ] **Step 3: Run focused runtime health tests**
+- [x] **Step 3: Run focused runtime health tests**
 
 Run:
 
@@ -177,7 +177,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/providers/claude-code-cli/runtime.ts tests/providers/claude-code-cli/runtime-health.test.ts
@@ -189,7 +189,7 @@ git commit -m "feat: validate claude agent artifacts"
 **Files:**
 - Modify only if verification finds issues.
 
-- [ ] **Step 1: Run focused milestone tests**
+- [x] **Step 1: Run focused milestone tests**
 
 Run:
 
@@ -199,7 +199,7 @@ npm test -- tests/providers/claude-code-cli/agent-definition-store.test.ts tests
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -213,7 +213,7 @@ npm run ci
 
 Expected: PASS.
 
-- [ ] **Step 3: Review boundary and safety invariants**
+- [x] **Step 3: Review boundary and safety invariants**
 
 Run:
 
@@ -224,7 +224,7 @@ rg "allowApiKeyFallback|benchmark|embedding|mock LLM|bypassPermissions" src/prov
 
 Expected: Claude artifact ownership stays inside the Claude provider; workspace root is only added to the provider-neutral health-check contract. Existing fail-closed auth and bypass-permission guards remain unchanged; no benchmark, embedding, mock LLM, API fallback, or provider-specific MCP schema is introduced.
 
-- [ ] **Step 4: Commit final plan checkbox update**
+- [x] **Step 4: Commit final plan checkbox update**
 
 Mark completed checklist items in this file and commit the update.
 
