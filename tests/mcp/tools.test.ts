@@ -396,6 +396,125 @@ describe("MCP tool handlers", () => {
     });
   });
 
+  it("returns pending outbox evidence from lifecycle status", async () => {
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      lifecycle: {
+        async startRun() {
+          throw new Error("should not start");
+        },
+        async messageRun() {
+          throw new Error("should not message");
+        },
+        async replyRun() {
+          throw new Error("should not reply");
+        },
+        async getStatus(cwd, runId) {
+          return {
+            runId,
+            role: "planner",
+            provider: "claude-code-cli",
+            status: "awaiting-input",
+            createdAt: "2026-05-11T00:00:00.000Z",
+            updatedAt: "2026-05-11T00:01:00.000Z",
+            awaitingInputSince: "2026-05-11T00:01:00.000Z",
+            capabilitiesUsed: ["structuredOutput"],
+            evidencePaths: [],
+            outboxRequestIds: ["ask_1"],
+            pendingOutboxRequest: {
+              id: "ask_1",
+              sequence: 1,
+              messageType: "clarification_request",
+              correlationId: "corr_ask_1",
+              createdAt: "2026-05-11T00:01:00.000Z",
+              payload: { question: "Which test should I inspect first?" }
+            }
+          };
+        },
+        async cancelRun() {
+          throw new Error("should not cancel");
+        },
+        async windDownRun() {
+          throw new Error("should not wind down");
+        }
+      }
+    });
+
+    const result = await handlers.handleToolCall("agent_team_status", {
+      runId: "run_waiting"
+    });
+
+    expect(result.structuredContent?.run).toMatchObject({
+      runId: "run_waiting",
+      status: "awaiting-input",
+      pendingOutboxRequest: {
+        id: "ask_1",
+        sequence: 1,
+        messageType: "clarification_request",
+        payload: { question: "Which test should I inspect first?" }
+      }
+    });
+  });
+
+  it("returns lifecycle message results for awaiting-input replies", async () => {
+    const calls: string[] = [];
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      lifecycle: {
+        async startRun() {
+          throw new Error("should not start");
+        },
+        async getStatus() {
+          throw new Error("should not status");
+        },
+        async messageRun(request) {
+          calls.push(`message:${request.runId}:${request.message}`);
+          return {
+            runId: request.runId,
+            status: "delivered_live",
+            record: {
+              sequence: 1,
+              runId: request.runId,
+              role: "planner",
+              provider: "claude-code-cli",
+              messageType: "user_message",
+              createdAt: "2026-05-11T00:02:00.000Z",
+              correlationId: request.correlationId ?? "msg_awaiting",
+              contentHash: "hash",
+              payload: { message: request.message }
+            },
+            message: "Message delivered live."
+          };
+        },
+        async replyRun() {
+          throw new Error("should not reply");
+        },
+        async cancelRun() {
+          throw new Error("should not cancel");
+        },
+        async windDownRun() {
+          throw new Error("should not wind down");
+        }
+      }
+    });
+
+    const result = await handlers.handleToolCall("agent_team_message", {
+      runId: "run_waiting",
+      message: "Use the CI logs first.",
+      correlationId: "msg_awaiting"
+    });
+
+    expect(calls).toEqual(["message:run_waiting:Use the CI logs first."]);
+    expect(result.structuredContent).toMatchObject({
+      runId: "run_waiting",
+      status: "delivered_live",
+      record: {
+        correlationId: "msg_awaiting",
+        payload: { message: "Use the CI logs first." }
+      }
+    });
+  });
+
   it("delegates start, status, message, reply, cancel, and wind-down to injected lifecycle", async () => {
     const calls: string[] = [];
     const handlers = createToolHandlers({
