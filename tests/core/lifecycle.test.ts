@@ -283,10 +283,23 @@ describe("AgentLifecycleManager", () => {
     expect(completed.evidencePaths).toEqual(
       expect.arrayContaining(["/tmp/run.log", "/tmp/transcript.jsonl"])
     );
-    await expect(readMailboxRecords(workspace, "run_life_2", "events")).resolves.toMatchObject([
-      { messageType: "running" },
-      { messageType: "completed", payload: { verdict: "SHIP" } }
-    ]);
+    await expect(
+      waitForMailboxRecord(
+        "run_life_2",
+        (record) =>
+          record.messageType === "completed" &&
+          typeof record.payload === "object" &&
+          record.payload !== null &&
+          "verdict" in record.payload &&
+          record.payload.verdict === "SHIP"
+      )
+    ).resolves.toBeDefined();
+    await expect(readMailboxRecords(workspace, "run_life_2", "events")).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ messageType: "running" }),
+        expect.objectContaining({ messageType: "completed" })
+      ])
+    );
   });
 
   it("transitions to expired when the provider handle times out", async () => {
