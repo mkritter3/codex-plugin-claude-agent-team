@@ -81,6 +81,7 @@ export type ProviderCommandRunner = (
 ) => Promise<ProviderCommandResult>;
 
 export interface ProviderHealthCheckInput {
+  readonly workspaceRoot: string;
   readonly env: NodeJS.ProcessEnv;
   readonly findExecutable: (name: string) => Promise<string | undefined>;
   readonly getVersion: (path: string) => Promise<string | undefined>;

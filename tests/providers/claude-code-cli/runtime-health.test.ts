@@ -6,6 +6,7 @@ describe("Claude Code CLI runtime health", () => {
     const calls: Array<{ path: string; args: readonly string[] }> = [];
 
     const checks = await claudeCodeCliRuntime.healthCheck({
+      workspaceRoot: "/repo",
       env: {},
       findExecutable: async () => "/usr/local/bin/claude",
       getVersion: async () => "1.0.0",
@@ -30,6 +31,7 @@ describe("Claude Code CLI runtime health", () => {
 
   it("fails closed when Claude CLI auth status fails", async () => {
     const checks = await claudeCodeCliRuntime.healthCheck({
+      workspaceRoot: "/repo",
       env: {},
       findExecutable: async () => "/usr/local/bin/claude",
       getVersion: async () => "1.0.0",
@@ -56,6 +58,7 @@ describe("Claude Code CLI runtime health", () => {
     let called = false;
 
     const checks = await claudeCodeCliRuntime.healthCheck({
+      workspaceRoot: "/repo",
       env: {},
       findExecutable: async () => undefined,
       getVersion: async () => undefined,

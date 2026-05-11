@@ -98,6 +98,7 @@ describe("runDoctor", () => {
   it("reports provider runtime health checks", async () => {
     const workspace = await tempWorkspace();
     const commandResults: boolean[] = [];
+    const healthWorkspaceRoots: string[] = [];
     const runtime: AgentProviderRuntime = {
       id: "fake-runtime",
       descriptor: () => ({
@@ -117,6 +118,7 @@ describe("runDoctor", () => {
       async healthCheck(input) {
         const result = await input.runCommand("/bin/echo", ["ok"]);
         commandResults.push(result.ok);
+        healthWorkspaceRoots.push(input.workspaceRoot);
         return [
           {
             id: "fake-runtime-health",
@@ -139,6 +141,7 @@ describe("runDoctor", () => {
       message: "Fake runtime ready."
     });
     expect(commandResults).toEqual([true]);
+    expect(healthWorkspaceRoots).toEqual([workspace]);
   });
 
   it("fails closed when a configured provider has no runtime", async () => {

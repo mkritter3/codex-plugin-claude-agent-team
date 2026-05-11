@@ -296,6 +296,7 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
 
     checks.push(
       ...(await runtime.healthCheck({
+        workspaceRoot,
         env,
         findExecutable,
         getVersion,
