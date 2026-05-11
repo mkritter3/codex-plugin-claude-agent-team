@@ -13,7 +13,7 @@
 ## File Structure
 
 - Create `src/core/state/recovery.ts`: convert `StateCorruptionError` into a structured recovery result and archive corrupt artifacts when metadata is available.
-- Modify `src/mcp/tools.ts`: wrap lifecycle-backed tool execution in recovery handling for status, message, reply, cancel, wind-down, and cleanup.
+- Modify `src/mcp/tools.ts`: wrap lifecycle-backed tool execution in recovery handling for start, status, message, reply, cancel, wind-down, and cleanup.
 - Add `tests/core/state/recovery.test.ts`: cover archived and unarchived corruption recovery results.
 - Modify `tests/mcp/tools.test.ts`: cover corrupt sidecar status and corrupt mailbox reply recovery through MCP.
 - Modify this plan file after implementation to mark completed tasks.
@@ -37,7 +37,7 @@
 - Create: `src/core/state/recovery.ts`
 - Add: `tests/core/state/recovery.test.ts`
 
-- [ ] **Step 1: Write failing recovery helper tests**
+- [x] **Step 1: Write failing recovery helper tests**
 
 Add tests proving:
 
@@ -53,7 +53,7 @@ npm test -- tests/core/state/recovery.test.ts
 
 Expected: FAIL because the recovery helper does not exist.
 
-- [ ] **Step 2: Implement recovery helper**
+- [x] **Step 2: Implement recovery helper**
 
 Create `recoverStateCorruption(input)` in `src/core/state/recovery.ts`.
 
@@ -64,7 +64,7 @@ The helper should:
 - return a plain JSON-serializable result with `status: "state_corrupt"`
 - include a clear message that user intervention is required
 
-- [ ] **Step 3: Run focused recovery tests**
+- [x] **Step 3: Run focused recovery tests**
 
 Run:
 
@@ -75,7 +75,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/state/recovery.ts tests/core/state/recovery.test.ts
@@ -88,7 +88,7 @@ git commit -m "feat: recover corrupt state artifacts"
 - Modify: `src/mcp/tools.ts`
 - Modify: `tests/mcp/tools.test.ts`
 
-- [ ] **Step 1: Write failing MCP recovery tests**
+- [x] **Step 1: Write failing MCP recovery tests**
 
 Add tests proving:
 
@@ -105,13 +105,14 @@ npm test -- tests/mcp/tools.test.ts
 
 Expected: FAIL because MCP tools currently allow `StateCorruptionError` to escape.
 
-- [ ] **Step 2: Wire recovery into MCP lifecycle tools**
+- [x] **Step 2: Wire recovery into MCP lifecycle tools**
 
 Add a small wrapper in `src/mcp/tools.ts` around lifecycle-backed operations.
 
 Apply it to:
 
 - `agent_team_status`
+- `agent_team_start`
 - `agent_team_message`
 - `agent_team_reply`
 - `agent_team_cancel`
@@ -120,7 +121,7 @@ Apply it to:
 
 Do not wrap `agent_team_list_roles`, `agent_team_list_providers`, or validation failures.
 
-- [ ] **Step 3: Run focused MCP tests**
+- [x] **Step 3: Run focused MCP tests**
 
 Run:
 
@@ -131,7 +132,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/mcp/tools.ts tests/mcp/tools.test.ts
@@ -143,7 +144,7 @@ git commit -m "feat: surface state corruption through mcp"
 **Files:**
 - Modify only if verification finds issues.
 
-- [ ] **Step 1: Run focused milestone tests**
+- [x] **Step 1: Run focused milestone tests**
 
 Run:
 
@@ -153,7 +154,7 @@ npm test -- tests/core/state/recovery.test.ts tests/mcp/tools.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -167,7 +168,7 @@ npm run ci
 
 Expected: PASS.
 
-- [ ] **Step 3: Review provider-neutral boundaries**
+- [x] **Step 3: Review provider-neutral boundaries**
 
 Run:
 
@@ -178,7 +179,7 @@ rg "CLAUDE|claude|Claude" src/core/state/recovery.ts src/mcp/tools.ts
 
 Expected: recovery remains provider-neutral and Claude-specific code is not touched.
 
-- [ ] **Step 4: Commit final plan checkbox update**
+- [x] **Step 4: Commit final plan checkbox update**
 
 Mark completed checklist items in this file and commit the update.
 
