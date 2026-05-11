@@ -2,7 +2,13 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { readRunSidecar, writeRunSidecar } from "../../../src/core/state/run-store.js";
+import {
+  InvalidRunTransitionError,
+  isTerminalRunStatus,
+  readRunSidecar,
+  transitionRunSidecar,
+  writeRunSidecar
+} from "../../../src/core/state/run-store.js";
 import type { RunSidecar } from "../../../src/core/types.js";
 
 let workspace: string;
@@ -32,5 +38,98 @@ describe("run-store", () => {
     await writeRunSidecar(workspace, sidecar);
 
     await expect(readRunSidecar(workspace, "run_123")).resolves.toEqual(sidecar);
+  });
+
+  it("identifies terminal run statuses", () => {
+    expect(isTerminalRunStatus("completed")).toBe(true);
+    expect(isTerminalRunStatus("cancelled")).toBe(true);
+    expect(isTerminalRunStatus("failed")).toBe(true);
+    expect(isTerminalRunStatus("expired")).toBe(true);
+    expect(isTerminalRunStatus("queued")).toBe(false);
+    expect(isTerminalRunStatus("running")).toBe(false);
+    expect(isTerminalRunStatus("winding-down")).toBe(false);
+  });
+
+  it("writes legal non-terminal to terminal transitions", async () => {
+    const base: RunSidecar = {
+      runId: "run_transition",
+      role: "planner",
+      provider: "claude-code-cli",
+      status: "queued",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:00:00.000Z",
+      capabilitiesUsed: ["structuredOutput"],
+      evidencePaths: []
+    };
+    await writeRunSidecar(workspace, base);
+
+    const running = await transitionRunSidecar(workspace, "run_transition", (current) => ({
+      ...current,
+      status: "running",
+      updatedAt: "2026-05-11T00:00:01.000Z"
+    }));
+    const completed = await transitionRunSidecar(workspace, "run_transition", (current) => ({
+      ...current,
+      status: "completed",
+      updatedAt: "2026-05-11T00:00:02.000Z",
+      cleanup: "complete"
+    }));
+
+    expect(running.status).toBe("running");
+    expect(completed.status).toBe("completed");
+    await expect(readRunSidecar(workspace, "run_transition")).resolves.toMatchObject({
+      status: "completed",
+      cleanup: "complete"
+    });
+  });
+
+  it("rejects stale transitions after a terminal state", async () => {
+    const terminal: RunSidecar = {
+      runId: "run_cancelled",
+      role: "debugger",
+      provider: "claude-code-cli",
+      status: "cancelled",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:00:01.000Z",
+      capabilitiesUsed: ["structuredOutput"],
+      evidencePaths: [],
+      cleanup: "partial"
+    };
+    await writeRunSidecar(workspace, terminal);
+
+    await expect(
+      transitionRunSidecar(workspace, "run_cancelled", (current) => ({
+        ...current,
+        status: "running",
+        updatedAt: "2026-05-11T00:00:02.000Z"
+      }))
+    ).rejects.toThrow(InvalidRunTransitionError);
+
+    await expect(readRunSidecar(workspace, "run_cancelled")).resolves.toEqual(terminal);
+  });
+
+  it("allows idempotent terminal rewrites for the same status", async () => {
+    const completed: RunSidecar = {
+      runId: "run_completed",
+      role: "code-reviewer",
+      provider: "claude-code-cli",
+      status: "completed",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:00:01.000Z",
+      capabilitiesUsed: ["structuredOutput"],
+      evidencePaths: [],
+      cleanup: "partial"
+    };
+    await writeRunSidecar(workspace, completed);
+
+    const updated = await transitionRunSidecar(workspace, "run_completed", (current) => ({
+      ...current,
+      status: "completed",
+      updatedAt: "2026-05-11T00:00:02.000Z",
+      cleanup: "complete"
+    }));
+
+    expect(updated.cleanup).toBe("complete");
+    await expect(readRunSidecar(workspace, "run_completed")).resolves.toEqual(updated);
   });
 });
