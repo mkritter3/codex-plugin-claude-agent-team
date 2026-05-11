@@ -122,6 +122,48 @@ export interface AgentStartResult {
   readonly mailboxPaths: AgentMailboxPaths;
 }
 
+export interface AgentParallelStartRun {
+  readonly role: RoleId;
+  readonly task: string;
+  readonly cwd: string;
+  readonly provider?: string;
+  readonly timeoutMs?: number;
+  readonly correlationId?: string;
+}
+
+export interface AgentParallelStartRequest {
+  readonly batchId: string;
+  readonly runs: readonly AgentParallelStartRun[];
+  readonly concurrency: number;
+}
+
+export interface AgentParallelStartSuccess {
+  readonly status: "started";
+  readonly index: number;
+  readonly correlationId?: string;
+  readonly run: AgentStartResult;
+}
+
+export interface AgentParallelStartFailure {
+  readonly status: "failed";
+  readonly index: number;
+  readonly correlationId?: string;
+  readonly role: RoleId;
+  readonly task: string;
+  readonly error: string;
+}
+
+export type AgentParallelStartRunResult =
+  | AgentParallelStartSuccess
+  | AgentParallelStartFailure;
+
+export interface AgentParallelStartResult {
+  readonly status: "started" | "partial_failure";
+  readonly batchId: string;
+  readonly concurrency: number;
+  readonly runs: readonly AgentParallelStartRunResult[];
+}
+
 export interface AgentControlResult {
   readonly runId: string;
   readonly status: RunStatus;
