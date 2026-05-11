@@ -17,7 +17,7 @@
     "longDescription": "A Codex MCP plugin that routes agent roles through provider adapters, starting with Claude Code CLI subscription-backed runs.",
     "developerName": "mkritter3",
     "category": "Productivity",
-    "capabilities": ["Interactive", "Write"],
+    "capabilities": ["Interactive"],
     "websiteURL": "https://github.com/mkritter3/codex-plugin-claude-agent-team",
     "defaultPrompt": [
       "Ask Claude to review this diff.",
