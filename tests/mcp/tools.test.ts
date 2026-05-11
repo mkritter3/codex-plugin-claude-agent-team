@@ -656,6 +656,115 @@ describe("MCP tool handlers", () => {
     ]);
   });
 
+  it("delegates cleanup through the lifecycle selected for the workspace", async () => {
+    const workspaces: string[] = [];
+    const handlers = createToolHandlers({
+      cwd: () => "/default",
+      lifecycleFactory: () => ({
+        async startRun() {
+          throw new Error("should not start");
+        },
+        async getStatus() {
+          throw new Error("should not status");
+        },
+        async messageRun() {
+          throw new Error("should not message");
+        },
+        async replyRun() {
+          throw new Error("should not reply");
+        },
+        async cancelRun() {
+          throw new Error("should not cancel");
+        },
+        async windDownRun() {
+          throw new Error("should not wind down");
+        },
+        async cleanupRunWorkspace(request) {
+          workspaces.push(`${request.cwd}:${request.runId}:${request.force}`);
+          return {
+            runId: request.runId,
+            status: "removed",
+            sidecarPath: `${request.cwd}/.agent-team/runs/${request.runId}.json`,
+            workspaceCleanup: "removed",
+            message: "Implementation worktree removed."
+          };
+        }
+      })
+    });
+
+    const result = await handlers.handleToolCall("agent_team_cleanup", {
+      runId: "run_cleanup_tool",
+      cwd: "/repo",
+      force: true
+    });
+
+    expect(workspaces).toEqual(["/repo:run_cleanup_tool:true"]);
+    expect(result.structuredContent).toMatchObject({
+      runId: "run_cleanup_tool",
+      status: "removed",
+      workspaceCleanup: "removed"
+    });
+  });
+
+  it("validates cleanup args before invoking lifecycle", async () => {
+    let called = false;
+    const handlers = createToolHandlers({
+      lifecycle: {
+        async startRun() {
+          called = true;
+          throw new Error("should not start");
+        },
+        async getStatus() {
+          called = true;
+          throw new Error("should not status");
+        },
+        async messageRun() {
+          called = true;
+          throw new Error("should not message");
+        },
+        async replyRun() {
+          called = true;
+          throw new Error("should not reply");
+        },
+        async cancelRun() {
+          called = true;
+          throw new Error("should not cancel");
+        },
+        async windDownRun() {
+          called = true;
+          throw new Error("should not wind down");
+        },
+        async cleanupRunWorkspace() {
+          called = true;
+          throw new Error("should not cleanup");
+        }
+      }
+    });
+
+    const missingForce = await handlers.handleToolCall("agent_team_cleanup", {
+      runId: "run_1"
+    });
+    const invalidForce = await handlers.handleToolCall("agent_team_cleanup", {
+      runId: "run_1",
+      force: "yes"
+    });
+    const invalidCwd = await handlers.handleToolCall("agent_team_cleanup", {
+      runId: "run_1",
+      cwd: 42,
+      force: true
+    });
+    const invalidRun = await handlers.handleToolCall("agent_team_cleanup", {
+      runId: "",
+      force: true
+    });
+
+    expect(called).toBe(false);
+    expect(missingForce.structuredContent?.status).toBe("validation_error");
+    expect(invalidForce.structuredContent?.status).toBe("validation_error");
+    expect(invalidCwd.structuredContent?.status).toBe("validation_error");
+    expect(invalidRun.structuredContent?.status).toBe("validation_error");
+  });
+
   it("passes optional cwd to agent_team_doctor", async () => {
     const workspaces: string[] = [];
     const handlers = createToolHandlers({
@@ -866,6 +975,7 @@ describe("MCP tool handlers", () => {
       "agent_team_status",
       "agent_team_cancel",
       "agent_team_wind_down",
+      "agent_team_cleanup",
       "agent_team_doctor",
       "agent_team_list_roles",
       "agent_team_list_providers"

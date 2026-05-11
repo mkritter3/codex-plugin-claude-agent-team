@@ -20,6 +20,9 @@ const runId = z.string().min(1).describe("Agent Team run id.");
 const message = z.string().min(1).describe("Message content.");
 const messageType = z.string().min(1).optional().describe("Mailbox message type.");
 const correlationId = z.string().min(1).optional().describe("Caller correlation id.");
+const force = z
+  .boolean()
+  .describe("Explicit confirmation required before removing a retained implementation worktree.");
 
 const dispatchInputSchema = {
   role,
@@ -50,6 +53,12 @@ const messageInputSchema = {
 const statusInputSchema = {
   runId,
   cwd
+};
+
+const cleanupInputSchema = {
+  runId,
+  cwd,
+  force
 };
 
 const cwdOnlyInputSchema = {
@@ -97,6 +106,11 @@ export const TOOL_METADATA_BY_NAME = {
     title: "Wind Down Agent Session",
     description: "Request graceful finalization for an active or durable run.",
     inputSchema: statusInputSchema
+  },
+  agent_team_cleanup: {
+    title: "Cleanup Agent Workspace",
+    description: "Explicitly remove a retained implementation worktree after review.",
+    inputSchema: cleanupInputSchema
   },
   agent_team_doctor: {
     title: "Run Agent Team Doctor",

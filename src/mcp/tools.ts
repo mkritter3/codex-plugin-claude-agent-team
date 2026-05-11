@@ -7,6 +7,8 @@ import {
 } from "../core/lifecycle-registry.js";
 import { listRoles } from "../core/roles.js";
 import type {
+  AgentCleanupRequest,
+  AgentCleanupResult,
   AgentControlResult,
   AgentDispatchRequest,
   AgentMessageRequest,
@@ -29,6 +31,7 @@ export const TOOL_NAMES = [
   "agent_team_status",
   "agent_team_cancel",
   "agent_team_wind_down",
+  "agent_team_cleanup",
   "agent_team_doctor",
   "agent_team_list_roles",
   "agent_team_list_providers"
@@ -45,6 +48,7 @@ type LifecycleLike = {
   readonly getStatus: (cwd: string, runId: string) => Promise<RunSidecar>;
   readonly cancelRun: (cwd: string, runId: string) => Promise<AgentControlResult>;
   readonly windDownRun: (cwd: string, runId: string) => Promise<AgentControlResult>;
+  readonly cleanupRunWorkspace?: (request: AgentCleanupRequest) => Promise<AgentCleanupResult>;
 };
 
 const defaultLifecycleRegistry = createDefaultLifecycleRegistry();
@@ -171,6 +175,27 @@ function parseReplyArgs(
   };
 }
 
+function parseCleanupArgs(
+  args: Record<string, unknown>,
+  cwd: string
+): AgentCleanupRequest | JsonToolResult {
+  if (typeof args.runId !== "string" || args.runId.trim().length === 0) {
+    return validationError("agent_team_cleanup requires a non-empty runId.");
+  }
+  if (args.cwd !== undefined && typeof args.cwd !== "string") {
+    return validationError("agent_team_cleanup cwd must be a string.");
+  }
+  if (typeof args.force !== "boolean") {
+    return validationError("agent_team_cleanup force must be a boolean.");
+  }
+
+  return {
+    runId: args.runId,
+    cwd: args.cwd ?? cwd,
+    force: args.force
+  };
+}
+
 export function createToolHandlers(deps: ToolDependencies = {}): {
   readonly handleToolCall: (
     name: ToolName,
@@ -279,6 +304,18 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
             ? await lifecycle.cancelRun(workspaceRoot, args.runId)
             : await lifecycle.windDownRun(workspaceRoot, args.runId);
         return jsonToolResult({ ...result });
+      }
+
+      if (name === "agent_team_cleanup") {
+        const parsed = parseCleanupArgs(args, cwd());
+        if ("content" in parsed) {
+          return parsed;
+        }
+        const lifecycle = await lifecycleFor(parsed.cwd);
+        if (lifecycle.cleanupRunWorkspace === undefined) {
+          throw new Error("Lifecycle does not support workspace cleanup.");
+        }
+        return jsonToolResult({ ...(await lifecycle.cleanupRunWorkspace(parsed)) });
       }
 
       return jsonToolResult({
