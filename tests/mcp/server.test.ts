@@ -3,6 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   registeredTools: [] as Array<{
     readonly name: string;
+    readonly metadata: {
+      readonly title?: string;
+      readonly description?: string;
+      readonly inputSchema?: Record<string, unknown>;
+    };
     readonly callback: (args: unknown) => Promise<unknown>;
   }>,
   createToolHandlers: vi.fn(),
@@ -13,10 +18,14 @@ vi.mock("@modelcontextprotocol/sdk/server/mcp.js", () => ({
   McpServer: class {
     registerTool(
       name: string,
-      _metadata: unknown,
+      metadata: {
+        readonly title?: string;
+        readonly description?: string;
+        readonly inputSchema?: Record<string, unknown>;
+      },
       callback: (args: unknown) => Promise<unknown>
     ): void {
-      mocks.registeredTools.push({ name, callback });
+      mocks.registeredTools.push({ name, metadata, callback });
     }
   }
 }));
@@ -55,5 +64,26 @@ describe("MCP server", () => {
       "agent_team_start",
       "agent_team_status"
     ]);
+  });
+
+  it("registers provider-neutral input schemas for tools", async () => {
+    const { createAgentTeamServer } = await import("../../src/mcp/server.js");
+
+    createAgentTeamServer();
+    const metadataByName = new Map(
+      mocks.registeredTools.map((tool) => [tool.name, tool.metadata])
+    );
+
+    for (const metadata of metadataByName.values()) {
+      expect(metadata.inputSchema).toBeDefined();
+      expect(metadata.description).not.toMatch(/prompt|Claude|claude-code-cli/i);
+    }
+    expect(metadataByName.get("agent_team_start")?.inputSchema).toMatchObject({
+      role: expect.any(Object),
+      task: expect.any(Object)
+    });
+    expect(metadataByName.get("agent_team_status")?.inputSchema).toMatchObject({
+      runId: expect.any(Object)
+    });
   });
 });

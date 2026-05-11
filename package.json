@@ -17,7 +17,8 @@
     "ci": "npm run typecheck && npm test && npm run build && npm run smoke:mcp-stdio"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "1.29.0"
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",

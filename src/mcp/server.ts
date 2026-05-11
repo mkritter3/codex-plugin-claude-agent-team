@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { TOOL_METADATA_BY_NAME } from "./schemas.js";
 import { createToolHandlers, listToolNames } from "./tools.js";
 
 export function createAgentTeamServer(): McpServer {
@@ -10,12 +11,10 @@ export function createAgentTeamServer(): McpServer {
   const handlers = createToolHandlers();
 
   for (const toolName of listToolNames()) {
+    const metadata = TOOL_METADATA_BY_NAME[toolName];
     server.registerTool(
       toolName,
-      {
-        title: toolName,
-        description: `Agent Team tool: ${toolName}`
-      },
+      metadata as never,
       async (args) => handlers.handleToolCall(toolName, args as Record<string, unknown>)
     );
   }
