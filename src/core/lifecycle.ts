@@ -1,3 +1,5 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { startClaudeBackgroundSession } from "../providers/claude-code-cli/background.js";
 import { listProviders } from "../providers/index.js";
@@ -22,7 +24,12 @@ import {
   appendInboxRecord,
   readMailboxRecords
 } from "./state/mailbox-store.js";
-import { mailboxPath, runLogPath, runSidecarPath } from "./state/paths.js";
+import {
+  mailboxPath,
+  runLogPath,
+  runSidecarPath,
+  workspaceDiffPath
+} from "./state/paths.js";
 import {
   InvalidRunTransitionError,
   isTerminalRunStatus,
@@ -31,7 +38,10 @@ import {
   writeRunSidecar
 } from "./state/run-store.js";
 import { parseVerdict } from "./verdict.js";
-import { allocateIsolatedWorktree } from "./workspaces.js";
+import {
+  allocateIsolatedWorktree,
+  inspectImplementationWorkspace
+} from "./workspaces.js";
 import type {
   AgentControlResult,
   AgentDispatchRequest,
@@ -59,6 +69,7 @@ export type StartProviderSession = (input: {
 }) => ProviderSessionHandle;
 
 type AllocateWorkspace = typeof allocateIsolatedWorktree;
+type InspectWorkspace = typeof inspectImplementationWorkspace;
 
 export interface AgentLifecycleDependencies {
   readonly providers?: readonly AgentProviderDescriptor[];
@@ -67,6 +78,7 @@ export interface AgentLifecycleDependencies {
   readonly startSession?: StartProviderSession;
   readonly config?: AgentTeamConfig;
   readonly allocateWorkspace?: AllocateWorkspace;
+  readonly inspectWorkspace?: InspectWorkspace;
   readonly env?: NodeJS.ProcessEnv;
   readonly cancelGraceMs?: number;
   readonly sleep?: (ms: number) => Promise<void>;
@@ -145,6 +157,7 @@ export class AgentLifecycleManager {
   private readonly startSession: StartProviderSession;
   private readonly config: AgentTeamConfig;
   private readonly allocateWorkspace: AllocateWorkspace;
+  private readonly inspectWorkspace: InspectWorkspace;
   private readonly env: NodeJS.ProcessEnv | undefined;
   private readonly cancelGraceMs: number;
   private readonly sleep: (ms: number) => Promise<void>;
@@ -155,6 +168,7 @@ export class AgentLifecycleManager {
     this.createRunId = deps.createRunId ?? defaultCreateRunId;
     this.config = deps.config ?? DEFAULT_AGENT_TEAM_CONFIG;
     this.allocateWorkspace = deps.allocateWorkspace ?? allocateIsolatedWorktree;
+    this.inspectWorkspace = deps.inspectWorkspace ?? inspectImplementationWorkspace;
     this.startSession =
       deps.startSession ??
       ((input) =>
@@ -580,6 +594,52 @@ export class AgentLifecycleManager {
     return undefined;
   }
 
+  private async implementationEvidence(
+    workspaceRoot: string,
+    runId: string,
+    sidecar: RunSidecar
+  ): Promise<{
+    readonly sidecar: Partial<RunSidecar>;
+    readonly evidencePaths: readonly string[];
+  }> {
+    if (sidecar.executionCwd === undefined) {
+      return { sidecar: {}, evidencePaths: [] };
+    }
+
+    try {
+      const inspection = await this.inspectWorkspace({
+        executionCwd: sidecar.executionCwd
+      });
+      let diffPath: string | undefined;
+      if (inspection.diffText !== undefined) {
+        diffPath = workspaceDiffPath(workspaceRoot, runId);
+        await mkdir(dirname(diffPath), { recursive: true });
+        await writeFile(diffPath, inspection.diffText, "utf8");
+      }
+
+      return {
+        sidecar: {
+          changedFiles: inspection.changedFiles,
+          workspaceStatus: inspection.statusSummary,
+          workspaceCleanup: "retained",
+          ...(diffPath === undefined ? {} : { workspaceDiffPath: diffPath })
+        },
+        evidencePaths: diffPath === undefined ? [] : [diffPath]
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      return {
+        sidecar: {
+          warnings: [
+            ...(sidecar.warnings ?? []),
+            `Implementation workspace inspection failed: ${message}`
+          ]
+        },
+        evidencePaths: []
+      };
+    }
+  }
+
   private observeCompletion(
     workspaceRoot: string,
     runId: string,
@@ -610,10 +670,17 @@ export class AgentLifecycleManager {
     try {
       if (status === "completed") {
         const verdict = parseVerdict(snapshot.text);
+        const current = await readRunSidecar(workspaceRoot, runId);
+        const implementationEvidence = await this.implementationEvidence(
+          workspaceRoot,
+          runId,
+          current
+        );
         const completed = await transitionRunSidecar(workspaceRoot, runId, (current) =>
           sidecarWithSnapshot(
             {
               ...current,
+              ...implementationEvidence.sidecar,
               status: "completed",
               updatedAt: this.now().toISOString(),
               outputSummary: verdict.summary,
@@ -623,7 +690,8 @@ export class AgentLifecycleManager {
                 ...new Set([
                   ...current.evidencePaths,
                   ...(snapshot.logPath === undefined ? [] : [snapshot.logPath]),
-                  ...(snapshot.transcriptPath === undefined ? [] : [snapshot.transcriptPath])
+                  ...(snapshot.transcriptPath === undefined ? [] : [snapshot.transcriptPath]),
+                  ...implementationEvidence.evidencePaths
                 ])
               ]
             },

@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -546,5 +546,133 @@ describe("AgentLifecycleManager", () => {
       workspaceCleanup: "retained",
       cleanup: "partial"
     });
+  });
+
+  it("harvests changed files and diff evidence when implementation runs complete", async () => {
+    const done = deferred<ProviderSessionDoneStatus>();
+    const handle = fakeHandle(done.promise);
+    const inspected: string[] = [];
+    const manager = new AgentLifecycleManager({
+      config: {
+        writeMode: { enabled: true, requireIsolatedWorktree: true },
+        auth: { allowApiKeyFallback: false }
+      },
+      createRunId: () => "run_slice_completed",
+      now: () => new Date("2026-05-11T00:05:00.000Z"),
+      allocateWorkspace: async () => ({
+        sourceCwd: workspace,
+        executionCwd: `${workspace}-completed-worktree`,
+        branchName: "agent-team/run_slice_completed",
+        baseRef: "HEAD",
+        isolation: "git-worktree",
+        retention: "retain-until-integrated",
+        cleanup: "retained"
+      }),
+      inspectWorkspace: async ({ executionCwd }) => {
+        inspected.push(executionCwd);
+        return {
+          changedFiles: ["src/core/config.ts"],
+          statusSummary: [" M src/core/config.ts"],
+          diffText: "diff --git a/src/core/config.ts b/src/core/config.ts\n"
+        };
+      },
+      startSession: () => handle
+    });
+
+    await manager.startRun({
+      role: "slice-implementer",
+      task: "Implement a bounded change.",
+      cwd: workspace
+    });
+    done.resolve("completed");
+
+    const completed = await waitForSidecar(
+      "run_slice_completed",
+      (sidecar) => sidecar.status === "completed"
+    );
+
+    expect(inspected).toEqual([`${workspace}-completed-worktree`]);
+    expect(completed).toMatchObject({
+      changedFiles: ["src/core/config.ts"],
+      workspaceStatus: [" M src/core/config.ts"],
+      workspaceDiffPath: join(
+        workspace,
+        ".agent-team",
+        "logs",
+        "run_slice_completed.diff.patch"
+      ),
+      workspaceCleanup: "retained"
+    });
+    expect(completed.evidencePaths).toContain(
+      join(workspace, ".agent-team", "logs", "run_slice_completed.diff.patch")
+    );
+    await expect(
+      readFile(join(workspace, ".agent-team", "logs", "run_slice_completed.diff.patch"), "utf8")
+    ).resolves.toContain("diff --git");
+  });
+
+  it("records empty implementation evidence without writing a diff path", async () => {
+    const done = deferred<ProviderSessionDoneStatus>();
+    const handle = fakeHandle(done.promise);
+    const manager = new AgentLifecycleManager({
+      config: {
+        writeMode: { enabled: true, requireIsolatedWorktree: true },
+        auth: { allowApiKeyFallback: false }
+      },
+      createRunId: () => "run_slice_clean",
+      allocateWorkspace: async () => ({
+        sourceCwd: workspace,
+        executionCwd: `${workspace}-clean-worktree`,
+        branchName: "agent-team/run_slice_clean",
+        baseRef: "HEAD",
+        isolation: "git-worktree",
+        retention: "retain-until-integrated",
+        cleanup: "retained"
+      }),
+      inspectWorkspace: async () => ({
+        changedFiles: [],
+        statusSummary: []
+      }),
+      startSession: () => handle
+    });
+
+    await manager.startRun({
+      role: "slice-implementer",
+      task: "Implement a bounded change.",
+      cwd: workspace
+    });
+    done.resolve("completed");
+
+    const completed = await waitForSidecar(
+      "run_slice_clean",
+      (sidecar) => sidecar.status === "completed"
+    );
+
+    expect(completed.changedFiles).toEqual([]);
+    expect(completed.workspaceStatus).toEqual([]);
+    expect(completed.workspaceDiffPath).toBeUndefined();
+  });
+
+  it("does not inspect workspaces for read-only completions", async () => {
+    const done = deferred<ProviderSessionDoneStatus>();
+    const handle = fakeHandle(done.promise);
+    let inspected = false;
+    const manager = new AgentLifecycleManager({
+      createRunId: () => "run_readonly_no_inspect",
+      inspectWorkspace: async () => {
+        inspected = true;
+        return { changedFiles: [], statusSummary: [] };
+      },
+      startSession: () => handle
+    });
+
+    await manager.startRun({ role: "planner", task: "Review", cwd: workspace });
+    done.resolve("completed");
+
+    await waitForSidecar(
+      "run_readonly_no_inspect",
+      (sidecar) => sidecar.status === "completed"
+    );
+    expect(inspected).toBe(false);
   });
 });
