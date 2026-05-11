@@ -1,4 +1,5 @@
 import type { ClaudeCommand, ClaudeCommandInput } from "./types.js";
+import { serializeClaudeAgentDefinitions } from "./agents.js";
 
 function pushCsvFlag(args: string[], flag: string, values?: readonly string[]): void {
   if (values !== undefined && values.length > 0) {
@@ -21,6 +22,12 @@ export function buildClaudeCommand(input: ClaudeCommandInput): ClaudeCommand {
   }
   if (input.sessionId !== undefined) {
     args.push("--resume", input.sessionId);
+  }
+  if (input.agents !== undefined) {
+    args.push("--agents", serializeClaudeAgentDefinitions(input.agents));
+  }
+  if (input.agentName !== undefined) {
+    args.push("--agent", input.agentName);
   }
   if (input.permissionMode !== undefined) {
     args.push("--permission-mode", input.permissionMode);

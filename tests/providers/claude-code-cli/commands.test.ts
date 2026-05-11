@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { buildClaudeAgentDefinitions } from "../../../src/providers/claude-code-cli/agents.js";
 import { buildClaudeCommand } from "../../../src/providers/claude-code-cli/commands.js";
 
 describe("buildClaudeCommand", () => {
@@ -36,6 +37,32 @@ describe("buildClaudeCommand", () => {
     expect(command.args).toContain("--resume");
     expect(command.args).toContain("abc123");
     expect(command.args).toContain("--verbose");
+  });
+
+  it("adds generated agents and selected agent only when provided", () => {
+    const definitions = buildClaudeAgentDefinitions();
+    const command = buildClaudeCommand({
+      prompt: "Review the diff",
+      outputFormat: "json",
+      agents: definitions,
+      agentName: "code-reviewer",
+      cwd: "/repo"
+    });
+
+    expect(command.args).toContain("--agents");
+    const agentsIndex = command.args.indexOf("--agents");
+    expect(JSON.parse(command.args[agentsIndex + 1] ?? "")).toEqual(definitions);
+    expect(command.args).toContain("--agent");
+    expect(command.args[command.args.indexOf("--agent") + 1]).toBe("code-reviewer");
+
+    const defaultCommand = buildClaudeCommand({
+      prompt: "Review the diff",
+      outputFormat: "json",
+      cwd: "/repo"
+    });
+
+    expect(defaultCommand.args).not.toContain("--agents");
+    expect(defaultCommand.args).not.toContain("--agent");
   });
 
   it("adds the dynamic system prompt exclusion flag only when requested", () => {

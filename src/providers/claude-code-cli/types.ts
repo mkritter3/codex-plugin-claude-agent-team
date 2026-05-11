@@ -1,4 +1,5 @@
 import type { ProviderAuthMode } from "../../core/types.js";
+import type { ClaudeAgentDefinitions } from "./agents.js";
 
 export type ClaudeOutputFormat = "json" | "stream-json";
 export type ClaudeInputFormat = "stream-json";
@@ -14,6 +15,8 @@ export interface ClaudeCommandInput {
   readonly outputFormat: ClaudeOutputFormat;
   readonly inputFormat?: ClaudeInputFormat;
   readonly sessionId?: string;
+  readonly agentName?: string;
+  readonly agents?: ClaudeAgentDefinitions;
   readonly allowedTools?: readonly string[];
   readonly disallowedTools?: readonly string[];
   readonly permissionMode?: ClaudePermissionMode;
