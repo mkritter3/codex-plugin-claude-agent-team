@@ -2,10 +2,13 @@ import { runDoctor } from "../doctor.js";
 import { dispatchReadOnlyAgent } from "../core/dispatch.js";
 import { defaultLifecycleManager } from "../core/lifecycle.js";
 import { listRoles } from "../core/roles.js";
-import { readRunSidecar } from "../core/state/run-store.js";
 import type {
   AgentControlResult,
   AgentDispatchRequest,
+  AgentMessageRequest,
+  AgentMessageResult,
+  AgentReplyRequest,
+  AgentReplyResult,
   AgentStartResult,
   RoleId,
   RunSidecar
@@ -28,17 +31,14 @@ export const TOOL_NAMES = [
 
 export type ToolName = (typeof TOOL_NAMES)[number];
 
-const DEFERRED_TOOLS = new Set<ToolName>([
-  "agent_team_reply",
-  "agent_team_message"
-]);
-
 const ROLE_IDS = new Set<string>(listRoles().map((role) => role.id));
 
 export interface ToolDependencies {
   readonly dispatch?: typeof dispatchReadOnlyAgent;
   readonly lifecycle?: {
     readonly startRun: (request: AgentDispatchRequest) => Promise<AgentStartResult>;
+    readonly messageRun: (request: AgentMessageRequest) => Promise<AgentMessageResult>;
+    readonly replyRun: (request: AgentReplyRequest) => Promise<AgentReplyResult>;
     readonly getStatus: (cwd: string, runId: string) => Promise<RunSidecar>;
     readonly cancelRun: (cwd: string, runId: string) => Promise<AgentControlResult>;
     readonly windDownRun: (cwd: string, runId: string) => Promise<AgentControlResult>;
@@ -86,6 +86,78 @@ function parseDispatchArgs(
   };
 }
 
+function parseMessageArgs(
+  args: Record<string, unknown>,
+  cwd: string
+): AgentMessageRequest | JsonToolResult {
+  if (typeof args.runId !== "string" || args.runId.trim().length === 0) {
+    return validationError("agent_team_message requires a non-empty runId.");
+  }
+  if (typeof args.message !== "string" || args.message.trim().length === 0) {
+    return validationError("agent_team_message requires a non-empty message.");
+  }
+  if (args.cwd !== undefined && typeof args.cwd !== "string") {
+    return validationError("agent_team_message cwd must be a string.");
+  }
+  if (args.messageType !== undefined && typeof args.messageType !== "string") {
+    return validationError("agent_team_message messageType must be a string.");
+  }
+  if (args.correlationId !== undefined && typeof args.correlationId !== "string") {
+    return validationError("agent_team_message correlationId must be a string.");
+  }
+
+  return {
+    runId: args.runId,
+    cwd: args.cwd ?? cwd,
+    message: args.message,
+    ...(args.messageType === undefined ? {} : { messageType: args.messageType }),
+    ...(args.correlationId === undefined ? {} : { correlationId: args.correlationId })
+  };
+}
+
+function parseReplyArgs(
+  args: Record<string, unknown>,
+  cwd: string
+): AgentReplyRequest | JsonToolResult {
+  if (typeof args.runId !== "string" || args.runId.trim().length === 0) {
+    return validationError("agent_team_reply requires a non-empty runId.");
+  }
+  if (
+    args.message !== undefined &&
+    (typeof args.message !== "string" || args.message.trim().length === 0)
+  ) {
+    return validationError("agent_team_reply message must be a non-empty string when provided.");
+  }
+  if (args.cwd !== undefined && typeof args.cwd !== "string") {
+    return validationError("agent_team_reply cwd must be a string.");
+  }
+  if (args.provider !== undefined && typeof args.provider !== "string") {
+    return validationError("agent_team_reply provider must be a string.");
+  }
+  if (args.messageType !== undefined && typeof args.messageType !== "string") {
+    return validationError("agent_team_reply messageType must be a string.");
+  }
+  if (args.correlationId !== undefined && typeof args.correlationId !== "string") {
+    return validationError("agent_team_reply correlationId must be a string.");
+  }
+  if (
+    args.timeoutMs !== undefined &&
+    (typeof args.timeoutMs !== "number" || args.timeoutMs <= 0)
+  ) {
+    return validationError("agent_team_reply timeoutMs must be a positive number.");
+  }
+
+  return {
+    runId: args.runId,
+    cwd: args.cwd ?? cwd,
+    ...(args.message === undefined ? {} : { message: args.message }),
+    ...(args.messageType === undefined ? {} : { messageType: args.messageType }),
+    ...(args.correlationId === undefined ? {} : { correlationId: args.correlationId }),
+    ...(args.provider === undefined ? {} : { provider: args.provider }),
+    ...(args.timeoutMs === undefined ? {} : { timeoutMs: args.timeoutMs })
+  };
+}
+
 export function createToolHandlers(deps: ToolDependencies = {}): {
   readonly handleToolCall: (
     name: ToolName,
@@ -126,6 +198,22 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
         return jsonToolResult({ ...(await lifecycle.startRun(parsed)) });
       }
 
+      if (name === "agent_team_message") {
+        const parsed = parseMessageArgs(args, cwd());
+        if ("content" in parsed) {
+          return parsed;
+        }
+        return jsonToolResult({ ...(await lifecycle.messageRun(parsed)) });
+      }
+
+      if (name === "agent_team_reply") {
+        const parsed = parseReplyArgs(args, cwd());
+        if ("content" in parsed) {
+          return parsed;
+        }
+        return jsonToolResult({ ...(await lifecycle.replyRun(parsed)) });
+      }
+
       if (name === "agent_team_status") {
         if (typeof args.runId !== "string" || args.runId.trim().length === 0) {
           return validationError("agent_team_status requires a non-empty runId.");
@@ -152,14 +240,6 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
             ? await lifecycle.cancelRun(workspaceRoot, args.runId)
             : await lifecycle.windDownRun(workspaceRoot, args.runId);
         return jsonToolResult({ ...result });
-      }
-
-      if (DEFERRED_TOOLS.has(name)) {
-        return jsonToolResult({
-          status: "not_implemented",
-          tool: name,
-          milestone: "milestone-3"
-        });
       }
 
       return jsonToolResult({

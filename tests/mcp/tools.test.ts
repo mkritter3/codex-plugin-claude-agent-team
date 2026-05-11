@@ -113,7 +113,7 @@ describe("MCP tool handlers", () => {
     });
   });
 
-  it("delegates start, status, cancel, and wind-down to injected lifecycle", async () => {
+  it("delegates start, status, message, reply, cancel, and wind-down to injected lifecycle", async () => {
     const calls: string[] = [];
     const handlers = createToolHandlers({
       cwd: () => "/repo",
@@ -133,6 +133,45 @@ describe("MCP tool handlers", () => {
               control: "/repo/.agent-team/mailboxes/run_lifecycle/control.jsonl",
               events: "/repo/.agent-team/mailboxes/run_lifecycle/events.jsonl"
             }
+          };
+        },
+        async messageRun(request) {
+          calls.push(`message:${request.cwd}:${request.runId}:${request.message}`);
+          return {
+            runId: request.runId,
+            status: "recorded_for_resume",
+            record: {
+              sequence: 1,
+              runId: request.runId,
+              role: "planner",
+              provider: "claude-code-cli",
+              messageType: "user_message",
+              createdAt: "2026-05-11T00:00:00.000Z",
+              correlationId: request.correlationId ?? "msg",
+              contentHash: "hash",
+              payload: { message: request.message }
+            },
+            message: "Message recorded for resume."
+          };
+        },
+        async replyRun(request) {
+          calls.push(`reply:${request.cwd}:${request.runId}:${request.message}`);
+          return {
+            runId: "run_reply_child",
+            status: "running",
+            provider: "claude-code-cli",
+            role: "planner",
+            sidecarPath: "/repo/.agent-team/runs/run_reply_child.json",
+            logPath: "/repo/.agent-team/logs/run_reply_child.log",
+            mailboxPaths: {
+              inbox: "/repo/.agent-team/mailboxes/run_reply_child/inbox.jsonl",
+              outbox: "/repo/.agent-team/mailboxes/run_reply_child/outbox.jsonl",
+              control: "/repo/.agent-team/mailboxes/run_reply_child/control.jsonl",
+              events: "/repo/.agent-team/mailboxes/run_reply_child/events.jsonl"
+            },
+            parentRunId: request.runId,
+            resumedFromRunId: request.runId,
+            providerSessionId: "session_parent"
           };
         },
         async getStatus(cwd, runId) {
@@ -179,6 +218,26 @@ describe("MCP tool handlers", () => {
       handlers.handleToolCall("agent_team_status", { runId: "run_lifecycle" })
     ).resolves.toMatchObject({ structuredContent: { run: { status: "running" } } });
     await expect(
+      handlers.handleToolCall("agent_team_message", {
+        runId: "run_lifecycle",
+        message: "Please keep going."
+      })
+    ).resolves.toMatchObject({
+      structuredContent: { status: "recorded_for_resume", runId: "run_lifecycle" }
+    });
+    await expect(
+      handlers.handleToolCall("agent_team_reply", {
+        runId: "run_lifecycle",
+        message: "Please reply now."
+      })
+    ).resolves.toMatchObject({
+      structuredContent: {
+        runId: "run_reply_child",
+        parentRunId: "run_lifecycle",
+        providerSessionId: "session_parent"
+      }
+    });
+    await expect(
       handlers.handleToolCall("agent_team_cancel", { runId: "run_lifecycle" })
     ).resolves.toMatchObject({ structuredContent: { status: "cancelled" } });
     await expect(
@@ -188,6 +247,8 @@ describe("MCP tool handlers", () => {
     expect(calls).toEqual([
       "start:planner:Review plan:/repo",
       "status:/repo:run_lifecycle",
+      "message:/repo:run_lifecycle:Please keep going.",
+      "reply:/repo:run_lifecycle:Please reply now.",
       "cancel:/repo:run_lifecycle",
       "wind:/repo:run_lifecycle"
     ]);
@@ -204,6 +265,14 @@ describe("MCP tool handlers", () => {
         async getStatus() {
           called = true;
           throw new Error("should not status");
+        },
+        async messageRun() {
+          called = true;
+          throw new Error("should not message");
+        },
+        async replyRun() {
+          called = true;
+          throw new Error("should not reply");
         },
         async cancelRun() {
           called = true;
@@ -222,13 +291,47 @@ describe("MCP tool handlers", () => {
     expect(result.structuredContent?.status).toBe("validation_error");
   });
 
-  it("keeps live message tools deferred", async () => {
-    const result = await handleToolCall("agent_team_message", { runId: "run_1" });
-
-    expect(result.structuredContent).toMatchObject({
-      status: "not_implemented",
-      tool: "agent_team_message"
+  it("validates message and reply payloads before invoking lifecycle", async () => {
+    let called = false;
+    const handlers = createToolHandlers({
+      lifecycle: {
+        async startRun() {
+          called = true;
+          throw new Error("should not start");
+        },
+        async getStatus() {
+          called = true;
+          throw new Error("should not status");
+        },
+        async messageRun() {
+          called = true;
+          throw new Error("should not message");
+        },
+        async replyRun() {
+          called = true;
+          throw new Error("should not reply");
+        },
+        async cancelRun() {
+          called = true;
+          throw new Error("should not cancel");
+        },
+        async windDownRun() {
+          called = true;
+          throw new Error("should not wind down");
+        }
+      }
     });
+
+    const messageResult = await handlers.handleToolCall("agent_team_message", {
+      runId: "run_1"
+    });
+    const replyResult = await handlers.handleToolCall("agent_team_reply", {
+      runId: ""
+    });
+
+    expect(called).toBe(false);
+    expect(messageResult.structuredContent?.status).toBe("validation_error");
+    expect(replyResult.structuredContent?.status).toBe("validation_error");
   });
 
   it("registers the expected tool names", () => {
