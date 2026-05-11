@@ -126,6 +126,20 @@ export interface AgentControlResult {
   readonly message: string;
 }
 
+export interface AgentCleanupRequest {
+  readonly runId: string;
+  readonly cwd: string;
+  readonly force: boolean;
+}
+
+export interface AgentCleanupResult {
+  readonly runId: string;
+  readonly status: "removed" | "blocked" | "failed";
+  readonly sidecarPath: string;
+  readonly message: string;
+  readonly workspaceCleanup?: "retained" | "removed";
+}
+
 export interface AgentMessageRequest {
   readonly runId: string;
   readonly cwd: string;
@@ -200,6 +214,8 @@ export interface RunSidecar {
   readonly providerSessionId?: string;
   readonly sourceCwd?: string;
   readonly executionCwd?: string;
+  readonly workspaceBranchName?: string;
+  readonly workspaceBaseRef?: string;
   readonly workspaceIsolation?: "git-worktree";
   readonly workspaceRetention?: "retain-until-integrated";
   readonly workspaceCleanup?: "retained" | "removed";

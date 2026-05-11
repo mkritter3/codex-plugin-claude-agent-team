@@ -47,9 +47,12 @@ import {
 import { parseVerdict } from "./verdict.js";
 import {
   allocateIsolatedWorktree,
+  cleanupIsolatedWorktree,
   inspectImplementationWorkspace
 } from "./workspaces.js";
 import type {
+  AgentCleanupRequest,
+  AgentCleanupResult,
   AgentControlResult,
   AgentDispatchRequest,
   AgentMessageRequest,
@@ -70,6 +73,7 @@ export type StartProviderSession = (
 ) => ProviderSessionHandle;
 
 type AllocateWorkspace = typeof allocateIsolatedWorktree;
+type CleanupWorkspace = typeof cleanupIsolatedWorktree;
 type InspectWorkspace = typeof inspectImplementationWorkspace;
 
 export interface AgentLifecycleDependencies {
@@ -80,6 +84,7 @@ export interface AgentLifecycleDependencies {
   readonly runtimes?: readonly AgentProviderRuntime[];
   readonly config?: AgentTeamConfig;
   readonly allocateWorkspace?: AllocateWorkspace;
+  readonly cleanupWorkspace?: CleanupWorkspace;
   readonly inspectWorkspace?: InspectWorkspace;
   readonly env?: NodeJS.ProcessEnv;
   readonly cancelGraceMs?: number;
@@ -146,6 +151,8 @@ function workspaceSidecarFields(lease: WorkspaceLease | undefined): Partial<RunS
   return {
     sourceCwd: lease.sourceCwd,
     executionCwd: lease.executionCwd,
+    workspaceBranchName: lease.branchName,
+    workspaceBaseRef: lease.baseRef,
     workspaceIsolation: lease.isolation,
     workspaceRetention: lease.retention,
     workspaceCleanup: lease.cleanup
@@ -161,6 +168,7 @@ export class AgentLifecycleManager {
   private readonly runtimes: readonly AgentProviderRuntime[] | undefined;
   private readonly config: AgentTeamConfig;
   private readonly allocateWorkspace: AllocateWorkspace;
+  private readonly cleanupWorkspace: CleanupWorkspace;
   private readonly inspectWorkspace: InspectWorkspace;
   private readonly env: NodeJS.ProcessEnv | undefined;
   private readonly cancelGraceMs: number;
@@ -173,6 +181,7 @@ export class AgentLifecycleManager {
     this.createRunId = deps.createRunId ?? defaultCreateRunId;
     this.config = deps.config ?? DEFAULT_AGENT_TEAM_CONFIG;
     this.allocateWorkspace = deps.allocateWorkspace ?? allocateIsolatedWorktree;
+    this.cleanupWorkspace = deps.cleanupWorkspace ?? cleanupIsolatedWorktree;
     this.inspectWorkspace = deps.inspectWorkspace ?? inspectImplementationWorkspace;
     this.startSession = deps.startSession;
     this.runtimes = deps.runtimes;
@@ -670,6 +679,95 @@ export class AgentLifecycleManager {
     );
   }
 
+  async cleanupRunWorkspace(
+    request: AgentCleanupRequest
+  ): Promise<AgentCleanupResult> {
+    const sidecar = await readRunSidecar(request.cwd, request.runId);
+    const requestedAt = this.now().toISOString();
+    await appendControlRecord(request.cwd, request.runId, {
+      role: sidecar.role,
+      provider: sidecar.provider,
+      messageType: "cleanup_requested",
+      correlationId: request.runId,
+      createdAt: requestedAt,
+      payload: { force: request.force }
+    });
+
+    const blocked = (message: string): AgentCleanupResult => ({
+      runId: request.runId,
+      status: "blocked",
+      sidecarPath: runSidecarPath(request.cwd, request.runId),
+      message,
+      ...(sidecar.workspaceCleanup === undefined
+        ? {}
+        : { workspaceCleanup: sidecar.workspaceCleanup })
+    });
+
+    if (request.force !== true) {
+      return blocked("Workspace cleanup requires force: true.");
+    }
+
+    if (!isTerminalRunStatus(sidecar.status)) {
+      return blocked("Workspace cleanup requires a terminal run.");
+    }
+
+    const lease = this.workspaceLeaseFromSidecar(sidecar);
+    if (lease === undefined) {
+      return blocked("Run has no retained implementation worktree metadata.");
+    }
+
+    if (sidecar.workspaceCleanup === "removed") {
+      return blocked("Implementation worktree is already removed.");
+    }
+
+    try {
+      const removed = await this.cleanupWorkspace({ lease, force: true });
+      const updated = await transitionRunSidecar(request.cwd, request.runId, (current) => ({
+        ...current,
+        workspaceCleanup: removed.cleanup,
+        updatedAt: this.now().toISOString()
+      }));
+      await appendEventRecord(request.cwd, request.runId, {
+        role: updated.role,
+        provider: updated.provider,
+        messageType: "workspace_cleanup_removed",
+        correlationId: request.runId,
+        createdAt: this.now().toISOString(),
+        payload: {
+          executionCwd: removed.executionCwd
+        }
+      });
+
+      return {
+        runId: request.runId,
+        status: "removed",
+        sidecarPath: runSidecarPath(request.cwd, request.runId),
+        workspaceCleanup: removed.cleanup,
+        message: "Implementation worktree removed."
+      };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const updated = await transitionRunSidecar(request.cwd, request.runId, (current) => ({
+        ...current,
+        updatedAt: this.now().toISOString(),
+        warnings: [
+          ...(current.warnings ?? []),
+          `Implementation workspace cleanup failed: ${message}`
+        ]
+      }));
+
+      return {
+        runId: request.runId,
+        status: "failed",
+        sidecarPath: runSidecarPath(request.cwd, request.runId),
+        ...(updated.workspaceCleanup === undefined
+          ? {}
+          : { workspaceCleanup: updated.workspaceCleanup }),
+        message: `Implementation workspace cleanup failed: ${message}`
+      };
+    }
+  }
+
   private inputClosed(sidecar: RunSidecar): boolean {
     return (
       sidecar.inputClosed === true ||
@@ -827,6 +925,27 @@ export class AgentLifecycleManager {
       }
     }
     return undefined;
+  }
+
+  private workspaceLeaseFromSidecar(sidecar: RunSidecar): WorkspaceLease | undefined {
+    if (
+      sidecar.sourceCwd === undefined ||
+      sidecar.executionCwd === undefined ||
+      sidecar.workspaceIsolation !== "git-worktree" ||
+      sidecar.workspaceRetention !== "retain-until-integrated"
+    ) {
+      return undefined;
+    }
+
+    return {
+      sourceCwd: sidecar.sourceCwd,
+      executionCwd: sidecar.executionCwd,
+      branchName: sidecar.workspaceBranchName ?? "",
+      baseRef: sidecar.workspaceBaseRef ?? "",
+      isolation: "git-worktree",
+      retention: "retain-until-integrated",
+      cleanup: sidecar.workspaceCleanup ?? "retained"
+    };
   }
 
   private async implementationEvidence(

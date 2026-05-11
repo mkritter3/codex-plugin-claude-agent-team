@@ -1193,4 +1193,264 @@ describe("AgentLifecycleManager", () => {
 
     expect(inspected).toBe(false);
   });
+
+  it("removes retained implementation worktrees only after explicit force cleanup", async () => {
+    const sidecar: RunSidecar = {
+      runId: "run_cleanup_success",
+      role: "slice-implementer",
+      provider: "claude-code-cli",
+      status: "completed",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:10:00.000Z",
+      capabilitiesUsed: ["structuredOutput", "edits", "workspaceIsolation"],
+      evidencePaths: [join(workspace, ".agent-team", "logs", "run_cleanup_success.log")],
+      sourceCwd: workspace,
+      executionCwd: `${workspace}-cleanup-worktree`,
+      workspaceIsolation: "git-worktree",
+      workspaceRetention: "retain-until-integrated",
+      workspaceCleanup: "retained",
+      workspaceDiffPath: join(workspace, ".agent-team", "logs", "run_cleanup_success.diff.patch"),
+      verdict: {
+        status: "SHIP",
+        summary: "ready",
+        requiredChanges: [],
+        evidence: ["tests"],
+        risks: [],
+        warnings: [],
+        raw: "status: SHIP"
+      }
+    };
+    await writeRunSidecar(workspace, sidecar);
+    const removed: Array<{ executionCwd: string; force: boolean | undefined }> = [];
+    const manager = new AgentLifecycleManager({
+      now: () => new Date("2026-05-11T00:11:00.000Z"),
+      cleanupWorkspace: async ({ lease, force }) => {
+        removed.push({ executionCwd: lease.executionCwd, force });
+        return { ...lease, cleanup: "removed" };
+      }
+    });
+
+    const result = await manager.cleanupRunWorkspace({
+      runId: "run_cleanup_success",
+      cwd: workspace,
+      force: true
+    });
+
+    expect(result).toMatchObject({
+      runId: "run_cleanup_success",
+      status: "removed",
+      workspaceCleanup: "removed",
+      message: expect.stringContaining("removed")
+    });
+    expect(removed).toEqual([
+      { executionCwd: `${workspace}-cleanup-worktree`, force: true }
+    ]);
+    const updated = await readRunSidecar(workspace, "run_cleanup_success");
+    expect(updated).toMatchObject({
+      status: "completed",
+      workspaceCleanup: "removed",
+      workspaceDiffPath: sidecar.workspaceDiffPath,
+      verdict: { status: "SHIP", summary: "ready" }
+    });
+    expect(updated.evidencePaths).toEqual(sidecar.evidencePaths);
+    await expect(readMailboxRecords(workspace, "run_cleanup_success", "control")).resolves.toMatchObject([
+      {
+        messageType: "cleanup_requested",
+        payload: { force: true }
+      }
+    ]);
+    await expect(readMailboxRecords(workspace, "run_cleanup_success", "events")).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          messageType: "workspace_cleanup_removed",
+          payload: {
+            executionCwd: `${workspace}-cleanup-worktree`
+          }
+        })
+      ])
+    );
+  });
+
+  it("refuses cleanup without explicit force and preserves the retained worktree", async () => {
+    await writeRunSidecar(workspace, {
+      runId: "run_cleanup_unforced",
+      role: "slice-implementer",
+      provider: "claude-code-cli",
+      status: "completed",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:10:00.000Z",
+      capabilitiesUsed: ["structuredOutput", "edits", "workspaceIsolation"],
+      evidencePaths: [],
+      sourceCwd: workspace,
+      executionCwd: `${workspace}-unforced-worktree`,
+      workspaceIsolation: "git-worktree",
+      workspaceRetention: "retain-until-integrated",
+      workspaceCleanup: "retained"
+    });
+    let cleanupCalled = false;
+    const manager = new AgentLifecycleManager({
+      cleanupWorkspace: async () => {
+        cleanupCalled = true;
+        throw new Error("should not cleanup");
+      }
+    });
+
+    const result = await manager.cleanupRunWorkspace({
+      runId: "run_cleanup_unforced",
+      cwd: workspace,
+      force: false
+    });
+
+    expect(result).toMatchObject({
+      status: "blocked",
+      workspaceCleanup: "retained",
+      message: expect.stringContaining("force")
+    });
+    expect(cleanupCalled).toBe(false);
+    await expect(readRunSidecar(workspace, "run_cleanup_unforced")).resolves.toMatchObject({
+      workspaceCleanup: "retained"
+    });
+    await expect(readMailboxRecords(workspace, "run_cleanup_unforced", "control")).resolves.toMatchObject([
+      { messageType: "cleanup_requested", payload: { force: false } }
+    ]);
+  });
+
+  it("refuses cleanup for non-terminal implementation runs", async () => {
+    await writeRunSidecar(workspace, {
+      runId: "run_cleanup_running",
+      role: "slice-implementer",
+      provider: "claude-code-cli",
+      status: "running",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:10:00.000Z",
+      capabilitiesUsed: ["structuredOutput", "edits", "workspaceIsolation"],
+      evidencePaths: [],
+      sourceCwd: workspace,
+      executionCwd: `${workspace}-running-worktree`,
+      workspaceIsolation: "git-worktree",
+      workspaceRetention: "retain-until-integrated",
+      workspaceCleanup: "retained"
+    });
+    let cleanupCalled = false;
+    const manager = new AgentLifecycleManager({
+      cleanupWorkspace: async () => {
+        cleanupCalled = true;
+        throw new Error("should not cleanup");
+      }
+    });
+
+    const result = await manager.cleanupRunWorkspace({
+      runId: "run_cleanup_running",
+      cwd: workspace,
+      force: true
+    });
+
+    expect(result).toMatchObject({
+      status: "blocked",
+      workspaceCleanup: "retained",
+      message: expect.stringContaining("terminal")
+    });
+    expect(cleanupCalled).toBe(false);
+  });
+
+  it("refuses cleanup for read-only runs without implementation workspace metadata", async () => {
+    await writeRunSidecar(workspace, {
+      runId: "run_cleanup_readonly",
+      role: "planner",
+      provider: "claude-code-cli",
+      status: "completed",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:10:00.000Z",
+      capabilitiesUsed: ["structuredOutput"],
+      evidencePaths: []
+    });
+
+    const result = await new AgentLifecycleManager().cleanupRunWorkspace({
+      runId: "run_cleanup_readonly",
+      cwd: workspace,
+      force: true
+    });
+
+    expect(result).toMatchObject({
+      status: "blocked",
+      message: expect.stringContaining("implementation worktree")
+    });
+  });
+
+  it("refuses cleanup for worktrees already marked removed", async () => {
+    await writeRunSidecar(workspace, {
+      runId: "run_cleanup_already_removed",
+      role: "slice-implementer",
+      provider: "claude-code-cli",
+      status: "completed",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:10:00.000Z",
+      capabilitiesUsed: ["structuredOutput", "edits", "workspaceIsolation"],
+      evidencePaths: [],
+      sourceCwd: workspace,
+      executionCwd: `${workspace}-already-removed-worktree`,
+      workspaceIsolation: "git-worktree",
+      workspaceRetention: "retain-until-integrated",
+      workspaceCleanup: "removed"
+    });
+    let cleanupCalled = false;
+    const manager = new AgentLifecycleManager({
+      cleanupWorkspace: async () => {
+        cleanupCalled = true;
+        throw new Error("should not cleanup");
+      }
+    });
+
+    const result = await manager.cleanupRunWorkspace({
+      runId: "run_cleanup_already_removed",
+      cwd: workspace,
+      force: true
+    });
+
+    expect(result).toMatchObject({
+      status: "blocked",
+      workspaceCleanup: "removed",
+      message: expect.stringContaining("already removed")
+    });
+    expect(cleanupCalled).toBe(false);
+  });
+
+  it("keeps retained cleanup state and records a warning when worktree removal fails", async () => {
+    await writeRunSidecar(workspace, {
+      runId: "run_cleanup_failed",
+      role: "slice-implementer",
+      provider: "claude-code-cli",
+      status: "completed",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:10:00.000Z",
+      capabilitiesUsed: ["structuredOutput", "edits", "workspaceIsolation"],
+      evidencePaths: [],
+      sourceCwd: workspace,
+      executionCwd: `${workspace}-failed-cleanup-worktree`,
+      workspaceIsolation: "git-worktree",
+      workspaceRetention: "retain-until-integrated",
+      workspaceCleanup: "retained"
+    });
+    const manager = new AgentLifecycleManager({
+      cleanupWorkspace: async () => {
+        throw new Error("git worktree remove failed");
+      }
+    });
+
+    const result = await manager.cleanupRunWorkspace({
+      runId: "run_cleanup_failed",
+      cwd: workspace,
+      force: true
+    });
+
+    expect(result).toMatchObject({
+      status: "failed",
+      workspaceCleanup: "retained",
+      message: expect.stringContaining("git worktree remove failed")
+    });
+    await expect(readRunSidecar(workspace, "run_cleanup_failed")).resolves.toMatchObject({
+      workspaceCleanup: "retained",
+      warnings: [expect.stringContaining("git worktree remove failed")]
+    });
+  });
 });
