@@ -4,7 +4,7 @@
 
 **Goal:** Route provider-neutral role context into Claude Code CLI tool and permission policy without leaking Claude-specific flags through MCP.
 
-**Architecture:** Keep the core provider-neutral by passing role identity through the provider runtime contract, not Claude tool names. Add a Claude-owned role policy mapper inside `src/providers/claude-code-cli/` that translates `RoleId` into `--allowedTools`, `--disallowedTools`, and a safe permission mode for the Claude Code CLI. Read-only roles stay default-permission and deny edit/write/bash tools. `slice-implementer` may receive edit-capable tools only when lifecycle has already allocated an isolated worktree and requested `acceptEdits`; bypass permissions and bare mode remain unavailable. Sidecars, mailboxes, verdicts, status, wind-down, cleanup, and OAuth auth checks must keep existing behavior.
+**Architecture:** Keep the core provider-neutral by passing role identity and semantic execution policy through the provider runtime contract, not Claude tool names. Add a Claude-owned role policy mapper inside `src/providers/claude-code-cli/` that translates `RoleId` plus `AgentExecutionPolicy` into `--allowedTools`, `--disallowedTools`, and a safe permission mode for the Claude Code CLI. Read-only roles stay default-permission and deny edit/write/bash tools. `slice-implementer` may receive edit-capable tools only when lifecycle has already allocated an isolated worktree and requested `acceptEdits`; bypass permissions and bare mode remain unavailable. Sidecars, mailboxes, verdicts, status, wind-down, cleanup, and OAuth auth checks must keep existing behavior.
 
 **Tech Stack:** TypeScript, Node.js ESM, Vitest, provider-neutral runtime contracts, Claude Code CLI command builder, lifecycle orchestration.
 
@@ -12,7 +12,9 @@
 
 ## File Structure
 
-- Modify `src/providers/types.ts`: add optional `roleId` to provider print/start inputs.
+- Modify `src/core/types.ts`: add provider-neutral `AgentExecutionPolicy` and attach it to roles.
+- Modify `src/core/roles.ts`: assign explicit execution policies to every role.
+- Modify `src/providers/types.ts`: add optional `roleId` and `executionPolicy` to provider print/start inputs.
 - Create `src/providers/claude-code-cli/role-policy.ts`: provider-owned role-to-Claude tool/permission mapper.
 - Modify `src/providers/claude-code-cli/runner.ts`: apply Claude role policy for synchronous read-only dispatch.
 - Modify `src/providers/claude-code-cli/background.ts`: apply Claude role policy for durable sessions.
@@ -27,7 +29,8 @@
 
 ## Success Criteria
 
-- Core runtime contracts pass provider-neutral `roleId` to providers.
+- Core runtime contracts pass provider-neutral `roleId` and `executionPolicy` to providers.
+- Every role has an explicit provider-neutral execution policy.
 - Claude role policy lives under the Claude provider folder, not core roles or MCP schemas.
 - Read-only roles emit `--permission-mode default`, deny edit/write/bash tools, and do not use `acceptEdits`, `bypassPermissions`, or `--bare`.
 - `slice-implementer` emits edit-capable Claude tools only in isolated implementation lifecycle starts with `acceptEdits`.
@@ -44,7 +47,7 @@
 - Create: `src/providers/claude-code-cli/role-policy.ts`
 - Add: `tests/providers/claude-code-cli/role-policy.test.ts`
 
-- [ ] **Step 1: Write failing Claude role policy tests**
+- [x] **Step 1: Write failing Claude role policy tests**
 
 Add tests proving:
 
@@ -61,7 +64,7 @@ npm test -- tests/providers/claude-code-cli/role-policy.test.ts
 
 Expected: FAIL because the policy module does not exist.
 
-- [ ] **Step 2: Implement Claude provider policy mapper**
+- [x] **Step 2: Implement Claude provider policy mapper**
 
 Add optional `roleId` to `ProviderPrintInput` and `ProviderStartSessionInput`.
 
@@ -73,7 +76,7 @@ Create `claudeRolePolicyFor(input)` in `src/providers/claude-code-cli/role-polic
 
 Keep all Claude tool names in this provider-owned module.
 
-- [ ] **Step 3: Run focused policy tests**
+- [x] **Step 3: Run focused policy tests**
 
 Run:
 
@@ -84,7 +87,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/providers/types.ts src/providers/claude-code-cli/role-policy.ts tests/providers/claude-code-cli/role-policy.test.ts
@@ -99,7 +102,7 @@ git commit -m "feat: add claude role policy mapper"
 - Modify: `tests/providers/claude-code-cli/runner.test.ts`
 - Modify: `tests/providers/claude-code-cli/background.test.ts`
 
-- [ ] **Step 1: Write failing adapter policy tests**
+- [x] **Step 1: Write failing adapter policy tests**
 
 Add tests proving:
 
@@ -117,7 +120,7 @@ npm test -- tests/providers/claude-code-cli/runner.test.ts tests/providers/claud
 
 Expected: FAIL because adapters ignore role policy.
 
-- [ ] **Step 2: Apply role policy in Claude adapters**
+- [x] **Step 2: Apply role policy in Claude adapters**
 
 In both adapter paths:
 
@@ -126,7 +129,7 @@ In both adapter paths:
 - let explicit lifecycle permission mode choose implementation `acceptEdits`, but never synthesize `bypassPermissions`
 - preserve existing auth inspection, stream parsing, log rotation, stdin, resume, and no-bare behavior
 
-- [ ] **Step 3: Run focused adapter tests**
+- [x] **Step 3: Run focused adapter tests**
 
 Run:
 
@@ -137,7 +140,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/providers/claude-code-cli/runner.ts src/providers/claude-code-cli/background.ts tests/providers/claude-code-cli/runner.test.ts tests/providers/claude-code-cli/background.test.ts
@@ -152,7 +155,7 @@ git commit -m "feat: route claude role policies"
 - Modify: `tests/core/dispatch.test.ts`
 - Modify: `tests/core/lifecycle.test.ts`
 
-- [ ] **Step 1: Write failing core plumbing tests**
+- [x] **Step 1: Write failing core plumbing tests**
 
 Add tests proving:
 
@@ -169,13 +172,13 @@ npm test -- tests/core/dispatch.test.ts tests/core/lifecycle.test.ts
 
 Expected: FAIL because core providers receive prompts and permission mode but not role identity.
 
-- [ ] **Step 2: Pass provider-neutral role id through core**
+- [x] **Step 2: Pass provider-neutral role id through core**
 
 Update dispatch and lifecycle provider calls to include `roleId`.
 
 Do not add Claude tool names to core code, MCP schemas, sidecars, or docs generated for tool users.
 
-- [ ] **Step 3: Run focused core tests**
+- [x] **Step 3: Run focused core tests**
 
 Run:
 
@@ -186,7 +189,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/dispatch.ts src/core/lifecycle.ts tests/core/dispatch.test.ts tests/core/lifecycle.test.ts
@@ -198,7 +201,7 @@ git commit -m "feat: pass role context to providers"
 **Files:**
 - Modify only if verification finds issues.
 
-- [ ] **Step 1: Run focused milestone tests**
+- [x] **Step 1: Run focused milestone tests**
 
 Run:
 
@@ -208,7 +211,7 @@ npm test -- tests/providers/claude-code-cli/role-policy.test.ts tests/providers/
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -222,7 +225,7 @@ npm run ci
 
 Expected: PASS.
 
-- [ ] **Step 3: Review provider-neutral boundaries**
+- [x] **Step 3: Review provider-neutral boundaries**
 
 Run:
 
@@ -231,9 +234,9 @@ rg "allowedTools|disallowedTools|Bash|Edit|Write|MultiEdit|NotebookEdit" src/cor
 rg "roleId" src/providers src/core tests/providers tests/core
 ```
 
-Expected: Claude tool names stay out of core and MCP; core only passes provider-neutral role identity.
+Expected: Claude tool names stay out of core and MCP; core only passes provider-neutral role identity and execution policy.
 
-- [ ] **Step 4: Commit final plan checkbox update**
+- [x] **Step 4: Commit final plan checkbox update**
 
 Mark completed checklist items in this file and commit the update.
 
