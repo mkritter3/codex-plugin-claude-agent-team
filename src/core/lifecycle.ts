@@ -4,9 +4,15 @@ import { listProviders } from "../providers/index.js";
 import type {
   ProviderSessionDoneStatus,
   ProviderSessionHandle,
+  ProviderSessionPermissionMode,
   ProviderSessionSnapshot
 } from "../providers/types.js";
-import { buildReplyPrompt, buildRolePrompt } from "./prompts.js";
+import { DEFAULT_AGENT_TEAM_CONFIG } from "./config.js";
+import {
+  buildImplementationPrompt,
+  buildReplyPrompt,
+  buildRolePrompt
+} from "./prompts.js";
 import { getRole } from "./roles.js";
 import { selectProvider } from "./router.js";
 import { createRunId as defaultCreateRunId, hashPrompt } from "./run-ids.js";
@@ -25,6 +31,7 @@ import {
   writeRunSidecar
 } from "./state/run-store.js";
 import { parseVerdict } from "./verdict.js";
+import { allocateIsolatedWorktree } from "./workspaces.js";
 import type {
   AgentControlResult,
   AgentDispatchRequest,
@@ -34,9 +41,11 @@ import type {
   AgentReplyRequest,
   AgentReplyResult,
   AgentStartResult,
+  AgentTeamConfig,
   MailboxRecord,
   ParsedVerdict,
-  RunSidecar
+  RunSidecar,
+  WorkspaceLease
 } from "./types.js";
 
 export type StartProviderSession = (input: {
@@ -46,13 +55,18 @@ export type StartProviderSession = (input: {
   readonly runId: string;
   readonly env?: NodeJS.ProcessEnv;
   readonly sessionId?: string;
+  readonly permissionMode?: ProviderSessionPermissionMode;
 }) => ProviderSessionHandle;
+
+type AllocateWorkspace = typeof allocateIsolatedWorktree;
 
 export interface AgentLifecycleDependencies {
   readonly providers?: readonly AgentProviderDescriptor[];
   readonly now?: () => Date;
   readonly createRunId?: () => string;
   readonly startSession?: StartProviderSession;
+  readonly config?: AgentTeamConfig;
+  readonly allocateWorkspace?: AllocateWorkspace;
   readonly env?: NodeJS.ProcessEnv;
   readonly cancelGraceMs?: number;
   readonly sleep?: (ms: number) => Promise<void>;
@@ -109,12 +123,28 @@ function mailboxPaths(workspaceRoot: string, runId: string) {
   };
 }
 
+function workspaceSidecarFields(lease: WorkspaceLease | undefined): Partial<RunSidecar> {
+  if (lease === undefined) {
+    return {};
+  }
+
+  return {
+    sourceCwd: lease.sourceCwd,
+    executionCwd: lease.executionCwd,
+    workspaceIsolation: lease.isolation,
+    workspaceRetention: lease.retention,
+    workspaceCleanup: lease.cleanup
+  };
+}
+
 export class AgentLifecycleManager {
   private readonly activeRuns = new Map<string, ActiveRun>();
   private readonly providers: readonly AgentProviderDescriptor[] | undefined;
   private readonly now: () => Date;
   private readonly createRunId: () => string;
   private readonly startSession: StartProviderSession;
+  private readonly config: AgentTeamConfig;
+  private readonly allocateWorkspace: AllocateWorkspace;
   private readonly env: NodeJS.ProcessEnv | undefined;
   private readonly cancelGraceMs: number;
   private readonly sleep: (ms: number) => Promise<void>;
@@ -123,6 +153,8 @@ export class AgentLifecycleManager {
     this.providers = deps.providers;
     this.now = deps.now ?? (() => new Date());
     this.createRunId = deps.createRunId ?? defaultCreateRunId;
+    this.config = deps.config ?? DEFAULT_AGENT_TEAM_CONFIG;
+    this.allocateWorkspace = deps.allocateWorkspace ?? allocateIsolatedWorktree;
     this.startSession =
       deps.startSession ??
       ((input) =>
@@ -137,18 +169,36 @@ export class AgentLifecycleManager {
 
   async startRun(request: AgentDispatchRequest): Promise<AgentStartResult> {
     const role = getRole(request.role);
-    if (!role.defaultReadOnly) {
-      throw new Error(`Role ${role.id} is not supported by background read-only runs.`);
+    if (
+      !role.defaultReadOnly &&
+      (!this.config.writeMode.enabled || !this.config.writeMode.requireIsolatedWorktree)
+    ) {
+      throw new Error(`Role ${role.id} cannot start because write mode is disabled.`);
     }
 
+    const providers = this.providers ?? listProviders({ config: this.config });
     const provider = selectProvider({
       roleId: request.role,
-      providers: this.providers ?? listProviders(),
+      providers,
       ...(request.provider === undefined ? {} : { requestedProviderId: request.provider })
     });
     const runId = this.createRunId();
     const createdAt = this.now().toISOString();
-    const prompt = buildRolePrompt({ role, task: request.task, cwd: request.cwd });
+    const lease = role.defaultReadOnly
+      ? undefined
+      : await this.allocateWorkspace({
+          sourceCwd: request.cwd,
+          runId
+        });
+    const executionCwd = lease?.executionCwd ?? request.cwd;
+    const prompt = role.defaultReadOnly
+      ? buildRolePrompt({ role, task: request.task, cwd: request.cwd })
+      : buildImplementationPrompt({
+          role,
+          task: request.task,
+          sourceCwd: request.cwd,
+          executionCwd
+        });
     const promptDigest = hashPrompt(prompt);
     const logPath = runLogPath(request.cwd, runId);
     const sidecar: RunSidecar = {
@@ -162,7 +212,8 @@ export class AgentLifecycleManager {
       evidencePaths: [logPath],
       authMode: provider.authMode,
       promptHash: promptDigest,
-      logPath
+      logPath,
+      ...workspaceSidecarFields(lease)
     };
 
     await writeRunSidecar(request.cwd, sidecar);
@@ -179,9 +230,10 @@ export class AgentLifecycleManager {
     try {
       handle = this.startSession({
         prompt,
-        cwd: request.cwd,
+        cwd: executionCwd,
         workspaceRoot: request.cwd,
         runId,
+        ...(role.defaultReadOnly ? {} : { permissionMode: "acceptEdits" }),
         ...(this.env === undefined ? {} : { env: this.env })
       });
     } catch (error) {
@@ -219,6 +271,7 @@ export class AgentLifecycleManager {
       role: request.role,
       sidecarPath: runSidecarPath(request.cwd, runId),
       logPath,
+      ...(lease === undefined ? {} : { executionCwd: lease.executionCwd }),
       ...(handle.transcriptPath === undefined
         ? {}
         : { transcriptPath: handle.transcriptPath }),

@@ -344,8 +344,10 @@ describe("AgentLifecycleManager", () => {
     const handle = fakeHandle(done.promise);
     const starts: Array<{
       prompt: string;
+      cwd?: string;
       runId: string;
       sessionId?: string;
+      permissionMode?: string;
     }> = [];
     const manager = new AgentLifecycleManager({
       createRunId: () => "run_reply_child",
@@ -353,8 +355,12 @@ describe("AgentLifecycleManager", () => {
       startSession: (input) => {
         starts.push({
           prompt: input.prompt,
+          cwd: input.cwd,
           runId: input.runId,
-          ...(input.sessionId === undefined ? {} : { sessionId: input.sessionId })
+          ...(input.sessionId === undefined ? {} : { sessionId: input.sessionId }),
+          ...(input.permissionMode === undefined
+            ? {}
+            : { permissionMode: input.permissionMode })
         });
         return handle;
       }
@@ -417,5 +423,128 @@ describe("AgentLifecycleManager", () => {
         message: "Continue"
       })
     ).rejects.toThrow("provider session id");
+  });
+
+  it("rejects slice implementer runs when write mode is disabled", async () => {
+    const manager = new AgentLifecycleManager({
+      createRunId: () => "run_slice_blocked",
+      startSession: () => {
+        throw new Error("should not start provider");
+      }
+    });
+
+    await expect(
+      manager.startRun({
+        role: "slice-implementer",
+        task: "Implement a bounded change.",
+        cwd: workspace
+      })
+    ).rejects.toThrow("write mode is disabled");
+  });
+
+  it("starts slice implementer runs inside a retained isolated worktree", async () => {
+    const done = deferred<ProviderSessionDoneStatus>();
+    const handle = fakeHandle(done.promise);
+    const starts: Array<{
+      prompt: string;
+      cwd: string;
+      workspaceRoot: string;
+      permissionMode?: string;
+    }> = [];
+    const manager = new AgentLifecycleManager({
+      config: {
+        writeMode: { enabled: true, requireIsolatedWorktree: true },
+        auth: { allowApiKeyFallback: false }
+      },
+      createRunId: () => "run_slice_1",
+      now: () => new Date("2026-05-11T00:03:00.000Z"),
+      allocateWorkspace: async () => ({
+        sourceCwd: workspace,
+        executionCwd: `${workspace}-worktree`,
+        branchName: "agent-team/run_slice_1",
+        baseRef: "HEAD",
+        isolation: "git-worktree",
+        retention: "retain-until-integrated",
+        cleanup: "retained"
+      }),
+      startSession: (input) => {
+        starts.push({
+          prompt: input.prompt,
+          cwd: input.cwd,
+          workspaceRoot: input.workspaceRoot,
+          ...(input.permissionMode === undefined
+            ? {}
+            : { permissionMode: input.permissionMode })
+        });
+        return handle;
+      }
+    });
+
+    const result = await manager.startRun({
+      role: "slice-implementer",
+      task: "Implement a bounded change.",
+      cwd: workspace
+    });
+
+    expect(result).toMatchObject({
+      runId: "run_slice_1",
+      status: "running",
+      role: "slice-implementer",
+      executionCwd: `${workspace}-worktree`
+    });
+    expect(starts).toHaveLength(1);
+    expect(starts[0]).toMatchObject({
+      cwd: `${workspace}-worktree`,
+      workspaceRoot: workspace,
+      permissionMode: "acceptEdits"
+    });
+    expect(starts[0]?.prompt).toContain("Execution workspace");
+    expect(starts[0]?.prompt).toContain("Only modify files inside the execution workspace.");
+    await expect(readRunSidecar(workspace, "run_slice_1")).resolves.toMatchObject({
+      status: "running",
+      sourceCwd: workspace,
+      executionCwd: `${workspace}-worktree`,
+      workspaceIsolation: "git-worktree",
+      workspaceRetention: "retain-until-integrated",
+      workspaceCleanup: "retained"
+    });
+  });
+
+  it("preserves isolated worktree metadata when slice provider start fails", async () => {
+    const manager = new AgentLifecycleManager({
+      config: {
+        writeMode: { enabled: true, requireIsolatedWorktree: true },
+        auth: { allowApiKeyFallback: false }
+      },
+      createRunId: () => "run_slice_failed",
+      now: () => new Date("2026-05-11T00:04:00.000Z"),
+      allocateWorkspace: async () => ({
+        sourceCwd: workspace,
+        executionCwd: `${workspace}-failed-worktree`,
+        branchName: "agent-team/run_slice_failed",
+        baseRef: "HEAD",
+        isolation: "git-worktree",
+        retention: "retain-until-integrated",
+        cleanup: "retained"
+      }),
+      startSession: () => {
+        throw new Error("spawn failed");
+      }
+    });
+
+    await expect(
+      manager.startRun({
+        role: "slice-implementer",
+        task: "Implement a bounded change.",
+        cwd: workspace
+      })
+    ).rejects.toThrow("spawn failed");
+
+    await expect(readRunSidecar(workspace, "run_slice_failed")).resolves.toMatchObject({
+      status: "failed",
+      executionCwd: `${workspace}-failed-worktree`,
+      workspaceCleanup: "retained",
+      cleanup: "partial"
+    });
   });
 });

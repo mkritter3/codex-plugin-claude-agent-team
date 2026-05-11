@@ -108,6 +108,7 @@ export interface AgentStartResult {
   readonly role: RoleId;
   readonly sidecarPath: string;
   readonly logPath: string;
+  readonly executionCwd?: string;
   readonly transcriptPath?: string;
   readonly mailboxPaths: AgentMailboxPaths;
 }
@@ -182,6 +183,11 @@ export interface RunSidecar {
   readonly capabilitiesUsed: readonly ProviderCapability[];
   readonly evidencePaths: readonly string[];
   readonly providerSessionId?: string;
+  readonly sourceCwd?: string;
+  readonly executionCwd?: string;
+  readonly workspaceIsolation?: "git-worktree";
+  readonly workspaceRetention?: "retain-until-integrated";
+  readonly workspaceCleanup?: "retained" | "removed";
   readonly parentRunId?: string;
   readonly resumedFromRunId?: string;
   readonly resumeSequence?: number;

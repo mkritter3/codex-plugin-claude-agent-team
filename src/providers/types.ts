@@ -5,6 +5,11 @@ export interface ProviderSessionActivity {
 }
 
 export type ProviderSessionDoneStatus = "completed" | "failed" | "interrupted";
+export type ProviderSessionPermissionMode =
+  | "default"
+  | "acceptEdits"
+  | "bypassPermissions"
+  | "plan";
 
 export interface ProviderSessionHandle {
   readonly providerSessionId: string | undefined;
