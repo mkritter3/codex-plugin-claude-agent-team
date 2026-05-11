@@ -4,6 +4,14 @@ export interface ProviderSessionActivity {
   readonly timestamp: number;
 }
 
+export interface ProviderOutboxRequest {
+  readonly id: string;
+  readonly messageType: string;
+  readonly payload: unknown;
+  readonly correlationId?: string;
+  readonly createdAt?: string;
+}
+
 export type ProviderSessionDoneStatus = "completed" | "failed" | "interrupted";
 export type ProviderSessionPermissionMode =
   | "default"
@@ -82,6 +90,7 @@ export interface ProviderSessionSnapshot {
   readonly warnings: readonly string[];
   readonly recentActivities: readonly ProviderSessionActivity[];
   readonly currentActivity: ProviderSessionActivity | null;
+  readonly pendingOutboxRequests: readonly ProviderOutboxRequest[];
   readonly lastStderr: readonly string[];
   readonly transcriptPath: string | undefined;
   readonly logPath: string | undefined;

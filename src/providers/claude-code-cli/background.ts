@@ -196,6 +196,7 @@ export function startClaudeBackgroundSession(
       const snapshot = parser.snapshot();
       return {
         ...snapshot,
+        pendingOutboxRequests: snapshot.pendingOutboxRequests,
         lastStderr: [...lastStderr],
         transcriptPath: rawTranscriptPath,
         logPath

@@ -54,6 +54,7 @@ function fakeHandle(
     warnings: [],
     recentActivities: [{ type: "text", summary: "Finished", timestamp: 1 }],
     currentActivity: { type: "text", summary: "Finished", timestamp: 1 },
+    pendingOutboxRequests: [],
     lastStderr: [],
     transcriptPath: "/tmp/transcript.jsonl",
     logPath: "/tmp/run.log"

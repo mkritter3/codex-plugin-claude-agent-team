@@ -197,6 +197,66 @@ describe("Claude background session runner", () => {
     await expect(readFile(handle.logPath!, "utf8")).resolves.toContain("third");
   });
 
+  it("surfaces explicit outbox requests through live snapshots", () => {
+    const child = new FakeChildProcess();
+    const handle = startClaudeBackgroundSession(
+      {
+        prompt: "Inspect",
+        cwd: workspace,
+        workspaceRoot: workspace,
+        runId: "run_bg_outbox",
+        env: {}
+      },
+      { spawn: () => child }
+    );
+
+    child.stdout.write(
+      `${JSON.stringify({
+        type: "agent_team_outbox_request",
+        request: {
+          id: "ask_live_1",
+          messageType: "approval_request",
+          correlationId: "corr_live_1",
+          payload: { question: "May I inspect the failing CI logs?" }
+        }
+      })}\n`
+    );
+
+    expect(handle.snapshot().pendingOutboxRequests).toEqual([
+      {
+        id: "ask_live_1",
+        messageType: "approval_request",
+        correlationId: "corr_live_1",
+        payload: { question: "May I inspect the failing CI logs?" }
+      }
+    ]);
+  });
+
+  it("does not surface free-form questions as outbox requests", () => {
+    const child = new FakeChildProcess();
+    const handle = startClaudeBackgroundSession(
+      {
+        prompt: "Inspect",
+        cwd: workspace,
+        workspaceRoot: workspace,
+        runId: "run_bg_question_text",
+        env: {}
+      },
+      { spawn: () => child }
+    );
+
+    child.stdout.write(
+      `${JSON.stringify({
+        type: "assistant",
+        message: {
+          content: [{ type: "text", text: "Should I keep going?" }]
+        }
+      })}\n`
+    );
+
+    expect(handle.snapshot().pendingOutboxRequests).toEqual([]);
+  });
+
   it("supports soft and force kill with distinct signals", () => {
     const child = new FakeChildProcess();
     const handle = startClaudeBackgroundSession(

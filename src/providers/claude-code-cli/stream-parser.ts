@@ -1,4 +1,7 @@
-import type { ProviderSessionActivity } from "../types.js";
+import type {
+  ProviderOutboxRequest,
+  ProviderSessionActivity
+} from "../types.js";
 
 export interface ClaudeStreamParserOptions {
   readonly now?: () => number;
@@ -11,6 +14,7 @@ export interface ClaudeStreamParserSnapshot {
   readonly warnings: readonly string[];
   readonly recentActivities: readonly ProviderSessionActivity[];
   readonly currentActivity: ProviderSessionActivity | null;
+  readonly pendingOutboxRequests: readonly ProviderOutboxRequest[];
 }
 
 export type ClaudeStreamParseResult =
@@ -22,6 +26,7 @@ interface ClaudeStreamShape {
   readonly session_id?: unknown;
   readonly result?: unknown;
   readonly error?: unknown;
+  readonly request?: unknown;
   readonly message?: {
     readonly content?: readonly ClaudeContentBlock[];
   };
@@ -62,6 +67,47 @@ function toolSummary(block: ClaudeContentBlock): string {
   return name;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object";
+}
+
+function parseOutboxRequest(value: unknown): ProviderOutboxRequest | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+  if (typeof value.id !== "string" || value.id.trim().length === 0) {
+    return undefined;
+  }
+  if (
+    typeof value.messageType !== "string" ||
+    value.messageType.trim().length === 0
+  ) {
+    return undefined;
+  }
+  if (!("payload" in value)) {
+    return undefined;
+  }
+  if (
+    value.correlationId !== undefined &&
+    typeof value.correlationId !== "string"
+  ) {
+    return undefined;
+  }
+  if (value.createdAt !== undefined && typeof value.createdAt !== "string") {
+    return undefined;
+  }
+
+  return {
+    id: value.id,
+    messageType: value.messageType,
+    payload: value.payload,
+    ...(value.correlationId === undefined
+      ? {}
+      : { correlationId: value.correlationId }),
+    ...(value.createdAt === undefined ? {} : { createdAt: value.createdAt })
+  };
+}
+
 export function createClaudeStreamParser(
   options: ClaudeStreamParserOptions = {}
 ): ClaudeStreamParser {
@@ -70,6 +116,7 @@ export function createClaudeStreamParser(
   const textParts: string[] = [];
   const warnings: string[] = [];
   const recentActivities: ProviderSessionActivity[] = [];
+  const pendingOutboxRequests: ProviderOutboxRequest[] = [];
   let providerSessionId: string | undefined;
   let currentActivity: ProviderSessionActivity | null = null;
 
@@ -95,6 +142,15 @@ export function createClaudeStreamParser(
 
       if (typeof parsed.session_id === "string") {
         providerSessionId = parsed.session_id;
+      }
+
+      if (parsed.type === "agent_team_outbox_request") {
+        const request = parseOutboxRequest(parsed.request);
+        if (request === undefined) {
+          warnings.push("Invalid agent_team_outbox_request event.");
+        } else {
+          pendingOutboxRequests.push(request);
+        }
       }
 
       const content = parsed.message?.content ?? [];
@@ -142,7 +198,8 @@ export function createClaudeStreamParser(
         text: textParts.join(""),
         warnings: [...warnings],
         recentActivities: [...recentActivities],
-        currentActivity
+        currentActivity,
+        pendingOutboxRequests: [...pendingOutboxRequests]
       };
     }
   };
