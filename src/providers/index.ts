@@ -35,3 +35,11 @@ export function listProviders(
 ): readonly AgentProviderDescriptor[] {
   return [claudeCodeCliProvider(input.config)];
 }
+
+export {
+  getProviderRuntime,
+  listProviderRuntimes,
+  requireProviderRuntime,
+  type AgentProviderRuntime,
+  type ProviderRuntimeRegistryOptions
+} from "./runtime.js";
