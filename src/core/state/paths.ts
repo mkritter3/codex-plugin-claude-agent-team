@@ -23,6 +23,10 @@ export function runLogPath(workspaceRoot: string, runId: string): string {
   return join(logsDir(workspaceRoot), `${runId}.log`);
 }
 
+export function workspaceDiffPath(workspaceRoot: string, runId: string): string {
+  return join(logsDir(workspaceRoot), `${runId}.diff.patch`);
+}
+
 export function mailboxesDir(workspaceRoot: string): string {
   return join(stateRoot(workspaceRoot), "mailboxes");
 }

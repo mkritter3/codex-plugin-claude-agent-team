@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   WorkspaceLeaseError,
   allocateIsolatedWorktree,
-  cleanupIsolatedWorktree
+  cleanupIsolatedWorktree,
+  inspectImplementationWorkspace
 } from "../../src/core/workspaces.js";
+import { workspaceDiffPath } from "../../src/core/state/paths.js";
 
 describe("isolated workspace leases", () => {
   it("allocates a retained git worktree outside the source checkout", async () => {
@@ -115,5 +117,85 @@ describe("isolated workspace leases", () => {
         ]
       }
     ]);
+  });
+
+  it("builds a stable source-workspace diff evidence path", () => {
+    expect(workspaceDiffPath("/repo", "run_1")).toBe(
+      join("/repo", ".agent-team", "logs", "run_1.diff.patch")
+    );
+  });
+
+  it("inspects implementation worktree status and binary diff", async () => {
+    const calls: Array<{ file: string; args: readonly string[] }> = [];
+    const result = await inspectImplementationWorkspace({
+      executionCwd: "/tmp/worktree",
+      execFile: async (file, args) => {
+        calls.push({ file, args });
+        if (args.includes("status")) {
+          return {
+            stdout: [
+              " M src/core/config.ts",
+              "A  src/core/new.ts",
+              " D src/core/old.ts",
+              "R  src/a.ts -> src/b.ts",
+              "?? docs/new.md"
+            ].join("\n"),
+            stderr: ""
+          };
+        }
+        return { stdout: "diff --git a/src/core/config.ts b/src/core/config.ts\n", stderr: "" };
+      }
+    });
+
+    expect(calls).toEqual([
+      {
+        file: "git",
+        args: ["-C", "/tmp/worktree", "status", "--porcelain=v1"]
+      },
+      {
+        file: "git",
+        args: ["-C", "/tmp/worktree", "diff", "--binary"]
+      }
+    ]);
+    expect(result).toEqual({
+      changedFiles: [
+        "src/core/config.ts",
+        "src/core/new.ts",
+        "src/core/old.ts",
+        "src/b.ts",
+        "docs/new.md"
+      ],
+      statusSummary: [
+        " M src/core/config.ts",
+        "A  src/core/new.ts",
+        " D src/core/old.ts",
+        "R  src/a.ts -> src/b.ts",
+        "?? docs/new.md"
+      ],
+      diffText: "diff --git a/src/core/config.ts b/src/core/config.ts\n"
+    });
+  });
+
+  it("returns empty evidence for a clean implementation worktree", async () => {
+    await expect(
+      inspectImplementationWorkspace({
+        executionCwd: "/tmp/worktree",
+        execFile: async () => ({ stdout: "", stderr: "" })
+      })
+    ).resolves.toEqual({
+      changedFiles: [],
+      statusSummary: []
+    });
+  });
+
+  it("fails closed when implementation workspace inspection fails", async () => {
+    await expect(
+      inspectImplementationWorkspace({
+        executionCwd: "/tmp/worktree",
+        execFile: async () => {
+          throw new Error("git failed");
+        }
+      })
+    ).rejects.toThrow(WorkspaceLeaseError);
   });
 });

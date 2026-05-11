@@ -69,6 +69,12 @@ export interface WorkspaceLease {
   readonly cleanup: "retained" | "removed";
 }
 
+export interface ImplementationWorkspaceInspection {
+  readonly changedFiles: readonly string[];
+  readonly statusSummary: readonly string[];
+  readonly diffText?: string;
+}
+
 export interface ProviderSelectionRequest {
   readonly roleId: RoleId;
   readonly providers: readonly AgentProviderDescriptor[];
@@ -188,6 +194,8 @@ export interface RunSidecar {
   readonly workspaceIsolation?: "git-worktree";
   readonly workspaceRetention?: "retain-until-integrated";
   readonly workspaceCleanup?: "retained" | "removed";
+  readonly workspaceStatus?: readonly string[];
+  readonly workspaceDiffPath?: string;
   readonly parentRunId?: string;
   readonly resumedFromRunId?: string;
   readonly resumeSequence?: number;
