@@ -41,6 +41,7 @@ import {
   isTerminalRunStatus,
   readRunSidecar,
   transitionRunSidecar,
+  withRunSidecarLock,
   writeRunSidecar
 } from "./state/run-store.js";
 import { parseVerdict } from "./verdict.js";
@@ -697,28 +698,26 @@ export class AgentLifecycleManager {
     sidecar: RunSidecar,
     request: ProviderOutboxRequest
   ): Promise<RunSidecar> {
-    if (sidecar.status !== "running" && sidecar.status !== "awaiting-input") {
-      return sidecar;
-    }
-    if ((sidecar.outboxRequestIds ?? []).includes(request.id)) {
-      return sidecar;
-    }
-
-    const now = this.now().toISOString();
-    const record = await appendOutboxRecord(workspaceRoot, sidecar.runId, {
-      role: sidecar.role,
-      provider: sidecar.provider,
-      messageType: request.messageType,
-      correlationId: request.correlationId ?? `outbox:${sidecar.runId}:${request.id}`,
-      createdAt: request.createdAt ?? now,
-      payload: request.payload
-    });
-
-    const next = await transitionRunSidecar(workspaceRoot, sidecar.runId, (current) => {
-      if ((current.outboxRequestIds ?? []).includes(request.id)) {
-        return current;
+    const result = await withRunSidecarLock(workspaceRoot, sidecar.runId, async () => {
+      const current = await readRunSidecar(workspaceRoot, sidecar.runId);
+      if (current.status !== "running" && current.status !== "awaiting-input") {
+        return { sidecar: current, record: undefined };
       }
-      return {
+      if ((current.outboxRequestIds ?? []).includes(request.id)) {
+        return { sidecar: current, record: undefined };
+      }
+
+      const now = this.now().toISOString();
+      const record = await appendOutboxRecord(workspaceRoot, sidecar.runId, {
+        role: current.role,
+        provider: current.provider,
+        messageType: request.messageType,
+        correlationId: request.correlationId ?? `outbox:${sidecar.runId}:${request.id}`,
+        createdAt: request.createdAt ?? now,
+        payload: request.payload
+      });
+
+      const next: RunSidecar = {
         ...current,
         status: current.status === "running" ? "awaiting-input" : current.status,
         updatedAt: now,
@@ -733,22 +732,28 @@ export class AgentLifecycleManager {
           payload: record.payload
         }
       };
+      await writeRunSidecar(workspaceRoot, next);
+      return { sidecar: next, record };
     });
 
+    if (result.record === undefined) {
+      return result.sidecar;
+    }
+
     await appendEventRecord(workspaceRoot, sidecar.runId, {
-      role: next.role,
-      provider: next.provider,
+      role: result.sidecar.role,
+      provider: result.sidecar.provider,
       messageType: "awaiting_input_requested",
-      correlationId: record.correlationId,
-      createdAt: now,
+      correlationId: result.record.correlationId,
+      createdAt: this.now().toISOString(),
       payload: {
         outboxRequestId: request.id,
-        outboxSequence: record.sequence,
-        messageType: record.messageType
+        outboxSequence: result.record.sequence,
+        messageType: result.record.messageType
       }
     });
 
-    return next;
+    return result.sidecar;
   }
 
   private async resumeAwaitingInputRun(

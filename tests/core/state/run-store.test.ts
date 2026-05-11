@@ -169,4 +169,35 @@ describe("run-store", () => {
       }))
     ).rejects.toThrow(InvalidRunTransitionError);
   });
+
+  it("serializes concurrent sidecar transitions for the same run", async () => {
+    const base: RunSidecar = {
+      runId: "run_concurrent",
+      role: "planner",
+      provider: "claude-code-cli",
+      status: "running",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:00:00.000Z",
+      capabilitiesUsed: ["structuredOutput"],
+      evidencePaths: []
+    };
+    await writeRunSidecar(workspace, base);
+
+    await Promise.all(
+      Array.from({ length: 20 }, (_, index) =>
+        transitionRunSidecar(workspace, "run_concurrent", (current) => ({
+          ...current,
+          status: "running",
+          updatedAt: `2026-05-11T00:00:${String(index + 1).padStart(2, "0")}.000Z`,
+          warnings: [...(current.warnings ?? []), `warning_${index}`]
+        }))
+      )
+    );
+
+    const sidecar = await readRunSidecar(workspace, "run_concurrent");
+    expect(sidecar.status).toBe("running");
+    expect(new Set(sidecar.warnings)).toEqual(
+      new Set(Array.from({ length: 20 }, (_, index) => `warning_${index}`))
+    );
+  });
 });

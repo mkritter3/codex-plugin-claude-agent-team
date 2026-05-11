@@ -598,6 +598,45 @@ describe("AgentLifecycleManager", () => {
     });
   });
 
+  it("deduplicates concurrent outbox reconciliation for the same provider request", async () => {
+    const done = deferred<ProviderSessionDoneStatus>();
+    const handle = fakeHandle(done.promise);
+    const manager = new AgentLifecycleManager({
+      createRunId: () => "run_outbox_race",
+      now: () => new Date("2026-05-11T00:02:00.000Z"),
+      startSession: () => handle
+    });
+    await manager.startRun({ role: "planner", task: "Review", cwd: workspace });
+    handle.snapshotValue = {
+      ...handle.snapshotValue,
+      pendingOutboxRequests: [
+        {
+          id: "ask_race_1",
+          messageType: "clarification_request",
+          correlationId: "corr_race_1",
+          payload: { question: "Which race should be resolved?" }
+        }
+      ]
+    };
+
+    const statuses = await Promise.all(
+      Array.from({ length: 12 }, () => manager.getStatus(workspace, "run_outbox_race"))
+    );
+    const outbox = await readMailboxRecords(workspace, "run_outbox_race", "outbox");
+    const sidecar = await readRunSidecar(workspace, "run_outbox_race");
+
+    expect(new Set(statuses.map((status) => status.status))).toEqual(
+      new Set(["awaiting-input"])
+    );
+    expect(outbox).toHaveLength(1);
+    expect(outbox[0]).toMatchObject({
+      sequence: 1,
+      messageType: "clarification_request",
+      correlationId: "corr_race_1"
+    });
+    expect(sidecar.outboxRequestIds).toEqual(["ask_race_1"]);
+  });
+
   it("records replies to awaiting-input runs and resumes running status", async () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);

@@ -1,3 +1,6 @@
+import { mkdir, rmdir } from "node:fs/promises";
+import { dirname } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import type { RunSidecar, RunStatus } from "../types.js";
 import { readJsonFile, writeJsonAtomic } from "./atomic-json.js";
 import { runSidecarPath } from "./paths.js";
@@ -49,6 +52,53 @@ const ALLOWED_TRANSITIONS: Record<RunStatus, readonly RunStatus[]> = {
   expired: ["expired"]
 };
 
+async function acquireRunSidecarLock(
+  workspaceRoot: string,
+  runId: string
+): Promise<() => Promise<void>> {
+  const lockPath = `${runSidecarPath(workspaceRoot, runId)}.lock`;
+  await mkdir(dirname(lockPath), { recursive: true });
+  const startedAt = Date.now();
+  let attempt = 0;
+
+  while (true) {
+    try {
+      await mkdir(lockPath);
+      return async () => {
+        try {
+          await rmdir(lockPath);
+        } catch (error) {
+          if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) {
+            throw error;
+          }
+        }
+      };
+    } catch (error) {
+      if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) {
+        throw error;
+      }
+      if (Date.now() - startedAt > 5_000) {
+        throw new Error(`Timed out acquiring run sidecar lock: ${lockPath}`);
+      }
+      attempt += 1;
+      await delay(Math.min(20, attempt));
+    }
+  }
+}
+
+export async function withRunSidecarLock<T>(
+  workspaceRoot: string,
+  runId: string,
+  fn: () => Promise<T>
+): Promise<T> {
+  const release = await acquireRunSidecarLock(workspaceRoot, runId);
+  try {
+    return await fn();
+  } finally {
+    await release();
+  }
+}
+
 export async function writeRunSidecar(
   workspaceRoot: string,
   sidecar: RunSidecar
@@ -68,13 +118,15 @@ export async function transitionRunSidecar(
   runId: string,
   update: (current: RunSidecar) => RunSidecar
 ): Promise<RunSidecar> {
-  const current = await readRunSidecar(workspaceRoot, runId);
-  const next = update(current);
+  return withRunSidecarLock(workspaceRoot, runId, async () => {
+    const current = await readRunSidecar(workspaceRoot, runId);
+    const next = update(current);
 
-  if (!ALLOWED_TRANSITIONS[current.status].includes(next.status)) {
-    throw new InvalidRunTransitionError(current.status, next.status);
-  }
+    if (!ALLOWED_TRANSITIONS[current.status].includes(next.status)) {
+      throw new InvalidRunTransitionError(current.status, next.status);
+    }
 
-  await writeRunSidecar(workspaceRoot, next);
-  return next;
+    await writeRunSidecar(workspaceRoot, next);
+    return next;
+  });
 }
