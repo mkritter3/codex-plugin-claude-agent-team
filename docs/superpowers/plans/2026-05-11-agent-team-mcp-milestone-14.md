@@ -18,9 +18,11 @@
 - Modify `src/providers/types.ts`: extend provider health input with a provider-neutral command runner contract.
 - Modify `src/providers/claude-code-cli/runtime.ts`: check `claude auth status` through the injected command runner and report actionable fix details.
 - Modify `src/providers/claude-code-cli/doctor.ts`: include `CLAUDE_CODE_OAUTH_TOKEN` in subscription override detection.
+- Modify `.github/workflows/ci.yml`: run the shared `npm run ci` gate so packaged stdio smoke executes in CI.
 - Modify `tests/doctor.test.ts`: cover host readiness, MCP loadability, and command-runner wiring.
 - Modify `tests/providers/claude-code-cli/doctor.test.ts`: cover the expanded OAuth override warning.
 - Add or modify `tests/providers/claude-code-cli/runtime-health.test.ts`: cover Claude CLI auth readiness failures without invoking the real CLI.
+- Modify `tests/package-scripts.test.ts` and `tests/mcp/tools.test.ts`: lock GitHub CI to the shared packaged smoke gate.
 - Modify this plan file after implementation to mark completed tasks.
 
 ## Success Criteria
@@ -31,6 +33,7 @@
 - Claude Code CLI health reports both binary/version readiness and `claude auth status` readiness.
 - Missing or failed Claude CLI auth includes actionable fix details without introducing API-key fallback.
 - `CLAUDE_CODE_OAUTH_TOKEN`, `ANTHROPIC_API_KEY`, and `ANTHROPIC_AUTH_TOKEN` all warn in subscription OAuth mode.
+- GitHub CI runs `npm run ci`, which includes typecheck, tests, build, and packaged stdio smoke.
 - No heuristic/mock LLM behavior, benchmark claims, provider-specific doctor coupling, or automatic cleanup behavior is introduced.
 - `npm run typecheck`, `npm test`, `npm run build`, `npm run smoke:mcp-stdio`, and `npm run ci` pass in the implementation worktree before merge.
 
@@ -40,7 +43,7 @@
 - Modify: `src/doctor.ts`
 - Modify: `tests/doctor.test.ts`
 
-- [ ] **Step 1: Write failing doctor host-readiness tests**
+- [x] **Step 1: Write failing doctor host-readiness tests**
 
 Add tests proving:
 
@@ -56,7 +59,7 @@ npm test -- tests/doctor.test.ts
 
 Expected: FAIL because the doctor does not report these checks yet.
 
-- [ ] **Step 2: Implement provider-neutral host checks**
+- [x] **Step 2: Implement provider-neutral host checks**
 
 Update `runDoctor` to:
 
@@ -65,7 +68,7 @@ Update `runDoctor` to:
 - import/check the MCP server module through an injectable `checkMcpServerLoadable` function
 - report clear fix details when either check fails
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -76,7 +79,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/doctor.ts tests/doctor.test.ts
@@ -92,7 +95,7 @@ git commit -m "feat: add doctor host readiness checks"
 - Add or modify: `tests/providers/claude-code-cli/runtime-health.test.ts`
 - Modify: `tests/doctor.test.ts`
 
-- [ ] **Step 1: Write failing provider health tests**
+- [x] **Step 1: Write failing provider health tests**
 
 Add tests proving:
 
@@ -109,7 +112,7 @@ npm test -- tests/providers/claude-code-cli/runtime-health.test.ts tests/doctor.
 
 Expected: FAIL because provider health cannot run command-based auth checks yet.
 
-- [ ] **Step 2: Implement command runner contract**
+- [x] **Step 2: Implement command runner contract**
 
 Update provider health input to include a generic command runner result with:
 
@@ -120,7 +123,7 @@ Update provider health input to include a generic command runner result with:
 
 Add the default doctor command runner through `execFile`, pass it into runtime health checks, and keep provider runtimes responsible for their own provider-specific commands.
 
-- [ ] **Step 3: Implement Claude auth health**
+- [x] **Step 3: Implement Claude auth health**
 
 Update the Claude Code CLI runtime health check to:
 
@@ -129,7 +132,7 @@ Update the Claude Code CLI runtime health check to:
 - fail closed when auth status exits non-zero
 - report fix details that keep subscription OAuth primary and do not suggest API-key fallback
 
-- [ ] **Step 4: Run focused tests**
+- [x] **Step 4: Run focused tests**
 
 Run:
 
@@ -140,7 +143,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/providers/types.ts src/doctor.ts src/providers/claude-code-cli/runtime.ts tests/providers/claude-code-cli/runtime-health.test.ts tests/doctor.test.ts
@@ -153,7 +156,7 @@ git commit -m "feat: verify claude cli auth in doctor"
 - Modify: `src/providers/claude-code-cli/doctor.ts`
 - Modify: `tests/providers/claude-code-cli/doctor.test.ts`
 
-- [ ] **Step 1: Write failing override test**
+- [x] **Step 1: Write failing override test**
 
 Add `CLAUDE_CODE_OAUTH_TOKEN` to the subscription override warning expectations.
 
@@ -165,11 +168,11 @@ npm test -- tests/providers/claude-code-cli/doctor.test.ts
 
 Expected: FAIL until the override list includes the token.
 
-- [ ] **Step 2: Implement override warning**
+- [x] **Step 2: Implement override warning**
 
 Update Claude environment inspection to warn when `CLAUDE_CODE_OAUTH_TOKEN` is present in subscription OAuth mode.
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -180,7 +183,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/providers/claude-code-cli/doctor.ts tests/providers/claude-code-cli/doctor.test.ts
@@ -190,9 +193,12 @@ git commit -m "fix: warn on claude oauth token override"
 ## Task 4: Verification And Merge Readiness
 
 **Files:**
-- Modify only if verification finds issues.
+- Modify: `.github/workflows/ci.yml`
+- Modify: `tests/package-scripts.test.ts`
+- Modify: `tests/mcp/tools.test.ts`
+- Modify only other files if verification finds issues.
 
-- [ ] **Step 1: Run focused milestone tests**
+- [x] **Step 1: Run focused milestone tests**
 
 Run:
 
@@ -202,7 +208,20 @@ npm test -- tests/doctor.test.ts tests/providers/claude-code-cli/doctor.test.ts 
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Add CI packaged smoke gate**
+
+Update GitHub CI to run the shared `npm run ci` script and add/adjust tests proving CI does not omit the packaged stdio smoke gate.
+
+Run:
+
+```bash
+npm test -- tests/package-scripts.test.ts tests/mcp/tools.test.ts
+npm run typecheck
+```
+
+Expected: PASS.
+
+- [x] **Step 3: Run full verification**
 
 Run:
 
@@ -216,7 +235,7 @@ npm run ci
 
 Expected: PASS.
 
-- [ ] **Step 3: Review provider-neutral boundaries**
+- [x] **Step 4: Review provider-neutral boundaries**
 
 Run:
 
@@ -227,7 +246,7 @@ rg "runCommand|ProviderCommand" src/providers src/doctor.ts
 
 Expected: no Claude-specific command names or env var lists in `src/doctor.ts`; provider-specific readiness remains in the Claude runtime/doctor modules.
 
-- [ ] **Step 4: Commit final plan checkbox update**
+- [x] **Step 5: Commit final plan checkbox update**
 
 Mark completed checklist items in this file and commit the update.
 
