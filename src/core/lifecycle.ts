@@ -81,6 +81,7 @@ export interface AgentLifecycleDependencies {
   readonly inspectWorkspace?: InspectWorkspace;
   readonly env?: NodeJS.ProcessEnv;
   readonly cancelGraceMs?: number;
+  readonly windDownGraceMs?: number;
   readonly sleep?: (ms: number) => Promise<void>;
 }
 
@@ -160,6 +161,7 @@ export class AgentLifecycleManager {
   private readonly inspectWorkspace: InspectWorkspace;
   private readonly env: NodeJS.ProcessEnv | undefined;
   private readonly cancelGraceMs: number;
+  private readonly windDownGraceMs: number;
   private readonly sleep: (ms: number) => Promise<void>;
 
   constructor(deps: AgentLifecycleDependencies = {}) {
@@ -178,6 +180,7 @@ export class AgentLifecycleManager {
         }));
     this.env = deps.env;
     this.cancelGraceMs = deps.cancelGraceMs ?? 250;
+    this.windDownGraceMs = deps.windDownGraceMs ?? 250;
     this.sleep = deps.sleep ?? delay;
   }
 
@@ -315,6 +318,9 @@ export class AgentLifecycleManager {
 
   async messageRun(request: AgentMessageRequest): Promise<AgentMessageResult> {
     const sidecar = await readRunSidecar(request.cwd, request.runId);
+    if (this.inputClosed(sidecar)) {
+      throw new Error(`Run ${request.runId} is not accepting new messages.`);
+    }
     const record = await this.appendUserInboxMessage({
       workspaceRoot: request.cwd,
       sidecar,
@@ -566,12 +572,14 @@ export class AgentLifecycleManager {
     runId: string
   ): Promise<AgentControlResult> {
     const sidecar = await readRunSidecar(workspaceRoot, runId);
+    const requestedAt = this.now().toISOString();
     await appendControlRecord(workspaceRoot, runId, {
       role: sidecar.role,
       provider: sidecar.provider,
       messageType: "wind_down_requested",
       correlationId: runId,
-      payload: { requestedAt: this.now().toISOString() }
+      createdAt: requestedAt,
+      payload: { requestedAt }
     });
 
     if (isTerminalRunStatus(sidecar.status)) {
@@ -582,11 +590,58 @@ export class AgentLifecycleManager {
     const windingDown = await transitionRunSidecar(workspaceRoot, runId, (current) => ({
       ...current,
       status: "winding-down",
-      updatedAt: this.now().toISOString()
+      updatedAt: requestedAt,
+      inputClosed: true,
+      windDownRequestedAt: requestedAt,
+      ...(active === undefined
+        ? {
+            warnings: [
+              ...(current.warnings ?? []),
+              `Run ${runId} is winding down, but no active process handle is attached.`
+            ]
+          }
+        : {})
     }));
-    active?.handle.writeStdin?.(
-      `${JSON.stringify({ type: "wind_down_requested", runId })}\n`
-    );
+    if (active?.handle.supportsStdin === true) {
+      active.handle.writeStdin?.(
+        `${JSON.stringify({
+          type: "agent_team_wind_down",
+          control: "wind_down_requested",
+          runId,
+          instruction:
+            "Summarize current state and emit a final verdict if possible."
+        })}\n`
+      );
+    }
+
+    if (active !== undefined) {
+      const settled = await Promise.race([
+        active.handle.done.then((status) => ({ kind: "settled" as const, status })),
+        this.sleep(this.windDownGraceMs).then(() => ({ kind: "elapsed" as const }))
+      ]);
+      if (settled.kind === "settled") {
+        await this.completeRun(
+          workspaceRoot,
+          runId,
+          active.handle.snapshot(),
+          settled.status,
+          active.provider
+        );
+        const terminal = await this.waitForTerminalSidecar(workspaceRoot, runId);
+        if (terminal !== undefined) {
+          return this.result(workspaceRoot, terminal, "Run completed during wind-down.");
+        }
+      } else {
+        await appendEventRecord(workspaceRoot, runId, {
+          role: windingDown.role,
+          provider: windingDown.provider,
+          messageType: "wind_down_grace_elapsed",
+          correlationId: runId,
+          createdAt: this.now().toISOString(),
+          payload: { graceMs: this.windDownGraceMs }
+        });
+      }
+    }
 
     return this.result(
       workspaceRoot,
@@ -594,6 +649,17 @@ export class AgentLifecycleManager {
       active === undefined
         ? "Wind-down intent recorded; no active process handle is attached."
         : "Wind-down requested."
+    );
+  }
+
+  private inputClosed(sidecar: RunSidecar): boolean {
+    return (
+      sidecar.inputClosed === true ||
+      sidecar.status === "winding-down" ||
+      sidecar.status === "cancelling" ||
+      sidecar.status === "cancelled" ||
+      sidecar.status === "failed" ||
+      sidecar.status === "expired"
     );
   }
 
@@ -683,6 +749,20 @@ export class AgentLifecycleManager {
     }
   }
 
+  private async waitForTerminalSidecar(
+    workspaceRoot: string,
+    runId: string
+  ): Promise<RunSidecar | undefined> {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const sidecar = await readRunSidecar(workspaceRoot, runId);
+      if (isTerminalRunStatus(sidecar.status)) {
+        return sidecar;
+      }
+      await this.sleep(5);
+    }
+    return undefined;
+  }
+
   private observeCompletion(
     workspaceRoot: string,
     runId: string,
@@ -711,13 +791,16 @@ export class AgentLifecycleManager {
     provider: AgentProviderDescriptor
   ): Promise<void> {
     try {
+      const existing = await readRunSidecar(workspaceRoot, runId);
+      if (isTerminalRunStatus(existing.status)) {
+        return;
+      }
       if (status === "completed") {
         const verdict = parseVerdict(snapshot.text);
-        const current = await readRunSidecar(workspaceRoot, runId);
         const implementationEvidence = await this.implementationEvidence(
           workspaceRoot,
           runId,
-          current
+          existing
         );
         const completed = await transitionRunSidecar(workspaceRoot, runId, (current) =>
           sidecarWithSnapshot(
@@ -752,11 +835,10 @@ export class AgentLifecycleManager {
       }
 
       const verdict = blockedVerdict(`Provider session ended with status ${status}.`);
-      const current = await readRunSidecar(workspaceRoot, runId);
       const implementationEvidence = await this.implementationEvidence(
         workspaceRoot,
         runId,
-        current
+        existing
       );
       const failed = await transitionRunSidecar(workspaceRoot, runId, (current) =>
         sidecarWithSnapshot(

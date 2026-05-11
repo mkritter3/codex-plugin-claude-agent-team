@@ -293,6 +293,95 @@ describe("AgentLifecycleManager", () => {
     ]);
   });
 
+  it("closes normal input and requests final summary during wind-down", async () => {
+    const done = deferred<ProviderSessionDoneStatus>();
+    const handle = fakeHandle(done.promise);
+    const manager = new AgentLifecycleManager({
+      createRunId: () => "run_wind_close",
+      now: () => new Date("2026-05-11T00:01:30.000Z"),
+      windDownGraceMs: 0,
+      sleep: async () => undefined,
+      startSession: () => handle
+    });
+    await manager.startRun({ role: "planner", task: "Review", cwd: workspace });
+
+    const result = await manager.windDownRun(workspace, "run_wind_close");
+
+    expect(result.status).toBe("winding-down");
+    const sidecar = await readRunSidecar(workspace, "run_wind_close");
+    expect(sidecar).toMatchObject({
+      status: "winding-down",
+      inputClosed: true,
+      windDownRequestedAt: "2026-05-11T00:01:30.000Z"
+    });
+    expect(JSON.parse(handle.stdin.at(-1)!)).toMatchObject({
+      type: "agent_team_wind_down",
+      runId: "run_wind_close",
+      instruction: expect.stringContaining("final verdict")
+    });
+  });
+
+  it("rejects normal messages after wind-down closes input", async () => {
+    const done = deferred<ProviderSessionDoneStatus>();
+    const handle = fakeHandle(done.promise);
+    const manager = new AgentLifecycleManager({
+      createRunId: () => "run_wind_reject",
+      windDownGraceMs: 0,
+      sleep: async () => undefined,
+      startSession: () => handle
+    });
+    await manager.startRun({ role: "planner", task: "Review", cwd: workspace });
+    await manager.windDownRun(workspace, "run_wind_reject");
+
+    await expect(
+      manager.messageRun({
+        runId: "run_wind_reject",
+        cwd: workspace,
+        message: "One more thing."
+      })
+    ).rejects.toThrow("not accepting new messages");
+    await expect(readMailboxRecords(workspace, "run_wind_reject", "inbox")).resolves.toEqual([]);
+  });
+
+  it("returns completed when the provider settles inside the wind-down grace window", async () => {
+    const done = deferred<ProviderSessionDoneStatus>();
+    const handle = fakeHandle(done.promise);
+    const manager = new AgentLifecycleManager({
+      createRunId: () => "run_wind_completed",
+      windDownGraceMs: 50,
+      startSession: () => handle
+    });
+    await manager.startRun({ role: "planner", task: "Review", cwd: workspace });
+
+    const windDown = manager.windDownRun(workspace, "run_wind_completed");
+    done.resolve("completed");
+
+    await expect(windDown).resolves.toMatchObject({ status: "completed" });
+  });
+
+  it("leaves runs winding down after grace expires without killing the provider", async () => {
+    const done = deferred<ProviderSessionDoneStatus>();
+    const handle = fakeHandle(done.promise);
+    const manager = new AgentLifecycleManager({
+      createRunId: () => "run_wind_elapsed",
+      windDownGraceMs: 1,
+      sleep: async () => undefined,
+      startSession: () => handle
+    });
+    await manager.startRun({ role: "planner", task: "Review", cwd: workspace });
+
+    const result = await manager.windDownRun(workspace, "run_wind_elapsed");
+
+    expect(result.status).toBe("winding-down");
+    expect(handle.killed).toBe(false);
+    expect(handle.forceKilled).toBe(false);
+    await expect(readMailboxRecords(workspace, "run_wind_elapsed", "events")).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ messageType: "wind_down_grace_elapsed" })
+      ])
+    );
+  });
+
   it("records messages durably without mutating the parent run status", async () => {
     const sidecar: RunSidecar = {
       runId: "run_parent_message",

@@ -204,6 +204,8 @@ export interface RunSidecar {
   readonly promptHash?: string;
   readonly outputSummary?: string;
   readonly cleanup?: "complete" | "partial" | "not-needed";
+  readonly inputClosed?: boolean;
+  readonly windDownRequestedAt?: string;
   readonly detached?: boolean;
   readonly warnings?: readonly string[];
   readonly recentActivities?: readonly ProviderSessionActivity[];
