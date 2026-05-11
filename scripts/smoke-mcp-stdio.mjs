@@ -15,6 +15,22 @@ function assert(condition, message) {
   }
 }
 
+function assertToolRequires(tools, toolName, requiredFields) {
+  const tool = tools.find((candidate) => candidate.name === toolName);
+  assert(tool !== undefined, `${toolName} not listed.`);
+  const required = tool.inputSchema?.required;
+  assert(Array.isArray(required), `${toolName} does not expose required fields.`);
+  for (const field of requiredFields) {
+    assert(required.includes(field), `${toolName} does not require ${field}.`);
+  }
+}
+
+function assertObjectSchema(tools, toolName) {
+  const tool = tools.find((candidate) => candidate.name === toolName);
+  assert(tool !== undefined, `${toolName} not listed.`);
+  assert(tool.inputSchema?.type === "object", `${toolName} does not expose an object schema.`);
+}
+
 async function assertRuntimeExists() {
   try {
     await access(runtimePath);
@@ -52,6 +68,11 @@ async function main() {
       toolNames.includes("agent_team_list_roles"),
       `agent_team_list_roles not listed. Listed tools: ${toolNames.join(", ")}`
     );
+    assertToolRequires(tools.tools, "agent_team_dispatch", ["role", "task"]);
+    assertToolRequires(tools.tools, "agent_team_start", ["role", "task"]);
+    assertToolRequires(tools.tools, "agent_team_message", ["runId", "message"]);
+    assertToolRequires(tools.tools, "agent_team_status", ["runId"]);
+    assertObjectSchema(tools.tools, "agent_team_list_roles");
 
     const result = await client.callTool({
       name: "agent_team_list_roles",

@@ -43,6 +43,12 @@ describe("package runtime contract", () => {
     );
 
     expect(smokeScript).toContain('join(repoRoot, "dist", "index.js")');
+    expect(smokeScript).toContain(
+      'assertToolRequires(tools.tools, "agent_team_dispatch", ["role", "task"])'
+    );
+    expect(smokeScript).toContain(
+      'assertToolRequires(tools.tools, "agent_team_message", ["runId", "message"])'
+    );
     expect(smokeScript).not.toContain("tsx");
     expect(smokeScript).not.toContain(join("src", "index.ts"));
   });
