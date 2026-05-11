@@ -1,8 +1,9 @@
-import type { RoleId } from "../../core/types.js";
+import type { AgentExecutionPolicy, RoleId } from "../../core/types.js";
 import type { ClaudePermissionMode } from "./types.js";
 
 export interface ClaudeRolePolicyInput {
   readonly roleId: RoleId;
+  readonly executionPolicy?: AgentExecutionPolicy;
   readonly requestedPermissionMode?: ClaudePermissionMode;
 }
 
@@ -39,6 +40,21 @@ function readOnlyPolicy(): ClaudeRolePolicy {
 }
 
 export function claudeRolePolicyFor(input: ClaudeRolePolicyInput): ClaudeRolePolicy {
+  if (input.executionPolicy === "read-only") {
+    return readOnlyPolicy();
+  }
+
+  if (input.executionPolicy === "isolated-edit") {
+    if (input.requestedPermissionMode !== "acceptEdits") {
+      return readOnlyPolicy();
+    }
+    return {
+      permissionMode: "acceptEdits",
+      allowedTools: EDIT_CLAUDE_ALLOWED_TOOLS,
+      disallowedTools: []
+    };
+  }
+
   switch (input.roleId) {
     case "architect":
     case "planner":

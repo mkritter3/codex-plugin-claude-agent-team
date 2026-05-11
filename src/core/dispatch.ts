@@ -251,6 +251,7 @@ export async function dispatchReadOnlyAgent(
     prompt,
     cwd: request.cwd,
     roleId: request.role,
+    executionPolicy: role.executionPolicy,
     ...(request.timeoutMs === undefined ? {} : { timeoutMs: request.timeoutMs }),
     ...(deps.env === undefined ? {} : { env: deps.env })
   });

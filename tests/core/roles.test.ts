@@ -14,7 +14,13 @@ describe("role registry", () => {
       "slice-implementer",
       "ux-product-critic"
     ]);
+    expect(getRole("slice-implementer")).toMatchObject({
+      executionPolicy: "isolated-edit"
+    });
     expect(getRole("slice-implementer").requiredCapabilities).toContain("edits");
+    expect(getRole("code-reviewer")).toMatchObject({
+      executionPolicy: "read-only"
+    });
     expect(getRole("code-reviewer").requiredCapabilities).toContain("structuredOutput");
   });
 });

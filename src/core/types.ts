@@ -29,6 +29,8 @@ export type RoleId =
   | "slice-implementer"
   | "ux-product-critic";
 
+export type AgentExecutionPolicy = "read-only" | "isolated-edit";
+
 export type VerdictStatus = "SHIP" | "REVISE" | "BLOCKED" | "INCONCLUSIVE";
 
 export interface AgentRole {
@@ -37,6 +39,7 @@ export interface AgentRole {
   readonly description: string;
   readonly requiredCapabilities: readonly ProviderCapability[];
   readonly defaultReadOnly: boolean;
+  readonly executionPolicy: AgentExecutionPolicy;
 }
 
 export interface AgentProviderDescriptor {

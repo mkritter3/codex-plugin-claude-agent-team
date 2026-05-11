@@ -150,7 +150,7 @@ describe("AgentLifecycleManager", () => {
         throw new Error("should not run print");
       },
       startSession(input) {
-        starts.push(`${input.runId}:${input.cwd}:${input.roleId}`);
+        starts.push(`${input.runId}:${input.cwd}:${input.roleId}:${input.executionPolicy}`);
         return handle;
       },
       async healthCheck() {
@@ -175,7 +175,7 @@ describe("AgentLifecycleManager", () => {
       provider: "fake-runtime",
       status: "running"
     });
-    expect(starts).toEqual([`run_runtime_start:${workspace}:planner`]);
+    expect(starts).toEqual([`run_runtime_start:${workspace}:planner:read-only`]);
   });
 
   it("starts a background run and records running status", async () => {
@@ -709,6 +709,7 @@ describe("AgentLifecycleManager", () => {
       cwd?: string;
       runId: string;
       roleId?: string;
+      executionPolicy?: string;
       sessionId?: string;
       permissionMode?: string;
     }> = [];
@@ -721,6 +722,9 @@ describe("AgentLifecycleManager", () => {
           cwd: input.cwd,
           runId: input.runId,
           ...(input.roleId === undefined ? {} : { roleId: input.roleId }),
+          ...(input.executionPolicy === undefined
+            ? {}
+            : { executionPolicy: input.executionPolicy }),
           ...(input.sessionId === undefined ? {} : { sessionId: input.sessionId }),
           ...(input.permissionMode === undefined
             ? {}
@@ -748,6 +752,7 @@ describe("AgentLifecycleManager", () => {
     expect(starts[0]).toMatchObject({
       runId: "run_reply_child",
       roleId: "planner",
+      executionPolicy: "read-only",
       sessionId: "session_parent_reply"
     });
     expect(starts[0]?.prompt).toContain("resumed continuation");
@@ -815,6 +820,7 @@ describe("AgentLifecycleManager", () => {
       cwd: string;
       workspaceRoot: string;
       roleId?: string;
+      executionPolicy?: string;
       permissionMode?: string;
     }> = [];
     const manager = new AgentLifecycleManager({
@@ -839,6 +845,9 @@ describe("AgentLifecycleManager", () => {
           cwd: input.cwd,
           workspaceRoot: input.workspaceRoot,
           ...(input.roleId === undefined ? {} : { roleId: input.roleId }),
+          ...(input.executionPolicy === undefined
+            ? {}
+            : { executionPolicy: input.executionPolicy }),
           ...(input.permissionMode === undefined
             ? {}
             : { permissionMode: input.permissionMode })
@@ -864,6 +873,7 @@ describe("AgentLifecycleManager", () => {
       cwd: `${workspace}-worktree`,
       workspaceRoot: workspace,
       roleId: "slice-implementer",
+      executionPolicy: "isolated-edit",
       permissionMode: "acceptEdits"
     });
     expect(starts[0]?.prompt).toContain("Execution workspace");

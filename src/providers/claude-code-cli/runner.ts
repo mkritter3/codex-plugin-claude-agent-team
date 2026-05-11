@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
-import type { RoleId } from "../../core/types.js";
+import type { AgentExecutionPolicy, RoleId } from "../../core/types.js";
 import { buildClaudeCommand } from "./commands.js";
 import { parseClaudeJsonOutput } from "./output.js";
 import { claudeRolePolicyFor } from "./role-policy.js";
@@ -64,6 +64,7 @@ export async function runClaudePrint(input: {
   readonly prompt: string;
   readonly cwd: string;
   readonly roleId?: RoleId;
+  readonly executionPolicy?: AgentExecutionPolicy;
   readonly timeoutMs?: number;
   readonly execFile?: ExecFileLike;
   readonly env?: NodeJS.ProcessEnv;
@@ -71,7 +72,12 @@ export async function runClaudePrint(input: {
   const policy =
     input.roleId === undefined
       ? undefined
-      : claudeRolePolicyFor({ roleId: input.roleId });
+      : claudeRolePolicyFor({
+          roleId: input.roleId,
+          ...(input.executionPolicy === undefined
+            ? {}
+            : { executionPolicy: input.executionPolicy })
+        });
   const command = buildClaudeCommand({
     prompt: input.prompt,
     cwd: input.cwd,

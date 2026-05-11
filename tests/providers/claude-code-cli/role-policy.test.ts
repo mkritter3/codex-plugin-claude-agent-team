@@ -17,7 +17,7 @@ const READ_ONLY_ROLES: readonly RoleId[] = [
 describe("Claude role policy", () => {
   it("maps read-only roles to default permissions with read/search tools", () => {
     for (const roleId of READ_ONLY_ROLES) {
-      const policy = claudeRolePolicyFor({ roleId });
+      const policy = claudeRolePolicyFor({ roleId, executionPolicy: "read-only" });
 
       expect(policy).toMatchObject({
         permissionMode: "default",
@@ -33,6 +33,7 @@ describe("Claude role policy", () => {
   it("maps slice implementer to edit-capable tools only when acceptEdits is requested", () => {
     const policy = claudeRolePolicyFor({
       roleId: "slice-implementer",
+      executionPolicy: "isolated-edit",
       requestedPermissionMode: "acceptEdits"
     });
 
@@ -45,7 +46,10 @@ describe("Claude role policy", () => {
   });
 
   it("keeps slice implementer default-safe without acceptEdits", () => {
-    const policy = claudeRolePolicyFor({ roleId: "slice-implementer" });
+    const policy = claudeRolePolicyFor({
+      roleId: "slice-implementer",
+      executionPolicy: "isolated-edit"
+    });
 
     expect(policy.permissionMode).toBe("default");
     expect(policy.allowedTools).toEqual(["Read", "Grep", "Glob", "LS"]);

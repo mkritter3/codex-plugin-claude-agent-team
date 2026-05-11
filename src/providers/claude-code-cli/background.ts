@@ -4,7 +4,7 @@ import { createInterface } from "node:readline";
 import type { Readable, Writable } from "node:stream";
 import { appendBoundedLog } from "../../core/logs.js";
 import { runLogPath } from "../../core/state/paths.js";
-import type { RoleId } from "../../core/types.js";
+import type { AgentExecutionPolicy, RoleId } from "../../core/types.js";
 import type {
   ProviderSessionDoneStatus,
   ProviderSessionHandle,
@@ -29,6 +29,7 @@ export interface StartClaudeBackgroundSessionInput {
   readonly workspaceRoot: string;
   readonly runId: string;
   readonly roleId?: RoleId;
+  readonly executionPolicy?: AgentExecutionPolicy;
   readonly env?: NodeJS.ProcessEnv;
   readonly sessionId?: string;
   readonly permissionMode?: ClaudePermissionMode;
@@ -105,6 +106,9 @@ export function startClaudeBackgroundSession(
       ? undefined
       : claudeRolePolicyFor({
           roleId: input.roleId,
+          ...(input.executionPolicy === undefined
+            ? {}
+            : { executionPolicy: input.executionPolicy }),
           ...(input.permissionMode === undefined
             ? {}
             : { requestedPermissionMode: input.permissionMode })

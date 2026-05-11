@@ -76,6 +76,7 @@ describe("dispatchReadOnlyAgent", () => {
       async runPrint(input) {
         expect(input.cwd).toBe(workspace);
         expect(input.roleId).toBe("planner");
+        expect(input.executionPolicy).toBe("read-only");
         return {
           ok: true,
           sessionId: "fake_session",
