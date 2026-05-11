@@ -202,7 +202,9 @@ describe("dispatchReadOnlyAgent", () => {
       runId: "run_test",
       status: "completed",
       providerSessionId: "session_1",
-      outputSummary: "Looks good."
+      outputSummary: "Looks good.",
+      cleanup: "complete",
+      logPath: runLogPath(workspace, "run_test")
     });
     expect(sidecar.promptHash).toMatch(/^[a-f0-9]{64}$/);
     expect(sidecar.evidencePaths).toContain(runLogPath(workspace, "run_test"));
@@ -242,6 +244,17 @@ describe("dispatchReadOnlyAgent", () => {
     expect(result.status).toBe("failed");
     expect(result.verdict.status).toBe("BLOCKED");
     expect(result.verdict.summary).toContain("not supported");
+    await expect(readRunSidecar(workspace, "run_impl")).resolves.toMatchObject({
+      status: "failed",
+      cleanup: "partial",
+      outputSummary: expect.stringContaining("not supported")
+    });
+    await expect(readMailboxRecords(workspace, "run_impl", "events")).resolves.toMatchObject([
+      {
+        messageType: "failed",
+        payload: { reason: "unsupported_role" }
+      }
+    ]);
   });
 
   it("blocks subscription-mode dispatch when API auth override env exists", async () => {
@@ -278,6 +291,11 @@ describe("dispatchReadOnlyAgent", () => {
     expect(result.status).toBe("failed");
     expect(result.verdict.status).toBe("BLOCKED");
     expect(result.verdict.summary).toContain("override Claude Code subscription OAuth");
+    await expect(readRunSidecar(workspace, "run_auth")).resolves.toMatchObject({
+      status: "failed",
+      cleanup: "partial",
+      outputSummary: expect.stringContaining("override Claude Code subscription OAuth")
+    });
   });
 
   it("records failed provider runs with a failed sidecar", async () => {
@@ -306,9 +324,70 @@ describe("dispatchReadOnlyAgent", () => {
     expect(result.status).toBe("failed");
     expect(result.verdict.status).toBe("BLOCKED");
     const sidecar = await readRunSidecar(workspace, "run_failed");
-    expect(sidecar.status).toBe("failed");
+    expect(sidecar).toMatchObject({
+      status: "failed",
+      cleanup: "partial",
+      outputSummary: "Provider runtime run failed.",
+      logPath: runLogPath(workspace, "run_failed")
+    });
+    expect(sidecar.evidencePaths).toContain(runLogPath(workspace, "run_failed"));
     await expect(readFile(runLogPath(workspace, "run_failed"), "utf8")).resolves.toContain(
       "bad auth"
     );
+  });
+
+  it("keeps synchronous dispatch semantics for provider print runs", async () => {
+    let resolvePrint: (value: Awaited<ReturnType<AgentProviderRuntime["runPrint"]>>) => void;
+    let returned = false;
+    let startedSession = false;
+    const pendingPrint = new Promise<Awaited<ReturnType<AgentProviderRuntime["runPrint"]>>>(
+      (resolve) => {
+        resolvePrint = resolve;
+      }
+    );
+
+    const dispatchPromise = dispatchReadOnlyAgent(
+      {
+        role: "planner",
+        task: "Wait for print completion",
+        cwd: workspace
+      },
+      {
+        createRunId: () => "run_sync",
+        env: {},
+        runtimes: [
+          {
+            ...claudeRuntime(async () => pendingPrint),
+            startSession() {
+              startedSession = true;
+              throw new Error("should not start background session");
+            }
+          }
+        ]
+      }
+    ).then((result) => {
+      returned = true;
+      return result;
+    });
+
+    await Promise.resolve();
+    expect(returned).toBe(false);
+    expect(startedSession).toBe(false);
+
+    resolvePrint!({
+      ok: true,
+      sessionId: "session_sync",
+      text: shipText,
+      stdout: "",
+      stderr: "",
+      exitCode: 0
+    });
+
+    await expect(dispatchPromise).resolves.toMatchObject({
+      runId: "run_sync",
+      status: "completed",
+      verdict: { status: "SHIP" }
+    });
+    expect(returned).toBe(true);
   });
 });

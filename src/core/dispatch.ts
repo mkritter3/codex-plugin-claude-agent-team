@@ -1,5 +1,3 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
 import {
   listProviders,
   requireProviderRuntime,
@@ -9,16 +7,21 @@ import { selectProvider } from "./router.js";
 import { getRole } from "./roles.js";
 import { buildRolePrompt } from "./prompts.js";
 import { createRunId as defaultCreateRunId, hashPrompt } from "./run-ids.js";
-import { appendMailboxRecord } from "./state/mailbox-store.js";
 import { runLogPath, runSidecarPath } from "./state/paths.js";
 import { writeRunSidecar } from "./state/run-store.js";
+import {
+  appendRunEvent,
+  blockedVerdict,
+  buildRunSidecar,
+  finalizeRunSidecar,
+  writeProviderPrintLog
+} from "./run-pipeline.js";
 import { parseVerdict } from "./verdict.js";
 import type {
   AgentDispatchRequest,
   AgentDispatchResult,
   AgentProviderDescriptor,
   ParsedVerdict,
-  RunSidecar,
   RunStatus
 } from "./types.js";
 
@@ -30,57 +33,7 @@ export interface DispatchDependencies {
   readonly env?: NodeJS.ProcessEnv;
 }
 
-function blockedVerdict(summary: string, evidence: readonly string[] = []): ParsedVerdict {
-  return {
-    status: "BLOCKED",
-    summary,
-    requiredChanges: [],
-    evidence,
-    risks: [],
-    warnings: [],
-    raw: summary
-  };
-}
-
-async function writeRawLog(
-  workspaceRoot: string,
-  runId: string,
-  result: { readonly text: string; readonly stdout: string; readonly stderr: string }
-): Promise<string> {
-  const path = runLogPath(workspaceRoot, runId);
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(
-    path,
-    [
-      `TEXT:\n${result.text}`,
-      `STDOUT:\n${result.stdout}`,
-      `STDERR:\n${result.stderr}`
-    ].join("\n\n"),
-    "utf8"
-  );
-  return path;
-}
-
-async function appendEvent(input: {
-  readonly workspaceRoot: string;
-  readonly runId: string;
-  readonly role: AgentDispatchRequest["role"];
-  readonly provider: string;
-  readonly messageType: string;
-  readonly payload: Record<string, unknown>;
-  readonly createdAt: string;
-}): Promise<void> {
-  await appendMailboxRecord(input.workspaceRoot, input.runId, "events", {
-    role: input.role,
-    provider: input.provider,
-    messageType: input.messageType,
-    correlationId: input.runId,
-    createdAt: input.createdAt,
-    payload: input.payload
-  });
-}
-
-async function persist(input: {
+async function writeDispatchSidecar(input: {
   readonly request: AgentDispatchRequest;
   readonly runId: string;
   readonly provider: AgentProviderDescriptor;
@@ -89,29 +42,18 @@ async function persist(input: {
   readonly updatedAt: string;
   readonly promptHash?: string;
   readonly logPath?: string;
-  readonly verdict?: ParsedVerdict;
-  readonly outputSummary?: string;
-  readonly providerSessionId?: string;
-}): Promise<RunSidecar> {
-  const sidecar: RunSidecar = {
+}): Promise<void> {
+  await writeRunSidecar(input.request.cwd, buildRunSidecar({
     runId: input.runId,
     role: input.request.role,
-    provider: input.provider.id,
+    provider: input.provider,
     status: input.status,
     createdAt: input.createdAt,
     updatedAt: input.updatedAt,
-    capabilitiesUsed: input.provider.capabilities,
     evidencePaths: input.logPath === undefined ? [] : [input.logPath],
-    authMode: input.provider.authMode,
     ...(input.promptHash === undefined ? {} : { promptHash: input.promptHash }),
-    ...(input.outputSummary === undefined ? {} : { outputSummary: input.outputSummary }),
-    ...(input.providerSessionId === undefined
-      ? {}
-      : { providerSessionId: input.providerSessionId }),
-    ...(input.verdict === undefined ? {} : { verdict: input.verdict })
-  };
-  await writeRunSidecar(input.request.cwd, sidecar);
-  return sidecar;
+    ...(input.logPath === undefined ? {} : { logPath: input.logPath })
+  }));
 }
 
 export async function dispatchReadOnlyAgent(
@@ -135,35 +77,34 @@ export async function dispatchReadOnlyAgent(
     readonly status: RunStatus;
     readonly verdict: ParsedVerdict;
     readonly logPath?: string;
-    readonly promptHash?: string;
     readonly outputSummary?: string;
     readonly providerSessionId?: string;
+    readonly cleanup?: "complete" | "partial" | "not-needed";
+    readonly eventPayload: Record<string, unknown>;
+    readonly eventCreatedAt?: string;
   }): Promise<AgentDispatchResult> => {
-    const updatedAt = now().toISOString();
-    const persistInput = {
-      request,
+    const terminal = await finalizeRunSidecar({
+      workspaceRoot: request.cwd,
       runId,
-      provider,
-      status: input.status,
-      createdAt,
-      updatedAt,
+      provider: provider.id,
+      status: input.status === "completed" ? "completed" : "failed",
+      updatedAt: now().toISOString(),
       verdict: input.verdict,
+      cleanup: input.cleanup ?? (input.status === "completed" ? "complete" : "partial"),
+      outputSummary: input.outputSummary ?? input.verdict.summary,
       ...(input.logPath === undefined ? {} : { logPath: input.logPath }),
-      ...(input.promptHash === undefined ? {} : { promptHash: input.promptHash }),
-      ...(input.outputSummary === undefined
-        ? {}
-        : { outputSummary: input.outputSummary }),
       ...(input.providerSessionId === undefined
         ? {}
-        : { providerSessionId: input.providerSessionId })
-    };
-    await persist(persistInput);
+        : { providerSessionId: input.providerSessionId }),
+      eventPayload: input.eventPayload,
+      ...(input.eventCreatedAt === undefined ? {} : { eventCreatedAt: input.eventCreatedAt })
+    });
     return {
       runId,
-      status: input.status,
+      status: terminal.status,
       provider: provider.id,
       role: request.role,
-      verdict: input.verdict,
+      verdict: terminal.verdict ?? input.verdict,
       sidecarPath: runSidecarPath(request.cwd, runId),
       logPath: input.logPath ?? runLogPath(request.cwd, runId)
     };
@@ -173,16 +114,21 @@ export async function dispatchReadOnlyAgent(
     const verdict = blockedVerdict(
       `Role ${role.id} is not supported by read-only dispatch in this milestone.`
     );
-    await appendEvent({
-      workspaceRoot: request.cwd,
+    await writeDispatchSidecar({
+      request,
       runId,
-      role: request.role,
-      provider: provider.id,
-      messageType: "failed",
+      provider,
+      status: "queued",
       createdAt,
-      payload: { reason: "unsupported_role" }
+      updatedAt: createdAt
     });
-    return finish({ status: "failed", verdict, outputSummary: verdict.summary });
+    return finish({
+      status: "failed",
+      verdict,
+      outputSummary: verdict.summary,
+      eventCreatedAt: createdAt,
+      eventPayload: { reason: "unsupported_role" }
+    });
   }
 
   const runtime = requireProviderRuntime(
@@ -196,21 +142,26 @@ export async function dispatchReadOnlyAgent(
   });
   if (envInspection.warnings.length > 0) {
     const verdict = blockedVerdict(envInspection.warnings.join(" "));
-    await appendEvent({
-      workspaceRoot: request.cwd,
+    await writeDispatchSidecar({
+      request,
       runId,
-      role: request.role,
-      provider: provider.id,
-      messageType: "failed",
+      provider,
+      status: "queued",
       createdAt,
-      payload: { reason: "auth_precedence", warnings: envInspection.warnings }
+      updatedAt: createdAt
     });
-    return finish({ status: "failed", verdict, outputSummary: verdict.summary });
+    return finish({
+      status: "failed",
+      verdict,
+      outputSummary: verdict.summary,
+      eventCreatedAt: createdAt,
+      eventPayload: { reason: "auth_precedence", warnings: envInspection.warnings }
+    });
   }
 
   const prompt = buildRolePrompt({ role, task: request.task, cwd: request.cwd });
   const promptDigest = hashPrompt(prompt);
-  await persist({
+  await writeDispatchSidecar({
     request,
     runId,
     provider,
@@ -219,7 +170,7 @@ export async function dispatchReadOnlyAgent(
     updatedAt: createdAt,
     promptHash: promptDigest
   });
-  await appendEvent({
+  await appendRunEvent({
     workspaceRoot: request.cwd,
     runId,
     role: request.role,
@@ -228,7 +179,7 @@ export async function dispatchReadOnlyAgent(
     createdAt,
     payload: { task: request.task }
   });
-  await persist({
+  await writeDispatchSidecar({
     request,
     runId,
     provider,
@@ -237,7 +188,7 @@ export async function dispatchReadOnlyAgent(
     updatedAt: now().toISOString(),
     promptHash: promptDigest
   });
-  await appendEvent({
+  await appendRunEvent({
     workspaceRoot: request.cwd,
     runId,
     role: request.role,
@@ -255,47 +206,29 @@ export async function dispatchReadOnlyAgent(
     ...(request.timeoutMs === undefined ? {} : { timeoutMs: request.timeoutMs }),
     ...(deps.env === undefined ? {} : { env: deps.env })
   });
-  const logPath = await writeRawLog(request.cwd, runId, providerResult);
+  const logPath = await writeProviderPrintLog(request.cwd, runId, providerResult);
 
   if (!providerResult.ok) {
     const verdict = blockedVerdict("Provider runtime run failed.", [
       `exitCode: ${providerResult.exitCode}`,
       providerResult.stderr
     ]);
-    await appendEvent({
-      workspaceRoot: request.cwd,
-      runId,
-      role: request.role,
-      provider: provider.id,
-      messageType: "failed",
-      createdAt: now().toISOString(),
-      payload: { exitCode: providerResult.exitCode }
-    });
     return finish({
       status: "failed",
       verdict,
       logPath,
-      promptHash: promptDigest,
-      outputSummary: verdict.summary
+      outputSummary: verdict.summary,
+      eventPayload: { exitCode: providerResult.exitCode }
     });
   }
 
   const verdict = parseVerdict(providerResult.text);
-  await appendEvent({
-    workspaceRoot: request.cwd,
-    runId,
-    role: request.role,
-    provider: provider.id,
-    messageType: "completed",
-    createdAt: now().toISOString(),
-    payload: { verdict: verdict.status }
-  });
   return finish({
     status: "completed",
     verdict,
     logPath,
-    promptHash: promptDigest,
     outputSummary: verdict.summary,
+    eventPayload: { verdict: verdict.status },
     ...(providerResult.sessionId === undefined
       ? {}
       : { providerSessionId: providerResult.sessionId })
