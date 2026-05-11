@@ -55,6 +55,7 @@ function fakeHandle(done: Promise<ProviderSessionDoneStatus>): ProviderSessionHa
     killed: false,
     forceKilled: false,
     stdin: [] as string[],
+    supportsStdin: true,
     snapshotValue,
     done,
     get providerSessionId() {
@@ -83,6 +84,7 @@ function fakeHandle(done: Promise<ProviderSessionDoneStatus>): ProviderSessionHa
     },
     writeStdin(data: string) {
       handle.stdin.push(data);
+      return true;
     },
     snapshot() {
       return handle.snapshotValue;

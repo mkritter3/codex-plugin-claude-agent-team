@@ -24,6 +24,21 @@ class FakeChildProcess extends EventEmitter {
   }
 }
 
+class FakeChildProcessWithoutStdin extends EventEmitter {
+  readonly stdout = new PassThrough();
+  readonly stderr = new PassThrough();
+  readonly stdin = null;
+  readonly pid = 1234;
+  killed = false;
+  readonly signals: string[] = [];
+
+  kill(signal?: NodeJS.Signals): boolean {
+    this.killed = true;
+    this.signals.push(signal ?? "SIGTERM");
+    return true;
+  }
+}
+
 let workspace: string;
 
 beforeEach(async () => {
@@ -199,6 +214,59 @@ describe("Claude background session runner", () => {
     handle.forceKill();
 
     expect(child.signals).toEqual(["SIGTERM", "SIGKILL"]);
+  });
+
+  it("reports stdin support and write success for live control messages", () => {
+    const child = new FakeChildProcess();
+    const handle = startClaudeBackgroundSession(
+      {
+        prompt: "Inspect",
+        cwd: workspace,
+        workspaceRoot: workspace,
+        runId: "run_bg_stdin",
+        env: {}
+      },
+      { spawn: () => child }
+    );
+
+    expect(handle.supportsStdin).toBe(true);
+    expect(handle.writeStdin?.("{\"type\":\"agent_team_message\"}\n")).toBe(true);
+    expect(child.stdin.read()?.toString()).toBe("{\"type\":\"agent_team_message\"}\n");
+  });
+
+  it("reports stdin write failure when stdin is unavailable", () => {
+    const child = new FakeChildProcessWithoutStdin();
+    const handle = startClaudeBackgroundSession(
+      {
+        prompt: "Inspect",
+        cwd: workspace,
+        workspaceRoot: workspace,
+        runId: "run_bg_no_stdin",
+        env: {}
+      },
+      { spawn: () => child }
+    );
+
+    expect(handle.supportsStdin).toBe(false);
+    expect(handle.writeStdin?.("{\"type\":\"agent_team_message\"}\n")).toBe(false);
+  });
+
+  it("reports stdin write failure when stdin is destroyed", () => {
+    const child = new FakeChildProcess();
+    const handle = startClaudeBackgroundSession(
+      {
+        prompt: "Inspect",
+        cwd: workspace,
+        workspaceRoot: workspace,
+        runId: "run_bg_destroyed_stdin",
+        env: {}
+      },
+      { spawn: () => child }
+    );
+    child.stdin.destroy();
+
+    expect(handle.supportsStdin).toBe(true);
+    expect(handle.writeStdin?.("{\"type\":\"agent_team_message\"}\n")).toBe(false);
   });
 
   it("resolves interrupted and failed statuses from child close", async () => {

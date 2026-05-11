@@ -19,9 +19,10 @@ export interface ProviderSessionHandle {
   readonly lastStderr: readonly string[];
   readonly transcriptPath: string | undefined;
   readonly logPath: string | undefined;
+  readonly supportsStdin: boolean;
   kill(): void;
   forceKill(): void;
-  writeStdin?(data: string): void;
+  writeStdin?(data: string): boolean;
   snapshot(): ProviderSessionSnapshot;
 }
 

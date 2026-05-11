@@ -174,6 +174,7 @@ export function startClaudeBackgroundSession(
     },
     transcriptPath: rawTranscriptPath,
     logPath,
+    supportsStdin: child.stdin !== null,
     kill(): void {
       if (child.killed !== true) {
         child.kill(process.platform === "win32" ? undefined : "SIGTERM");
@@ -185,10 +186,11 @@ export function startClaudeBackgroundSession(
         child.kill(process.platform === "win32" ? undefined : "SIGKILL");
       }
     },
-    writeStdin(data: string): void {
-      if (child.stdin !== null && !child.stdin.destroyed) {
-        child.stdin.write(data);
+    writeStdin(data: string): boolean {
+      if (child.stdin === null || child.stdin.destroyed) {
+        return false;
       }
+      return child.stdin.write(data);
     },
     snapshot(): ProviderSessionSnapshot {
       const snapshot = parser.snapshot();
