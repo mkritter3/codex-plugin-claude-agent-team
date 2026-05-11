@@ -52,7 +52,7 @@
 - Modify: `tests/core/state/run-store.test.ts`
 - Modify: `tests/core/lifecycle.test.ts`
 
-- [ ] **Step 1: Write failing concurrency tests**
+- [x] **Step 1: Write failing concurrency tests**
 
 Add tests proving:
 
@@ -68,7 +68,7 @@ npm test -- tests/core/state/run-store.test.ts tests/core/lifecycle.test.ts
 
 Expected: FAIL because sidecar transitions are not locked and outbox reconciliation appends before the durable idempotence marker is protected.
 
-- [ ] **Step 2: Implement sidecar locking and atomic outbox reconciliation**
+- [x] **Step 2: Implement sidecar locking and atomic outbox reconciliation**
 
 Add a provider-neutral per-run lock helper in `run-store.ts`, use it inside `transitionRunSidecar`, and expose it for lifecycle code that must combine mailbox append plus sidecar update under one lock.
 
@@ -80,7 +80,7 @@ Update lifecycle outbox reconciliation to:
 - append the outbox record
 - write the sidecar with `awaiting-input`, request evidence, and request id
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -91,7 +91,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/state/run-store.ts src/core/lifecycle.ts tests/core/state/run-store.test.ts tests/core/lifecycle.test.ts
@@ -109,7 +109,7 @@ git commit -m "feat: serialize sidecar state transitions"
 - Modify: `tests/core/state/mailbox-store.test.ts`
 - Create: `tests/core/state/archive.test.ts`
 
-- [ ] **Step 1: Write failing corruption metadata and archive tests**
+- [x] **Step 1: Write failing corruption metadata and archive tests**
 
 Add tests proving:
 
@@ -127,7 +127,7 @@ npm test -- tests/core/state/run-store.test.ts tests/core/state/mailbox-store.te
 
 Expected: FAIL because errors lack metadata and archive helper does not exist.
 
-- [ ] **Step 2: Implement provider-neutral corruption metadata and archive helper**
+- [x] **Step 2: Implement provider-neutral corruption metadata and archive helper**
 
 Update `StateCorruptionError` to accept metadata and expose:
 
@@ -136,7 +136,7 @@ Update `StateCorruptionError` to accept metadata and expose:
 
 Implement `archiveCorruptStateFile` under `src/core/state/archive.ts` using filesystem rename, unique names, and a companion `.reason.json` file.
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -147,7 +147,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/errors.ts src/core/state/atomic-json.ts src/core/state/mailbox-store.ts src/core/state/archive.ts tests/core/state/run-store.test.ts tests/core/state/mailbox-store.test.ts tests/core/state/archive.test.ts
@@ -160,7 +160,7 @@ git commit -m "feat: archive corrupt state artifacts"
 - Create: `src/core/logs.ts`
 - Create: `tests/core/logs.test.ts`
 
-- [ ] **Step 1: Write failing log rotation tests**
+- [x] **Step 1: Write failing log rotation tests**
 
 Add tests proving:
 
@@ -177,7 +177,7 @@ npm test -- tests/core/logs.test.ts
 
 Expected: FAIL because the shared log writer does not exist.
 
-- [ ] **Step 2: Implement bounded append helper**
+- [x] **Step 2: Implement bounded append helper**
 
 Create `appendBoundedLog` with options:
 
@@ -186,7 +186,7 @@ Create `appendBoundedLog` with options:
 
 Use byte length rather than character length, create parent directories, and rotate before appending when needed.
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -197,7 +197,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/logs.ts tests/core/logs.test.ts
@@ -210,7 +210,7 @@ git commit -m "feat: add bounded log rotation"
 - Modify: `src/providers/claude-code-cli/background.ts`
 - Modify: `tests/providers/claude-code-cli/background.test.ts`
 
-- [ ] **Step 1: Write failing background rotation test**
+- [x] **Step 1: Write failing background rotation test**
 
 Add a test proving Claude background stdout/stderr writes rotate `.agent-team/logs/<run-id>.log` when configured with a small max byte budget.
 
@@ -222,11 +222,11 @@ npm test -- tests/providers/claude-code-cli/background.test.ts
 
 Expected: FAIL because background writes use unbounded `appendFile`.
 
-- [ ] **Step 2: Wire shared bounded writer**
+- [x] **Step 2: Wire shared bounded writer**
 
 Update background session dependencies/options to allow small test limits while defaulting production logs to a conservative cap. Use the shared bounded writer for both raw transcript and combined log writes.
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -237,7 +237,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/providers/claude-code-cli/background.ts tests/providers/claude-code-cli/background.test.ts
@@ -249,7 +249,7 @@ git commit -m "feat: rotate claude background logs"
 **Files:**
 - Modify only if verification finds issues.
 
-- [ ] **Step 1: Run focused milestone tests**
+- [x] **Step 1: Run focused milestone tests**
 
 Run:
 
@@ -259,7 +259,7 @@ npm test -- tests/core/state/run-store.test.ts tests/core/state/mailbox-store.te
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -273,7 +273,7 @@ npm run ci
 
 Expected: PASS.
 
-- [ ] **Step 3: Review provider-neutral boundaries**
+- [x] **Step 3: Review provider-neutral boundaries**
 
 Run:
 
@@ -284,7 +284,7 @@ rg "CLAUDE|claude|Claude" src/core/state src/core/logs.ts
 
 Expected: archive/log helpers remain provider-neutral; Claude-specific usage stays in the Claude adapter.
 
-- [ ] **Step 4: Commit final plan checkbox update**
+- [x] **Step 4: Commit final plan checkbox update**
 
 Mark completed checklist items in this file and commit the update.
 
