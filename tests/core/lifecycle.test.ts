@@ -150,6 +150,30 @@ describe("AgentLifecycleManager", () => {
     await expect(readMailboxRecords(workspace, "run_life_1", "events")).resolves.toHaveLength(1);
   });
 
+  it("writes failed sidecar and event when provider start throws", async () => {
+    const manager = new AgentLifecycleManager({
+      createRunId: () => "run_start_failure",
+      now: () => new Date("2026-05-11T00:00:00.000Z"),
+      startSession: () => {
+        throw new Error("spawn failed");
+      }
+    });
+
+    await expect(
+      manager.startRun({ role: "planner", task: "Review", cwd: workspace })
+    ).rejects.toThrow("spawn failed");
+
+    await expect(readRunSidecar(workspace, "run_start_failure")).resolves.toMatchObject({
+      status: "failed",
+      cleanup: "partial",
+      verdict: { status: "BLOCKED", summary: expect.stringContaining("spawn failed") }
+    });
+    await expect(readMailboxRecords(workspace, "run_start_failure", "events")).resolves.toMatchObject([
+      { messageType: "running" },
+      { messageType: "failed" }
+    ]);
+  });
+
   it("transitions to completed when the provider handle completes", async () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);

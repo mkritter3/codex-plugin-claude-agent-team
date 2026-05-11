@@ -87,6 +87,32 @@ describe("MCP tool handlers", () => {
     expect(result.structuredContent?.run?.status).toBe("completed");
   });
 
+  it("uses default lifecycle status reconciliation for running sidecars", async () => {
+    const workspace = await import("node:fs/promises").then((fs) =>
+      fs.mkdtemp("/tmp/agent-team-status-")
+    );
+    await writeRunSidecar(workspace, {
+      runId: "run_running_status",
+      role: "planner",
+      provider: "claude-code-cli",
+      status: "running",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:00:01.000Z",
+      capabilitiesUsed: ["structuredOutput"],
+      evidencePaths: []
+    });
+    const handlers = createToolHandlers({ cwd: () => workspace });
+
+    const result = await handlers.handleToolCall("agent_team_status", {
+      runId: "run_running_status"
+    });
+
+    expect(result.structuredContent?.run).toMatchObject({
+      status: "running",
+      detached: true
+    });
+  });
+
   it("delegates start, status, cancel, and wind-down to injected lifecycle", async () => {
     const calls: string[] = [];
     const handlers = createToolHandlers({

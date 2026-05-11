@@ -135,10 +135,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
         }
         const workspaceRoot = args.cwd ?? cwd();
         return jsonToolResult({
-          run:
-            deps.lifecycle === undefined
-              ? await readRunSidecar(workspaceRoot, args.runId)
-              : await lifecycle.getStatus(workspaceRoot, args.runId)
+          run: await lifecycle.getStatus(workspaceRoot, args.runId)
         });
       }
 

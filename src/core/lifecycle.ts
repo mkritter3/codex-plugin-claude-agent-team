@@ -167,13 +167,36 @@ export class AgentLifecycleManager {
       payload: { task: request.task }
     });
 
-    const handle = this.startSession({
-      prompt,
-      cwd: request.cwd,
-      workspaceRoot: request.cwd,
-      runId,
-      ...(this.env === undefined ? {} : { env: this.env })
-    });
+    let handle: ProviderSessionHandle;
+    try {
+      handle = this.startSession({
+        prompt,
+        cwd: request.cwd,
+        workspaceRoot: request.cwd,
+        runId,
+        ...(this.env === undefined ? {} : { env: this.env })
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const verdict = blockedVerdict(`Provider session failed to start: ${message}`);
+      await transitionRunSidecar(request.cwd, runId, (current) => ({
+        ...current,
+        status: "failed",
+        updatedAt: this.now().toISOString(),
+        outputSummary: verdict.summary,
+        cleanup: "partial",
+        verdict
+      }));
+      await appendEventRecord(request.cwd, runId, {
+        role: request.role,
+        provider: provider.id,
+        messageType: "failed",
+        correlationId: runId,
+        createdAt: this.now().toISOString(),
+        payload: { reason: "provider_start_failed", message }
+      });
+      throw error;
+    }
     this.activeRuns.set(activeKey(request.cwd, runId), {
       handle,
       role: request.role,

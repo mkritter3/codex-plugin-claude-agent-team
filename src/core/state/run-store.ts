@@ -21,6 +21,34 @@ export function isTerminalRunStatus(status: RunStatus): boolean {
   );
 }
 
+const ALLOWED_TRANSITIONS: Record<RunStatus, readonly RunStatus[]> = {
+  queued: ["queued", "starting", "running", "failed", "expired"],
+  starting: ["starting", "running", "failed", "expired"],
+  running: [
+    "running",
+    "awaiting-input",
+    "winding-down",
+    "cancelling",
+    "completed",
+    "failed",
+    "expired"
+  ],
+  "awaiting-input": [
+    "awaiting-input",
+    "running",
+    "winding-down",
+    "cancelling",
+    "failed",
+    "expired"
+  ],
+  "winding-down": ["winding-down", "completed", "failed", "cancelling", "cancelled"],
+  cancelling: ["cancelling", "cancelled", "failed"],
+  completed: ["completed"],
+  cancelled: ["cancelled"],
+  failed: ["failed"],
+  expired: ["expired"]
+};
+
 export async function writeRunSidecar(
   workspaceRoot: string,
   sidecar: RunSidecar
@@ -43,10 +71,7 @@ export async function transitionRunSidecar(
   const current = await readRunSidecar(workspaceRoot, runId);
   const next = update(current);
 
-  if (
-    isTerminalRunStatus(current.status) &&
-    next.status !== current.status
-  ) {
+  if (!ALLOWED_TRANSITIONS[current.status].includes(next.status)) {
     throw new InvalidRunTransitionError(current.status, next.status);
   }
 

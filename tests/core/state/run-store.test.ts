@@ -132,4 +132,41 @@ describe("run-store", () => {
     expect(updated.cleanup).toBe("complete");
     await expect(readRunSidecar(workspace, "run_completed")).resolves.toEqual(updated);
   });
+
+  it("rejects stale non-terminal regressions", async () => {
+    const windingDown: RunSidecar = {
+      runId: "run_winding_down",
+      role: "planner",
+      provider: "claude-code-cli",
+      status: "winding-down",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:00:01.000Z",
+      capabilitiesUsed: ["structuredOutput"],
+      evidencePaths: []
+    };
+    await writeRunSidecar(workspace, windingDown);
+
+    await expect(
+      transitionRunSidecar(workspace, "run_winding_down", (current) => ({
+        ...current,
+        status: "running",
+        updatedAt: "2026-05-11T00:00:02.000Z"
+      }))
+    ).rejects.toThrow(InvalidRunTransitionError);
+
+    const cancelling: RunSidecar = {
+      ...windingDown,
+      runId: "run_cancelling",
+      status: "cancelling"
+    };
+    await writeRunSidecar(workspace, cancelling);
+
+    await expect(
+      transitionRunSidecar(workspace, "run_cancelling", (current) => ({
+        ...current,
+        status: "running",
+        updatedAt: "2026-05-11T00:00:02.000Z"
+      }))
+    ).rejects.toThrow(InvalidRunTransitionError);
+  });
 });
