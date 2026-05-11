@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFile } from "node:fs/promises";
 import { writeRunSidecar } from "../../src/core/state/run-store.js";
 import { createToolHandlers, handleToolCall, listToolNames } from "../../src/mcp/tools.js";
 
@@ -14,6 +15,24 @@ describe("MCP tool handlers", () => {
     const result = await handleToolCall("agent_team_list_providers", {});
 
     expect(result.structuredContent?.providers?.[0]?.id).toBe("claude-code-cli");
+    expect(result.structuredContent?.providers?.[0]?.capabilities).not.toContain("edits");
+  });
+
+  it("lists write capabilities when isolated write mode is configured", async () => {
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      config: {
+        writeMode: { enabled: true, requireIsolatedWorktree: true },
+        auth: { allowApiKeyFallback: false }
+      }
+    });
+
+    const result = await handlers.handleToolCall("agent_team_list_providers", {});
+
+    expect(result.structuredContent?.providers?.[0]?.capabilities).toContain("edits");
+    expect(result.structuredContent?.providers?.[0]?.capabilities).toContain(
+      "workspaceIsolation"
+    );
   });
 
   it("dispatches through injected read-only dispatcher", async () => {
@@ -252,6 +271,68 @@ describe("MCP tool handlers", () => {
       "cancel:/repo:run_lifecycle",
       "wind:/repo:run_lifecycle"
     ]);
+  });
+
+  it("returns execution cwd from implementation starts", async () => {
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      lifecycle: {
+        async startRun(request) {
+          return {
+            runId: "run_slice",
+            status: "running",
+            provider: "claude-code-cli",
+            role: request.role,
+            sidecarPath: "/repo/.agent-team/runs/run_slice.json",
+            logPath: "/repo/.agent-team/logs/run_slice.log",
+            executionCwd: "/tmp/.agent-team-worktrees/repo/run_slice",
+            mailboxPaths: {
+              inbox: "/repo/.agent-team/mailboxes/run_slice/inbox.jsonl",
+              outbox: "/repo/.agent-team/mailboxes/run_slice/outbox.jsonl",
+              control: "/repo/.agent-team/mailboxes/run_slice/control.jsonl",
+              events: "/repo/.agent-team/mailboxes/run_slice/events.jsonl"
+            }
+          };
+        },
+        async getStatus() {
+          throw new Error("should not status");
+        },
+        async messageRun() {
+          throw new Error("should not message");
+        },
+        async replyRun() {
+          throw new Error("should not reply");
+        },
+        async cancelRun() {
+          throw new Error("should not cancel");
+        },
+        async windDownRun() {
+          throw new Error("should not wind down");
+        }
+      }
+    });
+
+    await expect(
+      handlers.handleToolCall("agent_team_start", {
+        role: "slice-implementer",
+        task: "Implement config loading"
+      })
+    ).resolves.toMatchObject({
+      structuredContent: {
+        runId: "run_slice",
+        executionCwd: "/tmp/.agent-team-worktrees/repo/run_slice"
+      }
+    });
+  });
+
+  it("includes a guarded implementation handoff prompt in plugin metadata", async () => {
+    const plugin = JSON.parse(
+      await readFile(new URL("../../.codex-plugin/plugin.json", import.meta.url), "utf8")
+    ) as { interface?: { defaultPrompt?: readonly string[] } };
+
+    expect(plugin.interface?.defaultPrompt).toContain(
+      "Start an isolated slice-implementer run for this bounded task."
+    );
   });
 
   it("validates lifecycle control run ids before invoking lifecycle", async () => {

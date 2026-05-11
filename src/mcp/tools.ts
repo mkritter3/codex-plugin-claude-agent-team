@@ -1,4 +1,5 @@
 import { runDoctor } from "../doctor.js";
+import { loadAgentTeamConfig } from "../core/config.js";
 import { dispatchReadOnlyAgent } from "../core/dispatch.js";
 import { defaultLifecycleManager } from "../core/lifecycle.js";
 import { listRoles } from "../core/roles.js";
@@ -10,6 +11,7 @@ import type {
   AgentReplyRequest,
   AgentReplyResult,
   AgentStartResult,
+  AgentTeamConfig,
   RoleId,
   RunSidecar
 } from "../core/types.js";
@@ -44,6 +46,7 @@ export interface ToolDependencies {
     readonly windDownRun: (cwd: string, runId: string) => Promise<AgentControlResult>;
   };
   readonly cwd?: () => string;
+  readonly config?: AgentTeamConfig;
 }
 
 export function listToolNames(): readonly ToolName[] {
@@ -168,6 +171,10 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
   const lifecycle = deps.lifecycle ?? defaultLifecycleManager;
   const cwd = deps.cwd ?? process.cwd;
 
+  async function config(): Promise<AgentTeamConfig> {
+    return deps.config ?? loadAgentTeamConfig(cwd());
+  }
+
   return {
     async handleToolCall(name, args): Promise<JsonToolResult> {
       if (name === "agent_team_list_roles") {
@@ -175,7 +182,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
       }
 
       if (name === "agent_team_list_providers") {
-        return jsonToolResult({ providers: listProviders() });
+        return jsonToolResult({ providers: listProviders({ config: await config() }) });
       }
 
       if (name === "agent_team_doctor") {
