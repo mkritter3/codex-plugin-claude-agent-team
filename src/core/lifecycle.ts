@@ -508,11 +508,24 @@ export class AgentLifecycleManager {
     active.handle.kill();
     await this.sleep(this.cancelGraceMs);
     active.handle.forceKill();
+    const cancellingSidecar = await readRunSidecar(workspaceRoot, runId);
+    const implementationEvidence = await this.implementationEvidence(
+      workspaceRoot,
+      runId,
+      cancellingSidecar
+    );
     const cancelled = await transitionRunSidecar(workspaceRoot, runId, (current) => ({
       ...current,
+      ...implementationEvidence.sidecar,
       status: "cancelled",
       updatedAt: this.now().toISOString(),
-      cleanup: "partial"
+      cleanup: "partial",
+      evidencePaths: [
+        ...new Set([
+          ...current.evidencePaths,
+          ...implementationEvidence.evidencePaths
+        ])
+      ]
     }));
 
     return this.result(workspaceRoot, cancelled, "Run cancelled.");
@@ -709,15 +722,30 @@ export class AgentLifecycleManager {
       }
 
       const verdict = blockedVerdict(`Provider session ended with status ${status}.`);
+      const current = await readRunSidecar(workspaceRoot, runId);
+      const implementationEvidence = await this.implementationEvidence(
+        workspaceRoot,
+        runId,
+        current
+      );
       const failed = await transitionRunSidecar(workspaceRoot, runId, (current) =>
         sidecarWithSnapshot(
           {
             ...current,
+            ...implementationEvidence.sidecar,
             status: "failed",
             updatedAt: this.now().toISOString(),
             outputSummary: verdict.summary,
             cleanup: "partial",
-            verdict
+            verdict,
+            evidencePaths: [
+              ...new Set([
+                ...current.evidencePaths,
+                ...(snapshot.logPath === undefined ? [] : [snapshot.logPath]),
+                ...(snapshot.transcriptPath === undefined ? [] : [snapshot.transcriptPath]),
+                ...implementationEvidence.evidencePaths
+              ])
+            ]
           },
           snapshot
         )

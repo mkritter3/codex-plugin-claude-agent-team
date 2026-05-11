@@ -675,4 +675,160 @@ describe("AgentLifecycleManager", () => {
     );
     expect(inspected).toBe(false);
   });
+
+  it("harvests implementation evidence when provider sessions fail", async () => {
+    const done = deferred<ProviderSessionDoneStatus>();
+    const handle = fakeHandle(done.promise);
+    const manager = new AgentLifecycleManager({
+      config: {
+        writeMode: { enabled: true, requireIsolatedWorktree: true },
+        auth: { allowApiKeyFallback: false }
+      },
+      createRunId: () => "run_slice_provider_failed",
+      allocateWorkspace: async () => ({
+        sourceCwd: workspace,
+        executionCwd: `${workspace}-provider-failed-worktree`,
+        branchName: "agent-team/run_slice_provider_failed",
+        baseRef: "HEAD",
+        isolation: "git-worktree",
+        retention: "retain-until-integrated",
+        cleanup: "retained"
+      }),
+      inspectWorkspace: async () => ({
+        changedFiles: ["src/core/failure.ts"],
+        statusSummary: [" M src/core/failure.ts"],
+        diffText: "diff --git a/src/core/failure.ts b/src/core/failure.ts\n"
+      }),
+      startSession: () => handle
+    });
+
+    await manager.startRun({
+      role: "slice-implementer",
+      task: "Implement a bounded change.",
+      cwd: workspace
+    });
+    done.resolve("failed");
+
+    const failed = await waitForSidecar(
+      "run_slice_provider_failed",
+      (sidecar) => sidecar.status === "failed"
+    );
+
+    expect(failed).toMatchObject({
+      status: "failed",
+      cleanup: "partial",
+      changedFiles: ["src/core/failure.ts"],
+      workspaceStatus: [" M src/core/failure.ts"],
+      workspaceCleanup: "retained",
+      workspaceDiffPath: join(
+        workspace,
+        ".agent-team",
+        "logs",
+        "run_slice_provider_failed.diff.patch"
+      )
+    });
+  });
+
+  it("harvests implementation evidence when runs are cancelled", async () => {
+    const done = deferred<ProviderSessionDoneStatus>();
+    const handle = fakeHandle(done.promise);
+    const manager = new AgentLifecycleManager({
+      config: {
+        writeMode: { enabled: true, requireIsolatedWorktree: true },
+        auth: { allowApiKeyFallback: false }
+      },
+      createRunId: () => "run_slice_cancelled",
+      cancelGraceMs: 0,
+      allocateWorkspace: async () => ({
+        sourceCwd: workspace,
+        executionCwd: `${workspace}-cancelled-worktree`,
+        branchName: "agent-team/run_slice_cancelled",
+        baseRef: "HEAD",
+        isolation: "git-worktree",
+        retention: "retain-until-integrated",
+        cleanup: "retained"
+      }),
+      inspectWorkspace: async () => ({
+        changedFiles: ["src/core/cancelled.ts"],
+        statusSummary: [" M src/core/cancelled.ts"],
+        diffText: "diff --git a/src/core/cancelled.ts b/src/core/cancelled.ts\n"
+      }),
+      startSession: () => handle
+    });
+
+    await manager.startRun({
+      role: "slice-implementer",
+      task: "Implement a bounded change.",
+      cwd: workspace
+    });
+    const result = await manager.cancelRun(workspace, "run_slice_cancelled");
+
+    expect(result.status).toBe("cancelled");
+    await expect(readRunSidecar(workspace, "run_slice_cancelled")).resolves.toMatchObject({
+      status: "cancelled",
+      cleanup: "partial",
+      changedFiles: ["src/core/cancelled.ts"],
+      workspaceStatus: [" M src/core/cancelled.ts"],
+      workspaceCleanup: "retained"
+    });
+  });
+
+  it("does not block cancellation when implementation inspection fails", async () => {
+    const done = deferred<ProviderSessionDoneStatus>();
+    const handle = fakeHandle(done.promise);
+    const manager = new AgentLifecycleManager({
+      config: {
+        writeMode: { enabled: true, requireIsolatedWorktree: true },
+        auth: { allowApiKeyFallback: false }
+      },
+      createRunId: () => "run_slice_cancel_inspect_failed",
+      cancelGraceMs: 0,
+      allocateWorkspace: async () => ({
+        sourceCwd: workspace,
+        executionCwd: `${workspace}-cancel-inspect-failed-worktree`,
+        branchName: "agent-team/run_slice_cancel_inspect_failed",
+        baseRef: "HEAD",
+        isolation: "git-worktree",
+        retention: "retain-until-integrated",
+        cleanup: "retained"
+      }),
+      inspectWorkspace: async () => {
+        throw new Error("status failed");
+      },
+      startSession: () => handle
+    });
+
+    await manager.startRun({
+      role: "slice-implementer",
+      task: "Implement a bounded change.",
+      cwd: workspace
+    });
+    await manager.cancelRun(workspace, "run_slice_cancel_inspect_failed");
+
+    await expect(readRunSidecar(workspace, "run_slice_cancel_inspect_failed")).resolves.toMatchObject({
+      status: "cancelled",
+      cleanup: "partial",
+      warnings: [expect.stringContaining("status failed")]
+    });
+  });
+
+  it("does not inspect workspaces for read-only cancellation", async () => {
+    const done = deferred<ProviderSessionDoneStatus>();
+    const handle = fakeHandle(done.promise);
+    let inspected = false;
+    const manager = new AgentLifecycleManager({
+      createRunId: () => "run_readonly_cancel_no_inspect",
+      cancelGraceMs: 0,
+      inspectWorkspace: async () => {
+        inspected = true;
+        return { changedFiles: [], statusSummary: [] };
+      },
+      startSession: () => handle
+    });
+
+    await manager.startRun({ role: "planner", task: "Review", cwd: workspace });
+    await manager.cancelRun(workspace, "run_readonly_cancel_no_inspect");
+
+    expect(inspected).toBe(false);
+  });
 });
