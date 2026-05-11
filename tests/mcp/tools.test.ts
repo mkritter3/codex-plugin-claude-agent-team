@@ -332,24 +332,27 @@ describe("MCP tool handlers", () => {
     });
 
     expect(createdManagers).toEqual(["manager_1"]);
-    expect(requests).toEqual([
-      {
-        managerId: "manager_1",
-        role: "planner",
-        task: "Plan",
-        cwd: workspace,
-        provider: "claude-code-cli",
-        timeoutMs: 1234
-      },
-      {
-        managerId: "manager_1",
-        role: "debugger",
-        task: "Debug",
-        cwd: workspace,
-        provider: "claude-code-cli",
-        timeoutMs: 5678
-      }
-    ]);
+    expect(requests).toEqual(
+      expect.arrayContaining([
+        {
+          managerId: "manager_1",
+          role: "planner",
+          task: "Plan",
+          cwd: workspace,
+          provider: "claude-code-cli",
+          timeoutMs: 1234
+        },
+        {
+          managerId: "manager_1",
+          role: "debugger",
+          task: "Debug",
+          cwd: workspace,
+          provider: "claude-code-cli",
+          timeoutMs: 5678
+        }
+      ])
+    );
+    expect(requests).toHaveLength(2);
     expect(result.structuredContent).toMatchObject({
       status: "started",
       concurrency: 2,
