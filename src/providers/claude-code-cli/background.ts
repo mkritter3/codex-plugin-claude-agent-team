@@ -1,8 +1,8 @@
 import { spawn as nodeSpawn } from "node:child_process";
-import { appendFile, mkdir } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { createInterface } from "node:readline";
 import type { Readable, Writable } from "node:stream";
+import { appendBoundedLog } from "../../core/logs.js";
 import { runLogPath } from "../../core/state/paths.js";
 import type {
   ProviderSessionDoneStatus,
@@ -60,6 +60,8 @@ export interface StartClaudeBackgroundSessionDependencies {
   readonly now?: () => number;
   readonly maxActivities?: number;
   readonly maxStderrLines?: number;
+  readonly maxLogBytes?: number;
+  readonly maxRotatedLogFiles?: number;
 }
 
 const defaultSpawn: SpawnLike = (command, args, options) =>
@@ -67,6 +69,9 @@ const defaultSpawn: SpawnLike = (command, args, options) =>
     ...options,
     stdio: [...options.stdio]
   }) as SpawnedClaudeProcess;
+
+const DEFAULT_MAX_LOG_BYTES = 1_048_576;
+const DEFAULT_MAX_ROTATED_LOG_FILES = 5;
 
 function transcriptPath(workspaceRoot: string, runId: string): string {
   return join(workspaceRoot, ".agent-team", "logs", `${runId}.stream.jsonl`);
@@ -110,6 +115,7 @@ export function startClaudeBackgroundSession(
   });
   const lastStderr: string[] = [];
   const writes: Array<Promise<void>> = [];
+  let writeQueue: Promise<void> = Promise.resolve();
   let sigkillSent = false;
 
   const child = spawnImpl(command.command, command.args, {
@@ -120,9 +126,14 @@ export function startClaudeBackgroundSession(
   });
 
   function write(path: string, text: string): void {
-    writes.push(
-      mkdir(dirname(path), { recursive: true }).then(() => appendFile(path, text, "utf8"))
+    const nextWrite = writeQueue.then(() =>
+      appendBoundedLog(path, text, {
+        maxBytes: deps.maxLogBytes ?? DEFAULT_MAX_LOG_BYTES,
+        maxRotatedFiles: deps.maxRotatedLogFiles ?? DEFAULT_MAX_ROTATED_LOG_FILES
+      })
     );
+    writeQueue = nextWrite.catch(() => undefined);
+    writes.push(nextWrite);
   }
 
   if (child.stdout !== null) {

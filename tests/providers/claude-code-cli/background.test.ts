@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PassThrough } from "node:stream";
@@ -195,6 +195,45 @@ describe("Claude background session runner", () => {
       "session_abc"
     );
     await expect(readFile(handle.logPath!, "utf8")).resolves.toContain("third");
+  });
+
+  it("rotates oversized background logs through the shared bounded writer", async () => {
+    const child = new FakeChildProcess();
+    const handle = startClaudeBackgroundSession(
+      {
+        prompt: "Inspect",
+        cwd: workspace,
+        workspaceRoot: workspace,
+        runId: "run_bg_rotate",
+        env: {}
+      },
+      {
+        spawn: () => child,
+        maxLogBytes: 40,
+        maxRotatedLogFiles: 2
+      }
+    );
+
+    child.stdout.write(
+      `${JSON.stringify({
+        type: "assistant",
+        message: { content: [{ type: "text", text: "first log line" }] }
+      })}\n`
+    );
+    child.stderr.write("second log line with more bytes\n");
+    child.stdout.write(
+      `${JSON.stringify({
+        type: "result",
+        result: "third log line with more bytes"
+      })}\n`
+    );
+    child.emit("close", 0, null);
+
+    await expect(handle.done).resolves.toBe("completed");
+    expect((await stat(handle.logPath!)).size).toBeLessThanOrEqual(40);
+    await expect(readFile(`${handle.logPath!}.1`, "utf8")).resolves.toContain(
+      "second log line"
+    );
   });
 
   it("surfaces explicit outbox requests through live snapshots", () => {
