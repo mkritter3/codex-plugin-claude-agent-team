@@ -47,7 +47,7 @@
 - Modify: `src/providers/index.ts`
 - Test: `tests/providers/runtime.test.ts`
 
-- [ ] **Step 1: Write failing runtime registry tests**
+- [x] **Step 1: Write failing runtime registry tests**
 
 Add tests proving:
 
@@ -63,7 +63,7 @@ npm test -- tests/providers/runtime.test.ts
 
 Expected: FAIL because no provider runtime registry exists.
 
-- [ ] **Step 2: Implement runtime types and Claude runtime**
+- [x] **Step 2: Implement runtime types and Claude runtime**
 
 Add provider-neutral contracts for:
 
@@ -90,7 +90,7 @@ Add registry helpers:
 - `getProviderRuntime(providerId, options?)`
 - `requireProviderRuntime(providerId, options?)`
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -101,7 +101,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/providers/runtime.ts src/providers/claude-code-cli/runtime.ts src/providers/types.ts src/providers/index.ts tests/providers/runtime.test.ts
@@ -114,7 +114,7 @@ git commit -m "feat: add provider runtime registry"
 - Modify: `src/core/dispatch.ts`
 - Modify: `tests/core/dispatch.test.ts`
 
-- [ ] **Step 1: Write failing dispatch runtime tests**
+- [x] **Step 1: Write failing dispatch runtime tests**
 
 Add tests proving:
 
@@ -130,7 +130,7 @@ npm test -- tests/core/dispatch.test.ts
 
 Expected: FAIL because dispatch imports `runClaudePrint` and `inspectClaudeEnvironment` directly.
 
-- [ ] **Step 2: Implement runtime-based dispatch**
+- [x] **Step 2: Implement runtime-based dispatch**
 
 Update `DispatchDependencies` to accept runtime registry overrides. After selecting the provider:
 
@@ -143,7 +143,7 @@ Update `DispatchDependencies` to accept runtime registry overrides. After select
 
 Do not add fallback runtimes or API-key behavior.
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -154,7 +154,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/dispatch.ts tests/core/dispatch.test.ts
@@ -167,7 +167,7 @@ git commit -m "feat: dispatch through provider runtimes"
 - Modify: `src/core/lifecycle.ts`
 - Modify: `tests/core/lifecycle.test.ts`
 
-- [ ] **Step 1: Write failing lifecycle runtime tests**
+- [x] **Step 1: Write failing lifecycle runtime tests**
 
 Add tests proving:
 
@@ -183,7 +183,7 @@ npm test -- tests/core/lifecycle.test.ts
 
 Expected: FAIL because lifecycle imports the Claude background starter directly.
 
-- [ ] **Step 2: Implement runtime-based lifecycle session starts**
+- [x] **Step 2: Implement runtime-based lifecycle session starts**
 
 Update lifecycle dependencies to accept runtime registry overrides. Replace the constructor's Claude default with a helper that:
 
@@ -193,7 +193,7 @@ Update lifecycle dependencies to accept runtime registry overrides. Replace the 
 
 Preserve all existing state, mailbox, live message, cancellation, wind-down, workspace evidence, and completion behavior.
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -204,7 +204,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/lifecycle.ts tests/core/lifecycle.test.ts
@@ -217,7 +217,7 @@ git commit -m "feat: start lifecycle sessions through provider runtimes"
 - Modify: `src/doctor.ts`
 - Modify: `tests/doctor.test.ts`
 
-- [ ] **Step 1: Write failing doctor runtime tests**
+- [x] **Step 1: Write failing doctor runtime tests**
 
 Add tests proving:
 
@@ -233,7 +233,7 @@ npm test -- tests/doctor.test.ts
 
 Expected: FAIL because doctor imports Claude environment inspection directly and performs Claude CLI checks itself.
 
-- [ ] **Step 2: Implement runtime-based doctor checks**
+- [x] **Step 2: Implement runtime-based doctor checks**
 
 Update doctor to:
 
@@ -245,7 +245,7 @@ Update doctor to:
 
 Do not introduce API fallback unless `config.auth.allowApiKeyFallback` already changes auth-precedence from fail to warn.
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -256,7 +256,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/doctor.ts tests/doctor.test.ts
@@ -268,7 +268,7 @@ git commit -m "feat: check provider runtime health in doctor"
 **Files:**
 - Modify only if verification finds issues.
 
-- [ ] **Step 1: Run focused milestone tests**
+- [x] **Step 1: Run focused milestone tests**
 
 Run:
 
@@ -278,7 +278,7 @@ npm test -- tests/providers/runtime.test.ts tests/core/dispatch.test.ts tests/co
 
 Expected: PASS.
 
-- [ ] **Step 2: Run provider-boundary grep**
+- [x] **Step 2: Run provider-boundary grep**
 
 Run:
 
@@ -288,7 +288,7 @@ rg "providers/claude-code-cli" src/core src/doctor.ts
 
 Expected: no matches.
 
-- [ ] **Step 3: Run full verification**
+- [x] **Step 3: Run full verification**
 
 Run:
 
@@ -300,7 +300,7 @@ npm run build
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit final plan checkbox update**
+- [x] **Step 4: Commit final plan checkbox update**
 
 Mark completed checklist items in this file and commit the update.
 
