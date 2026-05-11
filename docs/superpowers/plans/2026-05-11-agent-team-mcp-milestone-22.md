@@ -36,7 +36,7 @@
 - Modify: `src/providers/claude-code-cli/agent-definition-store.ts`
 - Modify: `tests/providers/claude-code-cli/agent-definition-store.test.ts`
 
-- [ ] **Step 1: Write failing validate-or-create store tests**
+- [x] **Step 1: Write failing validate-or-create store tests**
 
 Add tests proving:
 
@@ -52,7 +52,7 @@ npm test -- tests/providers/claude-code-cli/agent-definition-store.test.ts
 
 Expected: FAIL because `ensureValidClaudeAgentDefinitionArtifacts` does not exist.
 
-- [ ] **Step 2: Implement validate-or-create helper**
+- [x] **Step 2: Implement validate-or-create helper**
 
 In `src/providers/claude-code-cli/agent-definition-store.ts`:
 
@@ -67,7 +67,7 @@ In `src/providers/claude-code-cli/agent-definition-store.ts`:
 
 Do not add heuristic repair for drift in this helper; explicit repair remains the write helper.
 
-- [ ] **Step 3: Run focused store tests**
+- [x] **Step 3: Run focused store tests**
 
 Run:
 
@@ -78,7 +78,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/providers/claude-code-cli/agent-definition-store.ts tests/providers/claude-code-cli/agent-definition-store.test.ts
@@ -91,7 +91,7 @@ git commit -m "feat: guard claude agent artifact drift"
 - Modify: `src/providers/claude-code-cli/runtime.ts`
 - Modify: `tests/providers/claude-code-cli/runtime-health.test.ts`
 
-- [ ] **Step 1: Write failing runtime health drift test**
+- [x] **Step 1: Write failing runtime health drift test**
 
 Add a runtime health test proving:
 
@@ -108,7 +108,7 @@ npm test -- tests/providers/claude-code-cli/runtime-health.test.ts
 
 Expected: FAIL because runtime health currently overwrites drifted artifacts.
 
-- [ ] **Step 2: Use validate-or-create in runtime health**
+- [x] **Step 2: Use validate-or-create in runtime health**
 
 In `src/providers/claude-code-cli/runtime.ts`:
 
@@ -118,7 +118,7 @@ In `src/providers/claude-code-cli/runtime.ts`:
 - on failure, include relative artifact paths from `claudeAgentDefinitionArtifacts(input.workspaceRoot)` when possible
 - keep the existing Claude CLI binary, auth, generated-definition, subscription OAuth, and missing-CLI behavior
 
-- [ ] **Step 3: Run focused runtime health tests**
+- [x] **Step 3: Run focused runtime health tests**
 
 Run:
 
@@ -129,7 +129,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/providers/claude-code-cli/runtime.ts tests/providers/claude-code-cli/runtime-health.test.ts
@@ -141,7 +141,7 @@ git commit -m "feat: fail claude health on artifact drift"
 **Files:**
 - Modify only if verification finds issues.
 
-- [ ] **Step 1: Run focused milestone tests**
+- [x] **Step 1: Run focused milestone tests**
 
 Run:
 
@@ -151,7 +151,7 @@ npm test -- tests/providers/claude-code-cli/agent-definition-store.test.ts tests
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -165,7 +165,7 @@ npm run ci
 
 Expected: PASS.
 
-- [ ] **Step 3: Review boundary and safety invariants**
+- [x] **Step 3: Review boundary and safety invariants**
 
 Run:
 
@@ -176,7 +176,7 @@ rg "allowApiKeyFallback|benchmark|embedding|mock LLM|bypassPermissions" src/prov
 
 Expected: drift validation stays inside the Claude provider; existing fail-closed auth and bypass-permission guards remain unchanged; no benchmark, embedding, mock LLM, API fallback, or provider-specific MCP schema is introduced.
 
-- [ ] **Step 4: Commit final plan checkbox update**
+- [x] **Step 4: Commit final plan checkbox update**
 
 Mark completed checklist items in this file and commit the update.
 
