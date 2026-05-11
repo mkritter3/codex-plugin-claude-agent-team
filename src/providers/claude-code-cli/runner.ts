@@ -51,8 +51,8 @@ const defaultExecFile: ExecFileLike = async (command, args, options) => {
       code?: number;
     };
     throw new ClaudeProcessError(execError.message, {
-      stdout: execError.stdout,
-      stderr: execError.stderr,
+      ...(execError.stdout === undefined ? {} : { stdout: execError.stdout }),
+      ...(execError.stderr === undefined ? {} : { stderr: execError.stderr }),
       exitCode: typeof execError.code === "number" ? execError.code : 1
     });
   }
@@ -76,8 +76,8 @@ export async function runClaudePrint(input: {
   try {
     const result = await execFileImpl(command.command, command.args, {
       cwd: command.cwd,
-      timeout: input.timeoutMs,
-      env: input.env
+      ...(input.timeoutMs === undefined ? {} : { timeout: input.timeoutMs }),
+      ...(input.env === undefined ? {} : { env: input.env })
     });
     const parsed = parseClaudeJsonOutput(result.stdout);
     return {

@@ -126,8 +126,8 @@ export async function dispatchReadOnlyAgent(
   const providers = deps.providers ?? listProviders();
   const provider = selectProvider({
     roleId: request.role,
-    requestedProviderId: request.provider,
-    providers
+    providers,
+    ...(request.provider === undefined ? {} : { requestedProviderId: request.provider })
   });
 
   const finish = async (input: {
@@ -139,19 +139,24 @@ export async function dispatchReadOnlyAgent(
     readonly providerSessionId?: string;
   }): Promise<AgentDispatchResult> => {
     const updatedAt = now().toISOString();
-    await persist({
+    const persistInput = {
       request,
       runId,
       provider,
       status: input.status,
       createdAt,
       updatedAt,
-      logPath: input.logPath,
-      promptHash: input.promptHash,
       verdict: input.verdict,
-      outputSummary: input.outputSummary,
-      providerSessionId: input.providerSessionId
-    });
+      ...(input.logPath === undefined ? {} : { logPath: input.logPath }),
+      ...(input.promptHash === undefined ? {} : { promptHash: input.promptHash }),
+      ...(input.outputSummary === undefined
+        ? {}
+        : { outputSummary: input.outputSummary }),
+      ...(input.providerSessionId === undefined
+        ? {}
+        : { providerSessionId: input.providerSessionId })
+    };
+    await persist(persistInput);
     return {
       runId,
       status: input.status,
@@ -240,8 +245,8 @@ export async function dispatchReadOnlyAgent(
   const providerResult = await runClaude({
     prompt,
     cwd: request.cwd,
-    timeoutMs: request.timeoutMs,
-    env: deps.env
+    ...(request.timeoutMs === undefined ? {} : { timeoutMs: request.timeoutMs }),
+    ...(deps.env === undefined ? {} : { env: deps.env })
   });
   const logPath = await writeRawLog(request.cwd, runId, providerResult);
 
@@ -284,6 +289,8 @@ export async function dispatchReadOnlyAgent(
     logPath,
     promptHash: promptDigest,
     outputSummary: verdict.summary,
-    providerSessionId: providerResult.sessionId
+    ...(providerResult.sessionId === undefined
+      ? {}
+      : { providerSessionId: providerResult.sessionId })
   });
 }
