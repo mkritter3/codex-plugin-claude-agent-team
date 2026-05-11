@@ -18,11 +18,13 @@
 - Modify `src/providers/claude-code-cli/runner.ts`: pass generated agent definitions and selected role into print-mode commands.
 - Modify `src/providers/claude-code-cli/background.ts`: pass generated agent definitions and selected role into background/resume commands.
 - Modify `src/providers/claude-code-cli/doctor.ts`: expose generated-definition validation as Claude provider health checks.
+- Modify `src/providers/claude-code-cli/runtime.ts`: include generated-definition validation in runtime health checks.
 - Add `tests/providers/claude-code-cli/agents.test.ts`: cover generated definition shape, role coverage, and fail-closed validation.
 - Modify `tests/providers/claude-code-cli/commands.test.ts`: cover `--agents` and `--agent` flag construction.
 - Modify `tests/providers/claude-code-cli/runner.test.ts`: cover print-mode generated agent routing.
 - Modify `tests/providers/claude-code-cli/background.test.ts`: cover background generated agent routing.
 - Modify `tests/providers/claude-code-cli/doctor.test.ts`: cover generated-definition doctor checks.
+- Modify `tests/providers/claude-code-cli/runtime-health.test.ts`: cover runtime health surfacing for generated-definition checks.
 - Modify this plan file after implementation to mark completed tasks.
 
 ## Success Criteria
@@ -51,7 +53,7 @@
 - Create: `src/providers/claude-code-cli/agents.ts`
 - Add: `tests/providers/claude-code-cli/agents.test.ts`
 
-- [ ] **Step 1: Write failing generated-definition tests**
+- [x] **Step 1: Write failing generated-definition tests**
 
 Add tests proving:
 
@@ -69,7 +71,7 @@ npm test -- tests/providers/claude-code-cli/agents.test.ts
 
 Expected: FAIL because the agent-definition generator does not exist.
 
-- [ ] **Step 2: Implement generated-definition module**
+- [x] **Step 2: Implement generated-definition module**
 
 Create provider-owned helpers:
 
@@ -79,7 +81,7 @@ Create provider-owned helpers:
 
 Use `claudeRolePolicyFor` for tools and disallowed tools. Keep Claude field names and prompt wording in this provider folder.
 
-- [ ] **Step 3: Run focused generator tests**
+- [x] **Step 3: Run focused generator tests**
 
 Run:
 
@@ -90,7 +92,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/providers/claude-code-cli/agents.ts tests/providers/claude-code-cli/agents.test.ts
@@ -104,7 +106,7 @@ git commit -m "feat: generate claude agent definitions"
 - Modify: `src/providers/claude-code-cli/commands.ts`
 - Modify: `tests/providers/claude-code-cli/commands.test.ts`
 
-- [ ] **Step 1: Write failing command tests**
+- [x] **Step 1: Write failing command tests**
 
 Add tests proving:
 
@@ -120,17 +122,17 @@ npm test -- tests/providers/claude-code-cli/commands.test.ts
 
 Expected: FAIL because command input does not support agent definitions.
 
-- [ ] **Step 2: Implement command flag support**
+- [x] **Step 2: Implement command flag support**
 
 Add optional `agentName` and `agents` to `ClaudeCommandInput`.
 
 In `buildClaudeCommand`:
 
-- push `--agents` with `JSON.stringify(input.agents)` when supplied
+- push `--agents` with deterministic serialized generated definitions when supplied
 - push `--agent` with `input.agentName` when supplied
 - preserve existing `--allowedTools`, `--disallowedTools`, permission mode, resume, no-bare, and stream behavior
 
-- [ ] **Step 3: Run focused command tests**
+- [x] **Step 3: Run focused command tests**
 
 Run:
 
@@ -141,7 +143,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/providers/claude-code-cli/types.ts src/providers/claude-code-cli/commands.ts tests/providers/claude-code-cli/commands.test.ts
@@ -154,11 +156,13 @@ git commit -m "feat: route claude generated agents"
 - Modify: `src/providers/claude-code-cli/runner.ts`
 - Modify: `src/providers/claude-code-cli/background.ts`
 - Modify: `src/providers/claude-code-cli/doctor.ts`
+- Modify: `src/providers/claude-code-cli/runtime.ts`
 - Modify: `tests/providers/claude-code-cli/runner.test.ts`
 - Modify: `tests/providers/claude-code-cli/background.test.ts`
 - Modify: `tests/providers/claude-code-cli/doctor.test.ts`
+- Modify: `tests/providers/claude-code-cli/runtime-health.test.ts`
 
-- [ ] **Step 1: Write failing runtime and doctor tests**
+- [x] **Step 1: Write failing runtime and doctor tests**
 
 Add tests proving:
 
@@ -166,16 +170,17 @@ Add tests proving:
 - background mode with `roleId: "planner"` passes `--agents` and `--agent planner`
 - background resume preserves `--resume` while also passing generated definitions for the selected role
 - doctor reports `claude-agent-definitions` as passing when generation validates
+- runtime health includes the `claude-agent-definitions` check
 
 Run:
 
 ```bash
-npm test -- tests/providers/claude-code-cli/runner.test.ts tests/providers/claude-code-cli/background.test.ts tests/providers/claude-code-cli/doctor.test.ts
+npm test -- tests/providers/claude-code-cli/runner.test.ts tests/providers/claude-code-cli/background.test.ts tests/providers/claude-code-cli/doctor.test.ts tests/providers/claude-code-cli/runtime-health.test.ts
 ```
 
 Expected: FAIL because runtime paths do not pass generated agent definitions and doctor does not check them.
 
-- [ ] **Step 2: Wire runtime generation**
+- [x] **Step 2: Wire runtime generation**
 
 In print and background adapters:
 
@@ -184,7 +189,7 @@ In print and background adapters:
 - pass `agentName: roleId`
 - preserve role policy, auth inspection, timeout behavior, session resume, log rotation, stdin, cancellation, and no-bare behavior
 
-- [ ] **Step 3: Add doctor generated-definition check**
+- [x] **Step 3: Add doctor generated-definition check**
 
 In Claude provider health checks:
 
@@ -194,21 +199,21 @@ In Claude provider health checks:
 - return a fail check if validation throws
 - do not invoke Claude, an LLM, embeddings, or model-quality benchmarks
 
-- [ ] **Step 4: Run focused integration tests**
+- [x] **Step 4: Run focused integration tests**
 
 Run:
 
 ```bash
-npm test -- tests/providers/claude-code-cli/runner.test.ts tests/providers/claude-code-cli/background.test.ts tests/providers/claude-code-cli/doctor.test.ts
+npm test -- tests/providers/claude-code-cli/runner.test.ts tests/providers/claude-code-cli/background.test.ts tests/providers/claude-code-cli/doctor.test.ts tests/providers/claude-code-cli/runtime-health.test.ts
 npm run typecheck
 ```
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
-git add src/providers/claude-code-cli/runner.ts src/providers/claude-code-cli/background.ts src/providers/claude-code-cli/doctor.ts tests/providers/claude-code-cli/runner.test.ts tests/providers/claude-code-cli/background.test.ts tests/providers/claude-code-cli/doctor.test.ts
+git add src/providers/claude-code-cli/runner.ts src/providers/claude-code-cli/background.ts src/providers/claude-code-cli/doctor.ts src/providers/claude-code-cli/runtime.ts tests/providers/claude-code-cli/runner.test.ts tests/providers/claude-code-cli/background.test.ts tests/providers/claude-code-cli/doctor.test.ts tests/providers/claude-code-cli/runtime-health.test.ts
 git commit -m "feat: attach claude agents to runtime"
 ```
 
@@ -217,17 +222,17 @@ git commit -m "feat: attach claude agents to runtime"
 **Files:**
 - Modify only if verification finds issues.
 
-- [ ] **Step 1: Run focused milestone tests**
+- [x] **Step 1: Run focused milestone tests**
 
 Run:
 
 ```bash
-npm test -- tests/providers/claude-code-cli/agents.test.ts tests/providers/claude-code-cli/commands.test.ts tests/providers/claude-code-cli/runner.test.ts tests/providers/claude-code-cli/background.test.ts tests/providers/claude-code-cli/doctor.test.ts
+npm test -- tests/providers/claude-code-cli/agents.test.ts tests/providers/claude-code-cli/commands.test.ts tests/providers/claude-code-cli/runner.test.ts tests/providers/claude-code-cli/background.test.ts tests/providers/claude-code-cli/doctor.test.ts tests/providers/claude-code-cli/runtime-health.test.ts
 ```
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -241,7 +246,7 @@ npm run ci
 
 Expected: PASS.
 
-- [ ] **Step 3: Review boundary and safety invariants**
+- [x] **Step 3: Review boundary and safety invariants**
 
 Run:
 
@@ -250,9 +255,9 @@ rg "--agents|--agent|ClaudeAgent" src tests docs/superpowers/plans/2026-05-11-ag
 rg "bypassPermissions|allowApiKeyFallback|benchmark|embedding|mock LLM" src/providers/claude-code-cli tests/providers/claude-code-cli
 ```
 
-Expected: Claude-specific agent config stays under the Claude provider and tests. No new API fallback, benchmark, embedding, mock LLM, or bypass-permission path is introduced.
+Expected: Claude-specific agent config stays under the Claude provider and tests. Existing bypass-permission type guards remain fail-closed; no new API fallback, benchmark, embedding, mock LLM, or bypass-permission runtime path is introduced.
 
-- [ ] **Step 4: Commit final plan checkbox update**
+- [x] **Step 4: Commit final plan checkbox update**
 
 Mark completed checklist items in this file and commit the update.
 
