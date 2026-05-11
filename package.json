@@ -1,0 +1,30 @@
+{
+  "name": "codex-plugin-claude-agent-team",
+  "version": "0.1.0",
+  "description": "Codex MCP plugin for provider-neutral AI agent teams with Claude Code CLI as the first adapter.",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "agent-team-mcp": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "start": "tsx src/index.ts",
+    "ci": "npm run typecheck && npm test"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.29.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.2"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

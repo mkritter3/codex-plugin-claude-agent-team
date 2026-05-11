@@ -1,0 +1,29 @@
+{
+  "name": "codex-plugin-claude-agent-team",
+  "version": "0.1.0",
+  "description": "Provider-neutral agent team MCP plugin for Codex with Claude Code CLI subscription support.",
+  "author": {
+    "name": "mkritter3",
+    "url": "https://github.com/mkritter3"
+  },
+  "homepage": "https://github.com/mkritter3/codex-plugin-claude-agent-team",
+  "repository": "https://github.com/mkritter3/codex-plugin-claude-agent-team",
+  "license": "MIT",
+  "keywords": ["codex", "mcp", "agents", "claude-code"],
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Agent Team",
+    "shortDescription": "Delegate Codex work to provider-routed AI agent teams.",
+    "longDescription": "A Codex MCP plugin that routes agent roles through provider adapters, starting with Claude Code CLI subscription-backed runs.",
+    "developerName": "mkritter3",
+    "category": "Productivity",
+    "capabilities": ["Interactive", "Write"],
+    "websiteURL": "https://github.com/mkritter3/codex-plugin-claude-agent-team",
+    "defaultPrompt": [
+      "Ask Claude to review this diff.",
+      "Run an agent-team doctor check.",
+      "List available agent roles."
+    ],
+    "brandColor": "#111827"
+  }
+}
