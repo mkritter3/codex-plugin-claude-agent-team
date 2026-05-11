@@ -18,4 +18,14 @@ describe("package scripts", () => {
       ci.indexOf("npm run smoke:mcp-stdio")
     );
   });
+
+  it("runs the packaged stdio smoke gate in GitHub CI", async () => {
+    const workflow = await readFile(
+      new URL("../.github/workflows/ci.yml", import.meta.url),
+      "utf8"
+    );
+
+    expect(workflow).toContain("- run: npm run ci");
+    expect(workflow).not.toContain("- run: npm run typecheck\n      - run: npm test\n      - run: npm run build");
+  });
 });
