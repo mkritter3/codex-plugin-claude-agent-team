@@ -44,7 +44,7 @@
 - Modify: `src/core/state/mailbox-store.ts`
 - Modify: `tests/core/state/mailbox-store.test.ts`
 
-- [ ] **Step 1: Write failing outbox helper test**
+- [x] **Step 1: Write failing outbox helper test**
 
 Add a focused test proving `appendOutboxRecord` appends to `outbox.jsonl` with the supplied role, provider, message type, correlation id, content hash, and payload.
 
@@ -56,11 +56,11 @@ npm test -- tests/core/state/mailbox-store.test.ts
 
 Expected: FAIL because the typed helper does not exist.
 
-- [ ] **Step 2: Implement helper**
+- [x] **Step 2: Implement helper**
 
 Add `appendOutboxRecord` as the shared wrapper around `appendMailboxRecord(..., "outbox", ...)`.
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -71,7 +71,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/state/mailbox-store.ts tests/core/state/mailbox-store.test.ts
@@ -87,7 +87,7 @@ git commit -m "feat: add durable outbox mailbox helper"
 - Modify: `tests/providers/claude-code-cli/stream-parser.test.ts`
 - Modify: `tests/providers/claude-code-cli/background.test.ts`
 
-- [ ] **Step 1: Write failing provider parser tests**
+- [x] **Step 1: Write failing provider parser tests**
 
 Add tests proving:
 
@@ -103,7 +103,7 @@ npm test -- tests/providers/claude-code-cli/stream-parser.test.ts tests/provider
 
 Expected: FAIL because snapshots do not expose outbox requests.
 
-- [ ] **Step 2: Add provider-neutral request shape**
+- [x] **Step 2: Add provider-neutral request shape**
 
 Add `ProviderOutboxRequest` with:
 
@@ -115,11 +115,11 @@ Add `ProviderOutboxRequest` with:
 
 Expose `pendingOutboxRequests` from `ProviderSessionSnapshot`.
 
-- [ ] **Step 3: Implement explicit Claude parsing**
+- [x] **Step 3: Implement explicit Claude parsing**
 
 Update the Claude stream parser to accept only explicit structured events. Do not infer requests from prose. Keep malformed events as parser warnings instead of lifecycle requests.
 
-- [ ] **Step 4: Run focused tests**
+- [x] **Step 4: Run focused tests**
 
 Run:
 
@@ -130,7 +130,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/providers/types.ts src/providers/claude-code-cli/stream-parser.ts src/providers/claude-code-cli/background.ts tests/providers/claude-code-cli/stream-parser.test.ts tests/providers/claude-code-cli/background.test.ts
@@ -144,7 +144,7 @@ git commit -m "feat: expose provider outbox requests"
 - Modify: `src/core/lifecycle.ts`
 - Modify: `tests/core/lifecycle.test.ts`
 
-- [ ] **Step 1: Write failing lifecycle tests**
+- [x] **Step 1: Write failing lifecycle tests**
 
 Add tests proving:
 
@@ -162,7 +162,7 @@ npm test -- tests/core/lifecycle.test.ts
 
 Expected: FAIL because lifecycle does not reconcile provider outbox requests.
 
-- [ ] **Step 2: Implement reconciliation**
+- [x] **Step 2: Implement reconciliation**
 
 Add lifecycle logic that:
 
@@ -172,7 +172,7 @@ Add lifecycle logic that:
 - transitions `running -> awaiting-input` after request persistence
 - transitions `awaiting-input -> running` after a valid message reply is recorded
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -183,7 +183,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/types.ts src/core/lifecycle.ts tests/core/lifecycle.test.ts
@@ -196,7 +196,7 @@ git commit -m "feat: reconcile outbox awaiting input"
 - Modify: `tests/mcp/tools.test.ts`
 - Modify only implementation files if MCP coverage finds a boundary gap.
 
-- [ ] **Step 1: Add MCP surface tests**
+- [x] **Step 1: Add MCP surface tests**
 
 Add tests proving the MCP status handler returns sidecar outbox evidence and the message handler can return the lifecycle result that resumes an `awaiting-input` run.
 
@@ -208,7 +208,7 @@ npm test -- tests/mcp/tools.test.ts
 
 Expected: PASS after lifecycle support, or FAIL if the tool result shape hides the evidence.
 
-- [ ] **Step 2: Run focused milestone tests**
+- [x] **Step 2: Run focused milestone tests**
 
 Run:
 
@@ -218,7 +218,7 @@ npm test -- tests/core/state/mailbox-store.test.ts tests/providers/claude-code-c
 
 Expected: PASS.
 
-- [ ] **Step 3: Run full verification**
+- [x] **Step 3: Run full verification**
 
 Run:
 
@@ -232,7 +232,7 @@ npm run ci
 
 Expected: PASS.
 
-- [ ] **Step 4: Review no-heuristics boundary**
+- [x] **Step 4: Review no-heuristics boundary**
 
 Run:
 
@@ -243,7 +243,7 @@ rg "agent_team_outbox_request|pendingOutboxRequests|awaiting-input" src tests
 
 Expected: no free-form question detection or heuristic LLM behavior; explicit structured requests only.
 
-- [ ] **Step 5: Commit final plan checkbox update**
+- [x] **Step 5: Commit final plan checkbox update**
 
 Mark completed checklist items in this file and commit the update.
 
