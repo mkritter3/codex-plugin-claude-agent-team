@@ -1,11 +1,10 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { inspectClaudeEnvironment } from "../providers/claude-code-cli/doctor.js";
 import {
-  runClaudePrint,
-  type ClaudeProcessResult
-} from "../providers/claude-code-cli/runner.js";
-import { listProviders } from "../providers/index.js";
+  listProviders,
+  requireProviderRuntime,
+  type AgentProviderRuntime
+} from "../providers/index.js";
 import { selectProvider } from "./router.js";
 import { getRole } from "./roles.js";
 import { buildRolePrompt } from "./prompts.js";
@@ -25,7 +24,7 @@ import type {
 
 export interface DispatchDependencies {
   readonly providers?: readonly AgentProviderDescriptor[];
-  readonly runClaude?: typeof runClaudePrint;
+  readonly runtimes?: readonly AgentProviderRuntime[];
   readonly now?: () => Date;
   readonly createRunId?: () => string;
   readonly env?: NodeJS.ProcessEnv;
@@ -46,7 +45,7 @@ function blockedVerdict(summary: string, evidence: readonly string[] = []): Pars
 async function writeRawLog(
   workspaceRoot: string,
   runId: string,
-  result: Pick<ClaudeProcessResult, "text" | "stdout" | "stderr">
+  result: { readonly text: string; readonly stdout: string; readonly stderr: string }
 ): Promise<string> {
   const path = runLogPath(workspaceRoot, runId);
   await mkdir(dirname(path), { recursive: true });
@@ -186,7 +185,12 @@ export async function dispatchReadOnlyAgent(
     return finish({ status: "failed", verdict, outputSummary: verdict.summary });
   }
 
-  const envInspection = inspectClaudeEnvironment({
+  const runtime = requireProviderRuntime(
+    provider.id,
+    deps.runtimes === undefined ? {} : { runtimes: deps.runtimes }
+  );
+
+  const envInspection = runtime.inspectEnvironment({
     authMode: provider.authMode,
     env: deps.env ?? process.env
   });
@@ -243,8 +247,7 @@ export async function dispatchReadOnlyAgent(
     payload: { provider: provider.id }
   });
 
-  const runClaude = deps.runClaude ?? runClaudePrint;
-  const providerResult = await runClaude({
+  const providerResult = await runtime.runPrint({
     prompt,
     cwd: request.cwd,
     ...(request.timeoutMs === undefined ? {} : { timeoutMs: request.timeoutMs }),
@@ -253,7 +256,7 @@ export async function dispatchReadOnlyAgent(
   const logPath = await writeRawLog(request.cwd, runId, providerResult);
 
   if (!providerResult.ok) {
-    const verdict = blockedVerdict("Claude Code CLI run failed.", [
+    const verdict = blockedVerdict("Provider runtime run failed.", [
       `exitCode: ${providerResult.exitCode}`,
       providerResult.stderr
     ]);

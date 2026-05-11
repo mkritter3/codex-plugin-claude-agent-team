@@ -7,6 +7,7 @@ import { readMailboxRecords } from "../../src/core/state/mailbox-store.js";
 import { runLogPath } from "../../src/core/state/paths.js";
 import { readRunSidecar } from "../../src/core/state/run-store.js";
 import { dispatchReadOnlyAgent } from "../../src/core/dispatch.js";
+import type { AgentProviderRuntime } from "../../src/providers/index.js";
 
 let workspace: string;
 
@@ -30,7 +31,138 @@ risks:
 - none
 <<<END_VERDICT>>>`;
 
+function claudeRuntime(
+  runPrint: AgentProviderRuntime["runPrint"],
+  inspectEnvironment: AgentProviderRuntime["inspectEnvironment"] = () => ({ warnings: [] })
+): AgentProviderRuntime {
+  return {
+    id: "claude-code-cli",
+    descriptor: () => ({
+      id: "claude-code-cli",
+      displayName: "Claude Code CLI",
+      authMode: "subscription-oauth",
+      capabilities: [
+        "structuredOutput",
+        "longContext",
+        "tools",
+        "sessionResume",
+        "cancellation"
+      ],
+      available: true
+    }),
+    inspectEnvironment,
+    runPrint,
+    startSession() {
+      throw new Error("should not start background session");
+    },
+    async healthCheck() {
+      return [];
+    }
+  };
+}
+
 describe("dispatchReadOnlyAgent", () => {
+  it("dispatches through the runtime selected by provider id", async () => {
+    const fakeRuntime: AgentProviderRuntime = {
+      id: "fake-runtime",
+      descriptor: () => ({
+        id: "fake-runtime",
+        displayName: "Fake Runtime",
+        authMode: "subscription-oauth",
+        capabilities: ["structuredOutput", "tools"],
+        available: true
+      }),
+      inspectEnvironment: () => ({ warnings: [] }),
+      async runPrint(input) {
+        expect(input.cwd).toBe(workspace);
+        return {
+          ok: true,
+          sessionId: "fake_session",
+          text: shipText,
+          stdout: "fake stdout",
+          stderr: "",
+          exitCode: 0
+        };
+      },
+      startSession() {
+        throw new Error("should not start background session");
+      },
+      async healthCheck() {
+        return [];
+      }
+    };
+
+    const result = await dispatchReadOnlyAgent(
+      {
+        role: "planner",
+        task: "Review plan",
+        cwd: workspace,
+        provider: "fake-runtime"
+      },
+      {
+        providers: [fakeRuntime.descriptor()],
+        runtimes: [fakeRuntime],
+        createRunId: () => "run_fake_runtime",
+        env: {}
+      }
+    );
+
+    expect(result).toMatchObject({
+      status: "completed",
+      provider: "fake-runtime",
+      verdict: { status: "SHIP" }
+    });
+    await expect(readFile(runLogPath(workspace, "run_fake_runtime"), "utf8")).resolves.toContain(
+      "fake stdout"
+    );
+  });
+
+  it("blocks dispatch when the selected runtime reports auth precedence warnings", async () => {
+    let ran = false;
+    const fakeRuntime: AgentProviderRuntime = {
+      id: "fake-runtime",
+      descriptor: () => ({
+        id: "fake-runtime",
+        displayName: "Fake Runtime",
+        authMode: "subscription-oauth",
+        capabilities: ["structuredOutput", "tools"],
+        available: true
+      }),
+      inspectEnvironment: () => ({
+        warnings: ["Fake runtime API key would override subscription OAuth."]
+      }),
+      async runPrint() {
+        ran = true;
+        throw new Error("should not run");
+      },
+      startSession() {
+        throw new Error("should not start background session");
+      },
+      async healthCheck() {
+        return [];
+      }
+    };
+
+    const result = await dispatchReadOnlyAgent(
+      {
+        role: "planner",
+        task: "Review plan",
+        cwd: workspace,
+        provider: "fake-runtime"
+      },
+      {
+        providers: [fakeRuntime.descriptor()],
+        runtimes: [fakeRuntime],
+        createRunId: () => "run_fake_auth",
+        env: {}
+      }
+    );
+
+    expect(ran).toBe(false);
+    expect(result.status).toBe("failed");
+    expect(result.verdict.summary).toContain("Fake runtime API key");
+  });
+
   it("dispatches a read-only role and persists sidecars, mailboxes, and logs", async () => {
     const result = await dispatchReadOnlyAgent(
       {
@@ -42,14 +174,16 @@ describe("dispatchReadOnlyAgent", () => {
         createRunId: () => "run_test",
         now: () => new Date("2026-05-11T00:00:00.000Z"),
         env: {},
-        runClaude: async () => ({
-          ok: true,
-          sessionId: "session_1",
-          text: shipText,
-          stdout: JSON.stringify({ session_id: "session_1", result: shipText }),
-          stderr: "",
-          exitCode: 0
-        })
+        runtimes: [
+          claudeRuntime(async () => ({
+            ok: true,
+            sessionId: "session_1",
+            text: shipText,
+            stdout: JSON.stringify({ session_id: "session_1", result: shipText }),
+            stderr: "",
+            exitCode: 0
+          }))
+        ]
       }
     );
 
@@ -93,10 +227,12 @@ describe("dispatchReadOnlyAgent", () => {
       },
       {
         createRunId: () => "run_impl",
-        runClaude: async () => {
-          called = true;
-          throw new Error("should not run");
-        }
+        runtimes: [
+          claudeRuntime(async () => {
+            called = true;
+            throw new Error("should not run");
+          })
+        ]
       }
     );
 
@@ -117,10 +253,22 @@ describe("dispatchReadOnlyAgent", () => {
       {
         createRunId: () => "run_auth",
         env: { ANTHROPIC_API_KEY: "secret" },
-        runClaude: async () => {
-          called = true;
-          throw new Error("should not run");
-        }
+        runtimes: [
+          claudeRuntime(
+            async () => {
+              called = true;
+              throw new Error("should not run");
+            },
+            ({ env }) => ({
+              warnings:
+                env.ANTHROPIC_API_KEY === undefined
+                  ? []
+                  : [
+                      "ANTHROPIC_API_KEY is set and may override Claude Code subscription OAuth."
+                    ]
+            })
+          )
+        ]
       }
     );
 
@@ -141,13 +289,15 @@ describe("dispatchReadOnlyAgent", () => {
         createRunId: () => "run_failed",
         now: () => new Date("2026-05-11T00:00:00.000Z"),
         env: {},
-        runClaude: async () => ({
-          ok: false,
-          text: "",
-          stdout: "",
-          stderr: "bad auth",
-          exitCode: 2
-        })
+        runtimes: [
+          claudeRuntime(async () => ({
+            ok: false,
+            text: "",
+            stdout: "",
+            stderr: "bad auth",
+            exitCode: 2
+          }))
+        ]
       }
     );
 
