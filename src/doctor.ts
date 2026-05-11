@@ -1,5 +1,10 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import {
+  DEFAULT_AGENT_TEAM_CONFIG,
+  loadAgentTeamConfig
+} from "./core/config.js";
+import type { AgentTeamConfig } from "./core/types.js";
 import { inspectClaudeEnvironment } from "./providers/claude-code-cli/doctor.js";
 
 const execFileAsync = promisify(execFile);
@@ -20,9 +25,11 @@ export interface DoctorReport {
 }
 
 export interface DoctorInput {
+  readonly workspaceRoot?: string;
   readonly env?: NodeJS.ProcessEnv;
   readonly findExecutable?: (name: string) => Promise<string | undefined>;
   readonly getVersion?: (path: string) => Promise<string | undefined>;
+  readonly loadConfig?: typeof loadAgentTeamConfig;
 }
 
 async function defaultFindExecutable(name: string): Promise<string | undefined> {
@@ -48,10 +55,39 @@ async function defaultGetVersion(path: string): Promise<string | undefined> {
 }
 
 export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> {
+  const workspaceRoot = input.workspaceRoot ?? process.cwd();
   const env = input.env ?? process.env;
   const findExecutable = input.findExecutable ?? defaultFindExecutable;
   const getVersion = input.getVersion ?? defaultGetVersion;
+  const loadConfig = input.loadConfig ?? loadAgentTeamConfig;
   const checks: DoctorCheck[] = [];
+  let config: AgentTeamConfig = DEFAULT_AGENT_TEAM_CONFIG;
+
+  try {
+    config = await loadConfig(workspaceRoot);
+    checks.push({
+      id: "config",
+      status: "pass",
+      message: "Agent Team workspace config loaded.",
+      details: {
+        workspaceRoot,
+        writeMode: config.writeMode,
+        auth: config.auth
+      }
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    checks.push({
+      id: "config",
+      status: "fail",
+      message: "Agent Team workspace config is invalid.",
+      details: {
+        workspaceRoot,
+        error: message,
+        fix: `Fix or remove ${workspaceRoot}/.agent-team/config.json.`
+      }
+    });
+  }
 
   const claudePath = await findExecutable("claude");
   if (claudePath === undefined) {
@@ -77,10 +113,13 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
     env
   });
   if (environment.warnings.length > 0) {
+    const status = config.auth.allowApiKeyFallback ? "warn" : "fail";
     checks.push({
       id: "auth-precedence",
-      status: "warn",
-      message: "Environment may override Claude Code subscription OAuth.",
+      status,
+      message: config.auth.allowApiKeyFallback
+        ? "Environment may override Claude Code subscription OAuth; API fallback is explicitly allowed."
+        : "Environment may override Claude Code subscription OAuth and API fallback is disabled.",
       details: { warnings: environment.warnings }
     });
   } else {
