@@ -260,6 +260,7 @@ export class AgentLifecycleManager {
         roleId: request.role,
         executionPolicy: role.executionPolicy,
         ...(role.defaultReadOnly ? {} : { permissionMode: "acceptEdits" }),
+        ...(request.timeoutMs === undefined ? {} : { timeoutMs: request.timeoutMs }),
         ...(this.env === undefined ? {} : { env: this.env })
       });
     } catch (error) {
@@ -482,6 +483,7 @@ export class AgentLifecycleManager {
         roleId: parent.role,
         executionPolicy: role.executionPolicy,
         sessionId: parent.providerSessionId,
+        ...(request.timeoutMs === undefined ? {} : { timeoutMs: request.timeoutMs }),
         ...(this.env === undefined ? {} : { env: this.env })
       });
     } catch (error) {

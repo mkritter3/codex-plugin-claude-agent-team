@@ -150,7 +150,9 @@ describe("AgentLifecycleManager", () => {
         throw new Error("should not run print");
       },
       startSession(input) {
-        starts.push(`${input.runId}:${input.cwd}:${input.roleId}:${input.executionPolicy}`);
+        starts.push(
+          `${input.runId}:${input.cwd}:${input.roleId}:${input.executionPolicy}:${input.timeoutMs}`
+        );
         return handle;
       },
       async healthCheck() {
@@ -167,7 +169,8 @@ describe("AgentLifecycleManager", () => {
       role: "planner",
       task: "Review this plan",
       cwd: workspace,
-      provider: "fake-runtime"
+      provider: "fake-runtime",
+      timeoutMs: 1234
     });
 
     expect(result).toMatchObject({
@@ -175,7 +178,7 @@ describe("AgentLifecycleManager", () => {
       provider: "fake-runtime",
       status: "running"
     });
-    expect(starts).toEqual([`run_runtime_start:${workspace}:planner:read-only`]);
+    expect(starts).toEqual([`run_runtime_start:${workspace}:planner:read-only:1234`]);
   });
 
   it("starts a background run and records running status", async () => {
@@ -712,6 +715,7 @@ describe("AgentLifecycleManager", () => {
       executionPolicy?: string;
       sessionId?: string;
       permissionMode?: string;
+      timeoutMs?: number;
     }> = [];
     const manager = new AgentLifecycleManager({
       createRunId: () => "run_reply_child",
@@ -728,7 +732,8 @@ describe("AgentLifecycleManager", () => {
           ...(input.sessionId === undefined ? {} : { sessionId: input.sessionId }),
           ...(input.permissionMode === undefined
             ? {}
-            : { permissionMode: input.permissionMode })
+            : { permissionMode: input.permissionMode }),
+          ...(input.timeoutMs === undefined ? {} : { timeoutMs: input.timeoutMs })
         });
         return handle;
       }
@@ -738,7 +743,8 @@ describe("AgentLifecycleManager", () => {
       runId: "run_parent_reply",
       cwd: workspace,
       message: "Re-check this with the new evidence.",
-      correlationId: "reply_1"
+      correlationId: "reply_1",
+      timeoutMs: 4321
     });
 
     expect(result).toMatchObject({
@@ -753,7 +759,8 @@ describe("AgentLifecycleManager", () => {
       runId: "run_reply_child",
       roleId: "planner",
       executionPolicy: "read-only",
-      sessionId: "session_parent_reply"
+      sessionId: "session_parent_reply",
+      timeoutMs: 4321
     });
     expect(starts[0]?.prompt).toContain("resumed continuation");
     expect(starts[0]?.prompt).toContain("Re-check this with the new evidence.");

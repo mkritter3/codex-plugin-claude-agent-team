@@ -49,6 +49,7 @@ export interface ProviderStartSessionInput {
   readonly env?: NodeJS.ProcessEnv;
   readonly sessionId?: string;
   readonly permissionMode?: ProviderSessionPermissionMode;
+  readonly timeoutMs?: number;
 }
 
 export interface ProviderEnvironmentInspectionInput {
