@@ -545,9 +545,10 @@ export class AgentLifecycleManager {
 
     const active = this.activeRuns.get(activeKey(workspaceRoot, runId));
     if (active === undefined) {
+      const detached = await this.reconcileDetachedRun(workspaceRoot, sidecar);
       return this.result(
         workspaceRoot,
-        sidecar,
+        detached,
         "No active process handle is attached; recorded cancellation intent."
       );
     }
@@ -670,9 +671,13 @@ export class AgentLifecycleManager {
       }
     }
 
+    const resultSidecar =
+      active === undefined
+        ? await this.reconcileDetachedRun(workspaceRoot, windingDown)
+        : windingDown;
     return this.result(
       workspaceRoot,
-      windingDown,
+      resultSidecar,
       active === undefined
         ? "Wind-down intent recorded; no active process handle is attached."
         : "Wind-down requested."
@@ -1228,7 +1233,9 @@ export class AgentLifecycleManager {
       runId: sidecar.runId,
       status: sidecar.status,
       sidecarPath: runSidecarPath(workspaceRoot, sidecar.runId),
-      message
+      message,
+      ...(sidecar.detached === undefined ? {} : { detached: sidecar.detached }),
+      ...(sidecar.detachedAt === undefined ? {} : { detachedAt: sidecar.detachedAt })
     };
   }
 }

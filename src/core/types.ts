@@ -127,6 +127,8 @@ export interface AgentControlResult {
   readonly status: RunStatus;
   readonly sidecarPath: string;
   readonly message: string;
+  readonly detached?: boolean;
+  readonly detachedAt?: string;
 }
 
 export interface AgentCleanupRequest {

@@ -405,9 +405,68 @@ describe("AgentLifecycleManager", () => {
 
     expect(result).toMatchObject({
       status: "running",
+      detached: true,
+      detachedAt: expect.any(String),
       message: expect.stringContaining("No active process")
     });
+    await expect(readRunSidecar(workspace, "run_detached")).resolves.toMatchObject({
+      status: "running",
+      detached: true,
+      detachedAt: expect.any(String)
+    });
     await expect(readMailboxRecords(workspace, "run_detached", "control")).resolves.toHaveLength(1);
+    await expect(readMailboxRecords(workspace, "run_detached", "events")).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ messageType: "detached_handle_missing" })
+      ])
+    );
+  });
+
+  it("closes input and records wind-down intent for detached active-looking sidecars", async () => {
+    const sidecar: RunSidecar = {
+      runId: "run_detached_wind",
+      role: "planner",
+      provider: "claude-code-cli",
+      status: "running",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:00:00.000Z",
+      capabilitiesUsed: ["structuredOutput"],
+      evidencePaths: []
+    };
+    await writeRunSidecar(workspace, sidecar);
+
+    const result = await new AgentLifecycleManager({
+      now: () => new Date("2026-05-11T00:02:00.000Z")
+    }).windDownRun(workspace, "run_detached_wind");
+
+    expect(result).toMatchObject({
+      status: "winding-down",
+      detached: true,
+      message: expect.stringContaining("no active process")
+    });
+    await expect(readRunSidecar(workspace, "run_detached_wind")).resolves.toMatchObject({
+      status: "winding-down",
+      inputClosed: true,
+      detached: true,
+      detachedAt: "2026-05-11T00:02:00.000Z",
+      windDownRequestedAt: "2026-05-11T00:02:00.000Z"
+    });
+    await expect(readMailboxRecords(workspace, "run_detached_wind", "control")).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ messageType: "wind_down_requested" })
+      ])
+    );
+    const events = await readMailboxRecords(workspace, "run_detached_wind", "events");
+    expect(events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ messageType: "detached_handle_missing" })
+      ])
+    );
+    expect(events).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ messageType: "wind_down_grace_elapsed" })
+      ])
+    );
   });
 
   it("records wind-down intent and writes stdin when supported", async () => {
