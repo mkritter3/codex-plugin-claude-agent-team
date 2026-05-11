@@ -30,7 +30,13 @@ async function acquireMailboxLock(path: string): Promise<() => Promise<void>> {
     try {
       await mkdir(lockPath);
       return async () => {
-        await rmdir(lockPath);
+        try {
+          await rmdir(lockPath);
+        } catch (error) {
+          if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) {
+            throw error;
+          }
+        }
       };
     } catch (error) {
       if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) {

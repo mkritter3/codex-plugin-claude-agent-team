@@ -1,3 +1,5 @@
+import type { ProviderSessionActivity } from "../providers/types.js";
+
 export const PROVIDER_CAPABILITIES = [
   "structuredOutput",
   "longContext",
@@ -72,6 +74,31 @@ export interface AgentDispatchResult {
   readonly logPath: string;
 }
 
+export interface AgentMailboxPaths {
+  readonly inbox: string;
+  readonly outbox: string;
+  readonly control: string;
+  readonly events: string;
+}
+
+export interface AgentStartResult {
+  readonly runId: string;
+  readonly status: RunStatus;
+  readonly provider: string;
+  readonly role: RoleId;
+  readonly sidecarPath: string;
+  readonly logPath: string;
+  readonly transcriptPath?: string;
+  readonly mailboxPaths: AgentMailboxPaths;
+}
+
+export interface AgentControlResult {
+  readonly runId: string;
+  readonly status: RunStatus;
+  readonly sidecarPath: string;
+  readonly message: string;
+}
+
 export interface ParsedVerdict {
   readonly status: VerdictStatus;
   readonly summary: string;
@@ -109,6 +136,13 @@ export interface RunSidecar {
   readonly promptHash?: string;
   readonly outputSummary?: string;
   readonly cleanup?: "complete" | "partial" | "not-needed";
+  readonly detached?: boolean;
+  readonly warnings?: readonly string[];
+  readonly recentActivities?: readonly ProviderSessionActivity[];
+  readonly currentActivity?: ProviderSessionActivity | null;
+  readonly lastStderr?: readonly string[];
+  readonly transcriptPath?: string;
+  readonly logPath?: string;
   readonly verdict?: ParsedVerdict;
   readonly changedFiles?: readonly string[];
 }
