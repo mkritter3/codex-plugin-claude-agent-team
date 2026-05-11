@@ -49,7 +49,7 @@
 - Modify: `src/core/types.ts`
 - Add: `tests/core/parallel-start.test.ts`
 
-- [ ] **Step 1: Write failing core parallel-start tests**
+- [x] **Step 1: Write failing core parallel-start tests**
 
 Add tests proving:
 
@@ -67,7 +67,7 @@ npm test -- tests/core/parallel-start.test.ts
 
 Expected: FAIL because `src/core/parallel-start.ts` does not exist yet.
 
-- [ ] **Step 2: Add parallel-start types**
+- [x] **Step 2: Add parallel-start types**
 
 In `src/core/types.ts`, add:
 
@@ -115,7 +115,7 @@ export interface AgentParallelStartResult {
 }
 ```
 
-- [ ] **Step 3: Implement bounded launcher**
+- [x] **Step 3: Implement bounded launcher**
 
 In `src/core/parallel-start.ts`, export:
 
@@ -140,7 +140,7 @@ Implementation requirements:
 - map thrown errors to `{ status: "failed", index, correlationId?, role, task, error }`
 - return `partial_failure` when any child result has `status: "failed"`
 
-- [ ] **Step 4: Run focused core tests**
+- [x] **Step 4: Run focused core tests**
 
 Run:
 
@@ -151,7 +151,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/core/types.ts src/core/parallel-start.ts tests/core/parallel-start.test.ts
@@ -166,7 +166,7 @@ git commit -m "feat: add bounded parallel agent start core"
 - Modify: `tests/mcp/tools.test.ts`
 - Modify: `tests/mcp/server.test.ts`
 
-- [ ] **Step 1: Write failing MCP tests**
+- [x] **Step 1: Write failing MCP tests**
 
 Add tests proving:
 
@@ -185,7 +185,7 @@ npm test -- tests/mcp/tools.test.ts tests/mcp/server.test.ts
 
 Expected: FAIL because the tool is not registered yet.
 
-- [ ] **Step 2: Register and parse the tool**
+- [x] **Step 2: Register and parse the tool**
 
 In `src/mcp/tools.ts`:
 
@@ -204,7 +204,7 @@ In `src/mcp/tools.ts`:
 - handle `agent_team_start_parallel` by calling `startAgentTeamInParallel(parsed, { startRun })`
 - use `lifecycleFor(run.cwd).startRun(run)` inside the supplied `startRun` dependency so workspace-specific config and lifecycle registry identity remain unchanged
 
-- [ ] **Step 3: Add MCP schema metadata**
+- [x] **Step 3: Add MCP schema metadata**
 
 In `src/mcp/schemas.ts`, add:
 
@@ -237,7 +237,7 @@ agent_team_start_parallel: {
 }
 ```
 
-- [ ] **Step 4: Run focused MCP tests**
+- [x] **Step 4: Run focused MCP tests**
 
 Run:
 
@@ -248,7 +248,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/mcp/tools.ts src/mcp/schemas.ts tests/mcp/tools.test.ts tests/mcp/server.test.ts
@@ -261,7 +261,7 @@ git commit -m "feat: expose parallel agent start tool"
 - Modify: `tests/package-runtime.test.ts`
 - Modify: `scripts/smoke-mcp-stdio.mjs`
 
-- [ ] **Step 1: Write failing package/smoke tests**
+- [x] **Step 1: Write failing package/smoke tests**
 
 Update `tests/package-runtime.test.ts` to assert the smoke script checks:
 
@@ -277,7 +277,7 @@ npm test -- tests/package-runtime.test.ts
 
 Expected: FAIL because the smoke script does not check `agent_team_start_parallel` yet.
 
-- [ ] **Step 2: Update smoke metadata assertion**
+- [x] **Step 2: Update smoke metadata assertion**
 
 In `scripts/smoke-mcp-stdio.mjs`, add:
 
@@ -287,7 +287,7 @@ assertToolRequires(tools.tools, "agent_team_start_parallel", ["runs"]);
 
 near the existing tool requirement assertions.
 
-- [ ] **Step 3: Run focused package tests**
+- [x] **Step 3: Run focused package tests**
 
 Run:
 
@@ -298,7 +298,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add tests/package-runtime.test.ts scripts/smoke-mcp-stdio.mjs
@@ -310,7 +310,7 @@ git commit -m "test: cover parallel start smoke metadata"
 **Files:**
 - Modify only if verification finds issues.
 
-- [ ] **Step 1: Run focused milestone tests**
+- [x] **Step 1: Run focused milestone tests**
 
 Run:
 
@@ -320,7 +320,7 @@ npm test -- tests/core/parallel-start.test.ts tests/mcp/tools.test.ts tests/mcp/
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -334,7 +334,7 @@ npm run ci
 
 Expected: PASS.
 
-- [ ] **Step 3: Review boundary and safety invariants**
+- [x] **Step 3: Review boundary and safety invariants**
 
 Run:
 
@@ -345,7 +345,7 @@ rg "allowApiKeyFallback|benchmark|embedding|mock LLM|bypassPermissions|process.k
 
 Expected: parallel start is a bounded MCP/lifecycle control-plane feature, not an implicit provider fallback, benchmark harness, model-quality aggregator, bypass-permission path, process-kill path, or cleanup shortcut.
 
-- [ ] **Step 4: Commit final plan checkbox update**
+- [x] **Step 4: Commit final plan checkbox update**
 
 Mark completed checklist items in this file and commit the update.
 
