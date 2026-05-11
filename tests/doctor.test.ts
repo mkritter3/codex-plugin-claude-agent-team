@@ -26,6 +26,69 @@ async function writeConfig(workspace: string, config: unknown): Promise<void> {
 }
 
 describe("runDoctor", () => {
+  it("reports host Node runtime readiness", async () => {
+    const workspace = await tempWorkspace();
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: {},
+      nodeVersion: "22.15.3",
+      ...cliFound()
+    });
+
+    expect(report.ok).toBe(true);
+    expect(report.checks.find((check) => check.id === "node-version")).toMatchObject({
+      status: "pass",
+      details: {
+        version: "22.15.3",
+        required: ">=22"
+      }
+    });
+  });
+
+  it("fails closed when host Node is below the runtime floor", async () => {
+    const workspace = await tempWorkspace();
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: {},
+      nodeVersion: "20.11.1",
+      ...cliFound()
+    });
+
+    expect(report.ok).toBe(false);
+    expect(report.checks.find((check) => check.id === "node-version")).toMatchObject({
+      status: "fail",
+      details: {
+        version: "20.11.1",
+        required: ">=22",
+        fix: "Use Node.js 22 or newer to run the Agent Team MCP server."
+      }
+    });
+  });
+
+  it("fails closed when the MCP server module cannot be loaded", async () => {
+    const workspace = await tempWorkspace();
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: {},
+      ...cliFound(),
+      checkMcpServerLoadable: async () => {
+        throw new Error("module import failed");
+      }
+    });
+
+    expect(report.ok).toBe(false);
+    expect(report.checks.find((check) => check.id === "mcp-server-loadable")).toMatchObject({
+      status: "fail",
+      details: {
+        error: "module import failed",
+        fix: "Run npm run build and verify the MCP server entrypoint can be imported."
+      }
+    });
+  });
+
   it("reports provider runtime health checks", async () => {
     const workspace = await tempWorkspace();
     const runtime: AgentProviderRuntime = {

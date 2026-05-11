@@ -41,6 +41,8 @@ export interface DoctorInput {
   readonly env?: NodeJS.ProcessEnv;
   readonly findExecutable?: (name: string) => Promise<string | undefined>;
   readonly getVersion?: (path: string) => Promise<string | undefined>;
+  readonly nodeVersion?: string;
+  readonly checkMcpServerLoadable?: () => Promise<void>;
   readonly loadConfig?: typeof loadAgentTeamConfig;
   readonly ensureWritableState?: (workspaceRoot: string) => Promise<void>;
   readonly inspectGitWorktreeSupport?: typeof defaultInspectGitWorktreeSupport;
@@ -78,17 +80,73 @@ async function defaultEnsureWritableState(workspaceRoot: string): Promise<void> 
   await rm(probePath, { force: true });
 }
 
+async function defaultCheckMcpServerLoadable(): Promise<void> {
+  const module = await import("./mcp/server.js");
+  if (typeof module.createAgentTeamServer !== "function") {
+    throw new Error("createAgentTeamServer export was not found");
+  }
+}
+
+function nodeMajor(version: string): number | undefined {
+  const match = /^v?(\d+)/.exec(version);
+  return match === null ? undefined : Number(match[1]);
+}
+
 export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> {
   const workspaceRoot = input.workspaceRoot ?? process.cwd();
   const env = input.env ?? process.env;
   const findExecutable = input.findExecutable ?? defaultFindExecutable;
   const getVersion = input.getVersion ?? defaultGetVersion;
+  const nodeVersion = input.nodeVersion ?? process.versions.node;
+  const checkMcpServerLoadable =
+    input.checkMcpServerLoadable ?? defaultCheckMcpServerLoadable;
   const loadConfig = input.loadConfig ?? loadAgentTeamConfig;
   const ensureWritableState = input.ensureWritableState ?? defaultEnsureWritableState;
   const inspectGitWorktreeSupport =
     input.inspectGitWorktreeSupport ?? defaultInspectGitWorktreeSupport;
   const checks: DoctorCheck[] = [];
   let config: AgentTeamConfig = DEFAULT_AGENT_TEAM_CONFIG;
+
+  const major = nodeMajor(nodeVersion);
+  if (major !== undefined && major >= 22) {
+    checks.push({
+      id: "node-version",
+      status: "pass",
+      message: "Host Node.js runtime satisfies the Agent Team MCP requirement.",
+      details: { version: nodeVersion, required: ">=22" }
+    });
+  } else {
+    checks.push({
+      id: "node-version",
+      status: "fail",
+      message: "Host Node.js runtime is below the Agent Team MCP requirement.",
+      details: {
+        version: nodeVersion,
+        required: ">=22",
+        fix: "Use Node.js 22 or newer to run the Agent Team MCP server."
+      }
+    });
+  }
+
+  try {
+    await checkMcpServerLoadable();
+    checks.push({
+      id: "mcp-server-loadable",
+      status: "pass",
+      message: "Agent Team MCP server module is loadable."
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    checks.push({
+      id: "mcp-server-loadable",
+      status: "fail",
+      message: "Agent Team MCP server module could not be loaded.",
+      details: {
+        error: message,
+        fix: "Run npm run build and verify the MCP server entrypoint can be imported."
+      }
+    });
+  }
 
   try {
     config = await loadConfig(workspaceRoot);
