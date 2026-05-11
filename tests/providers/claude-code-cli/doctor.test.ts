@@ -7,7 +7,8 @@ describe("inspectClaudeEnvironment", () => {
       authMode: "subscription-oauth",
       env: {
         ANTHROPIC_API_KEY: "secret",
-        ANTHROPIC_AUTH_TOKEN: "token"
+        ANTHROPIC_AUTH_TOKEN: "token",
+        CLAUDE_CODE_OAUTH_TOKEN: "oauth-token"
       }
     });
 
@@ -16,6 +17,9 @@ describe("inspectClaudeEnvironment", () => {
     );
     expect(report.warnings).toContain(
       "ANTHROPIC_AUTH_TOKEN is set and may override Claude Code subscription OAuth."
+    );
+    expect(report.warnings).toContain(
+      "CLAUDE_CODE_OAUTH_TOKEN is set and may override Claude Code subscription OAuth."
     );
   });
 

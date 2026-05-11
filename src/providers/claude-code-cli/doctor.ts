@@ -5,7 +5,8 @@ import type {
 
 const SUBSCRIPTION_OVERRIDE_VARS = [
   "ANTHROPIC_API_KEY",
-  "ANTHROPIC_AUTH_TOKEN"
+  "ANTHROPIC_AUTH_TOKEN",
+  "CLAUDE_CODE_OAUTH_TOKEN"
 ] as const;
 
 export function inspectClaudeEnvironment(
