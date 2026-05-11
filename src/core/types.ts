@@ -59,6 +59,16 @@ export interface AgentTeamConfig {
   };
 }
 
+export interface WorkspaceLease {
+  readonly sourceCwd: string;
+  readonly executionCwd: string;
+  readonly branchName: string;
+  readonly baseRef: string;
+  readonly isolation: "git-worktree";
+  readonly retention: "retain-until-integrated";
+  readonly cleanup: "retained" | "removed";
+}
+
 export interface ProviderSelectionRequest {
   readonly roleId: RoleId;
   readonly providers: readonly AgentProviderDescriptor[];
