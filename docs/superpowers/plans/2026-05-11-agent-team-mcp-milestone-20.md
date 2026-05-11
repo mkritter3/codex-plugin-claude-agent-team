@@ -38,7 +38,7 @@
 - Modify: `src/providers/types.ts`
 - Modify: `tests/core/lifecycle.test.ts`
 
-- [ ] **Step 1: Write failing lifecycle timeout plumbing tests**
+- [x] **Step 1: Write failing lifecycle timeout plumbing tests**
 
 Add tests proving:
 
@@ -53,7 +53,7 @@ npm test -- tests/core/lifecycle.test.ts
 
 Expected: FAIL because durable lifecycle calls currently drop `timeoutMs`.
 
-- [ ] **Step 2: Add provider start timeout contract**
+- [x] **Step 2: Add provider start timeout contract**
 
 Update `ProviderStartSessionInput` in `src/providers/types.ts` with:
 
@@ -63,7 +63,7 @@ readonly timeoutMs?: number;
 
 Do not add provider-specific fields to MCP schemas or core role definitions.
 
-- [ ] **Step 3: Pass timeout through lifecycle starts**
+- [x] **Step 3: Pass timeout through lifecycle starts**
 
 In `src/core/lifecycle.ts`:
 
@@ -71,7 +71,7 @@ In `src/core/lifecycle.ts`:
 - pass `request.timeoutMs` into reply/resume provider start-session input when present
 - preserve existing role id, execution policy, permission mode, session id, env, and worktree behavior
 
-- [ ] **Step 4: Run focused plumbing tests**
+- [x] **Step 4: Run focused plumbing tests**
 
 Run:
 
@@ -82,7 +82,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/providers/types.ts src/core/lifecycle.ts tests/core/lifecycle.test.ts
@@ -96,7 +96,7 @@ git commit -m "feat: pass durable timeout budgets"
 - Modify: `src/providers/claude-code-cli/background.ts`
 - Modify: `tests/providers/claude-code-cli/background.test.ts`
 
-- [ ] **Step 1: Write failing Claude timeout tests**
+- [x] **Step 1: Write failing Claude timeout tests**
 
 Add tests proving:
 
@@ -112,7 +112,7 @@ npm test -- tests/providers/claude-code-cli/background.test.ts
 
 Expected: FAIL because Claude background sessions currently ignore `timeoutMs`.
 
-- [ ] **Step 2: Add expired provider status**
+- [x] **Step 2: Add expired provider status**
 
 Update `ProviderSessionDoneStatus` in `src/providers/types.ts` to include:
 
@@ -120,7 +120,7 @@ Update `ProviderSessionDoneStatus` in `src/providers/types.ts` to include:
 | "expired"
 ```
 
-- [ ] **Step 3: Enforce Claude timeout**
+- [x] **Step 3: Enforce Claude timeout**
 
 In `src/providers/claude-code-cli/background.ts`:
 
@@ -131,7 +131,7 @@ In `src/providers/claude-code-cli/background.ts`:
 - clear the timeout on any child close or error
 - preserve auth inspection, generated agents, role policy, resume, stream parsing, log rotation, stdin, cancellation, and no-bare behavior
 
-- [ ] **Step 4: Run focused Claude timeout tests**
+- [x] **Step 4: Run focused Claude timeout tests**
 
 Run:
 
@@ -142,7 +142,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/providers/types.ts src/providers/claude-code-cli/background.ts tests/providers/claude-code-cli/background.test.ts
@@ -155,7 +155,7 @@ git commit -m "feat: expire claude background timeouts"
 - Modify: `src/core/lifecycle.ts`
 - Modify: `tests/core/lifecycle.test.ts`
 
-- [ ] **Step 1: Write failing expired terminal tests**
+- [x] **Step 1: Write failing expired terminal tests**
 
 Add a test proving:
 
@@ -172,7 +172,7 @@ npm test -- tests/core/lifecycle.test.ts
 
 Expected: FAIL because lifecycle currently maps non-completed provider outcomes to `failed`.
 
-- [ ] **Step 2: Map provider expired to run expired**
+- [x] **Step 2: Map provider expired to run expired**
 
 In `completeRun`:
 
@@ -183,7 +183,7 @@ In `completeRun`:
 - set a blocked verdict summary such as `Provider session expired after timeout.`
 - append an `expired` event with the provider status
 
-- [ ] **Step 3: Run focused lifecycle tests**
+- [x] **Step 3: Run focused lifecycle tests**
 
 Run:
 
@@ -194,7 +194,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/lifecycle.ts tests/core/lifecycle.test.ts
@@ -206,7 +206,7 @@ git commit -m "feat: terminalize expired sessions"
 **Files:**
 - Modify only if verification finds issues.
 
-- [ ] **Step 1: Run focused milestone tests**
+- [x] **Step 1: Run focused milestone tests**
 
 Run:
 
@@ -216,7 +216,7 @@ npm test -- tests/core/lifecycle.test.ts tests/providers/claude-code-cli/backgro
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -230,7 +230,7 @@ npm run ci
 
 Expected: PASS.
 
-- [ ] **Step 3: Review boundary and safety invariants**
+- [x] **Step 3: Review boundary and safety invariants**
 
 Run:
 
@@ -241,7 +241,7 @@ rg "allowApiKeyFallback|benchmark|embedding|mock LLM|bypassPermissions" src/core
 
 Expected: timeout and expiry stay in provider-neutral contracts plus provider adapter enforcement. Existing fail-closed auth and bypass-permission guards remain unchanged; no benchmark, embedding, mock LLM, API fallback, or provider-specific MCP schema is introduced.
 
-- [ ] **Step 4: Commit final plan checkbox update**
+- [x] **Step 4: Commit final plan checkbox update**
 
 Mark completed checklist items in this file and commit the update.
 
