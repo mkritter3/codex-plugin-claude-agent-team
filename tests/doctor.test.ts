@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { runDoctor, type DoctorInput } from "../src/doctor.js";
+import type { AgentProviderRuntime } from "../src/providers/index.js";
 
 function cliFound(): Pick<DoctorInput, "findExecutable" | "getVersion"> {
   return {
@@ -25,6 +26,113 @@ async function writeConfig(workspace: string, config: unknown): Promise<void> {
 }
 
 describe("runDoctor", () => {
+  it("reports provider runtime health checks", async () => {
+    const workspace = await tempWorkspace();
+    const runtime: AgentProviderRuntime = {
+      id: "fake-runtime",
+      descriptor: () => ({
+        id: "fake-runtime",
+        displayName: "Fake Runtime",
+        authMode: "subscription-oauth",
+        capabilities: ["structuredOutput", "tools"],
+        available: true
+      }),
+      inspectEnvironment: () => ({ warnings: [] }),
+      async runPrint() {
+        throw new Error("should not run");
+      },
+      startSession() {
+        throw new Error("should not start");
+      },
+      async healthCheck() {
+        return [
+          {
+            id: "fake-runtime-health",
+            status: "pass",
+            message: "Fake runtime ready."
+          }
+        ];
+      }
+    };
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: {},
+      providers: [runtime.descriptor()],
+      runtimes: [runtime]
+    });
+
+    expect(report.checks.find((check) => check.id === "fake-runtime-health")).toMatchObject({
+      status: "pass",
+      message: "Fake runtime ready."
+    });
+  });
+
+  it("fails closed when a configured provider has no runtime", async () => {
+    const workspace = await tempWorkspace();
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: {},
+      providers: [
+        {
+          id: "missing-runtime",
+          displayName: "Missing Runtime",
+          authMode: "subscription-oauth",
+          capabilities: ["structuredOutput", "tools"],
+          available: true
+        }
+      ],
+      runtimes: []
+    });
+
+    expect(report.ok).toBe(false);
+    expect(
+      report.checks.find((check) => check.id === "provider-runtime:missing-runtime")
+    ).toMatchObject({
+      status: "fail"
+    });
+  });
+
+  it("uses runtime environment inspection for auth precedence", async () => {
+    const workspace = await tempWorkspace();
+    const runtime: AgentProviderRuntime = {
+      id: "fake-runtime",
+      descriptor: () => ({
+        id: "fake-runtime",
+        displayName: "Fake Runtime",
+        authMode: "subscription-oauth",
+        capabilities: ["structuredOutput", "tools"],
+        available: true
+      }),
+      inspectEnvironment: () => ({
+        warnings: ["Fake runtime API key would override subscription OAuth."]
+      }),
+      async runPrint() {
+        throw new Error("should not run");
+      },
+      startSession() {
+        throw new Error("should not start");
+      },
+      async healthCheck() {
+        return [];
+      }
+    };
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: {},
+      providers: [runtime.descriptor()],
+      runtimes: [runtime]
+    });
+
+    expect(report.ok).toBe(false);
+    expect(report.checks.find((check) => check.id === "auth-precedence")).toMatchObject({
+      status: "fail",
+      details: { warnings: ["Fake runtime API key would override subscription OAuth."] }
+    });
+  });
+
   it("reports missing Claude CLI without throwing", async () => {
     const workspace = await tempWorkspace();
     const report = await runDoctor({

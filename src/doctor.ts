@@ -13,8 +13,11 @@ import type { AgentProviderDescriptor, AgentTeamConfig } from "./core/types.js";
 import {
   inspectGitWorktreeSupport as defaultInspectGitWorktreeSupport
 } from "./core/workspaces.js";
-import { inspectClaudeEnvironment } from "./providers/claude-code-cli/doctor.js";
-import { listProviders } from "./providers/index.js";
+import {
+  getProviderRuntime,
+  listProviders,
+  type AgentProviderRuntime
+} from "./providers/index.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -42,6 +45,7 @@ export interface DoctorInput {
   readonly ensureWritableState?: (workspaceRoot: string) => Promise<void>;
   readonly inspectGitWorktreeSupport?: typeof defaultInspectGitWorktreeSupport;
   readonly providers?: readonly AgentProviderDescriptor[];
+  readonly runtimes?: readonly AgentProviderRuntime[];
 }
 
 async function defaultFindExecutable(name: string): Promise<string | undefined> {
@@ -166,30 +170,39 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
     });
   }
 
-  const claudePath = await findExecutable("claude");
-  if (claudePath === undefined) {
-    checks.push({
-      id: "claude-cli",
-      status: "fail",
-      message: "Claude Code CLI was not found on PATH."
-    });
-  } else {
-    checks.push({
-      id: "claude-cli",
-      status: "pass",
-      message: "Claude Code CLI found.",
-      details: {
-        path: claudePath,
-        version: await getVersion(claudePath)
-      }
-    });
+  const providers = input.providers ?? listProviders({ config });
+  const environmentWarnings: string[] = [];
+  for (const provider of providers) {
+    const runtime = getProviderRuntime(
+      provider.id,
+      input.runtimes === undefined ? {} : { runtimes: input.runtimes }
+    );
+    if (runtime === undefined) {
+      checks.push({
+        id: `provider-runtime:${provider.id}`,
+        status: "fail",
+        message: `No provider runtime registered for ${provider.id}.`
+      });
+      continue;
+    }
+
+    checks.push(
+      ...(await runtime.healthCheck({
+        env,
+        findExecutable,
+        getVersion
+      }))
+    );
+    environmentWarnings.push(
+      ...runtime.inspectEnvironment({
+        authMode: provider.authMode,
+        env
+      }).warnings
+    );
   }
 
-  const environment = inspectClaudeEnvironment({
-    authMode: "subscription-oauth",
-    env
-  });
-  if (environment.warnings.length > 0) {
+  const uniqueEnvironmentWarnings = [...new Set(environmentWarnings)];
+  if (uniqueEnvironmentWarnings.length > 0) {
     const status = config.auth.allowApiKeyFallback ? "warn" : "fail";
     checks.push({
       id: "auth-precedence",
@@ -197,7 +210,7 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
       message: config.auth.allowApiKeyFallback
         ? "Environment may override Claude Code subscription OAuth; API fallback is explicitly allowed."
         : "Environment may override Claude Code subscription OAuth and API fallback is disabled.",
-      details: { warnings: environment.warnings }
+      details: { warnings: uniqueEnvironmentWarnings }
     });
   } else {
     checks.push({
@@ -207,7 +220,6 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
     });
   }
 
-  const providers = input.providers ?? listProviders({ config });
   for (const role of listRoles()) {
     if (!role.defaultReadOnly && !config.writeMode.enabled) {
       checks.push({
@@ -256,8 +268,8 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
     ok: checks.every((check) => check.status !== "fail"),
     checks,
     warnings: [
-      ...new Set([
-        ...environment.warnings,
+        ...new Set([
+        ...uniqueEnvironmentWarnings,
         ...checks
           .filter((check) => check.status === "warn")
           .map((check) => check.message)
