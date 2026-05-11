@@ -4,6 +4,8 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { StateCorruptionError } from "../../../src/core/errors.js";
 import {
+  appendControlRecord,
+  appendEventRecord,
   appendMailboxRecord,
   readMailboxRecords
 } from "../../../src/core/state/mailbox-store.js";
@@ -59,6 +61,51 @@ describe("mailbox-store", () => {
 
     await expect(readMailboxRecords(workspace, "run_2", "outbox")).rejects.toThrow(
       StateCorruptionError
+    );
+  });
+
+  it("appends typed control and event records to the correct mailbox", async () => {
+    const control = await appendControlRecord(workspace, "run_3", {
+      role: "planner",
+      provider: "claude-code-cli",
+      messageType: "cancel_requested",
+      correlationId: "ctrl_1",
+      payload: { reason: "user requested cancellation" }
+    });
+    const event = await appendEventRecord(workspace, "run_3", {
+      role: "planner",
+      provider: "claude-code-cli",
+      messageType: "started",
+      correlationId: "evt_1",
+      payload: { status: "running" }
+    });
+
+    await expect(readMailboxRecords(workspace, "run_3", "control")).resolves.toEqual([
+      control
+    ]);
+    await expect(readMailboxRecords(workspace, "run_3", "events")).resolves.toEqual([
+      event
+    ]);
+  });
+
+  it("serializes concurrent appends so sequences remain unique and monotonic", async () => {
+    const records = await Promise.all(
+      Array.from({ length: 20 }, (_, index) =>
+        appendMailboxRecord(workspace, "run_4", "events", {
+          role: "debugger",
+          provider: "claude-code-cli",
+          messageType: "progress",
+          correlationId: `evt_${index}`,
+          payload: { index }
+        })
+      )
+    );
+
+    const stored = await readMailboxRecords(workspace, "run_4", "events");
+
+    expect(new Set(records.map((record) => record.sequence)).size).toBe(20);
+    expect(stored.map((record) => record.sequence)).toEqual(
+      Array.from({ length: 20 }, (_, index) => index + 1)
     );
   });
 });

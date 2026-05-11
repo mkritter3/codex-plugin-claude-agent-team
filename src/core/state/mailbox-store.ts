@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
-import { appendFile, mkdir, readFile } from "node:fs/promises";
+import { appendFile, mkdir, readFile, rmdir } from "node:fs/promises";
 import { dirname } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { StateCorruptionError } from "../errors.js";
 import type { MailboxKind, MailboxRecord, RoleId } from "../types.js";
 import { mailboxPath } from "./paths.js";
@@ -18,6 +19,32 @@ function contentHash(payload: unknown): string {
   return createHash("sha256")
     .update(JSON.stringify(payload))
     .digest("hex");
+}
+
+async function acquireMailboxLock(path: string): Promise<() => Promise<void>> {
+  const lockPath = `${path}.lock`;
+  const startedAt = Date.now();
+  let attempt = 0;
+
+  while (true) {
+    try {
+      await mkdir(lockPath);
+      return async () => {
+        await rmdir(lockPath);
+      };
+    } catch (error) {
+      if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) {
+        throw error;
+      }
+
+      if (Date.now() - startedAt > 5_000) {
+        throw new StateCorruptionError(`Timed out acquiring mailbox lock: ${lockPath}`);
+      }
+
+      attempt += 1;
+      await delay(Math.min(20, attempt));
+    }
+  }
 }
 
 export async function readMailboxRecords(
@@ -58,20 +85,41 @@ export async function appendMailboxRecord(
   input: AppendMailboxInput
 ): Promise<MailboxRecord> {
   const path = mailboxPath(workspaceRoot, runId, kind);
-  const existing = await readMailboxRecords(workspaceRoot, runId, kind);
-  const record: MailboxRecord = {
-    sequence: existing.length + 1,
-    runId,
-    role: input.role,
-    provider: input.provider,
-    messageType: input.messageType,
-    createdAt: input.createdAt ?? new Date().toISOString(),
-    correlationId: input.correlationId,
-    contentHash: contentHash(input.payload),
-    payload: input.payload
-  };
-
   await mkdir(dirname(path), { recursive: true });
-  await appendFile(path, `${JSON.stringify(record)}\n`, "utf8");
-  return record;
+  const release = await acquireMailboxLock(path);
+  try {
+    const existing = await readMailboxRecords(workspaceRoot, runId, kind);
+    const record: MailboxRecord = {
+      sequence: existing.length + 1,
+      runId,
+      role: input.role,
+      provider: input.provider,
+      messageType: input.messageType,
+      createdAt: input.createdAt ?? new Date().toISOString(),
+      correlationId: input.correlationId,
+      contentHash: contentHash(input.payload),
+      payload: input.payload
+    };
+
+    await appendFile(path, `${JSON.stringify(record)}\n`, "utf8");
+    return record;
+  } finally {
+    await release();
+  }
+}
+
+export async function appendControlRecord(
+  workspaceRoot: string,
+  runId: string,
+  input: AppendMailboxInput
+): Promise<MailboxRecord> {
+  return appendMailboxRecord(workspaceRoot, runId, "control", input);
+}
+
+export async function appendEventRecord(
+  workspaceRoot: string,
+  runId: string,
+  input: AppendMailboxInput
+): Promise<MailboxRecord> {
+  return appendMailboxRecord(workspaceRoot, runId, "events", input);
 }
