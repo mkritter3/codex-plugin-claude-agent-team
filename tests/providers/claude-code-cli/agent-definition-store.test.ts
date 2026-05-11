@@ -1,9 +1,10 @@
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   ensureClaudeAgentDefinitionArtifacts,
+  ensureValidClaudeAgentDefinitionArtifacts,
   validateClaudeAgentDefinitionArtifacts
 } from "../../../src/providers/claude-code-cli/agent-definition-store.js";
 
@@ -60,6 +61,41 @@ describe("Claude agent definition artifact store", () => {
 
     await expect(
       validateClaudeAgentDefinitionArtifacts({ workspaceRoot: root })
+    ).rejects.toThrow("Claude agent definition artifact hash mismatch.");
+  });
+
+  it("creates missing artifacts then validates existing artifacts without rewriting", async () => {
+    const root = await workspace();
+
+    const created = await ensureValidClaudeAgentDefinitionArtifacts({
+      workspaceRoot: root
+    });
+    const createdAgentsStat = await stat(created.agentsPath);
+    const createdManifestStat = await stat(created.manifestPath);
+    const validated = await ensureValidClaudeAgentDefinitionArtifacts({
+      workspaceRoot: root
+    });
+
+    expect(created.action).toBe("created");
+    expect(validated.action).toBe("validated");
+    expect(validated.manifest.definitionsHash).toBe(created.manifest.definitionsHash);
+    await expect(stat(validated.agentsPath)).resolves.toMatchObject({
+      mtimeMs: createdAgentsStat.mtimeMs
+    });
+    await expect(stat(validated.manifestPath)).resolves.toMatchObject({
+      mtimeMs: createdManifestStat.mtimeMs
+    });
+  });
+
+  it("does not repair drift through the validate-or-create helper", async () => {
+    const root = await workspace();
+    const written = await ensureValidClaudeAgentDefinitionArtifacts({ workspaceRoot: root });
+    const definitions = JSON.parse(await readFile(written.agentsPath, "utf8"));
+    definitions.planner.description = "Drifted planner description.";
+    await writeFile(written.agentsPath, `${JSON.stringify(definitions, null, 2)}\n`, "utf8");
+
+    await expect(
+      ensureValidClaudeAgentDefinitionArtifacts({ workspaceRoot: root })
     ).rejects.toThrow("Claude agent definition artifact hash mismatch.");
   });
 });

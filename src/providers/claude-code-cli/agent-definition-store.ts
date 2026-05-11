@@ -24,10 +24,13 @@ export interface ClaudeAgentDefinitionManifest {
   readonly manifestPath: string;
 }
 
+export type ClaudeAgentDefinitionArtifactAction = "created" | "validated" | "repaired";
+
 export interface ClaudeAgentDefinitionArtifactResult {
   readonly agentsPath: string;
   readonly manifestPath: string;
   readonly manifest: ClaudeAgentDefinitionManifest;
+  readonly action: ClaudeAgentDefinitionArtifactAction;
 }
 
 export class ClaudeAgentDefinitionArtifactError extends Error {
@@ -95,8 +98,18 @@ export async function ensureClaudeAgentDefinitionArtifacts(input: {
   return {
     agentsPath: paths.agentsPath,
     manifestPath: paths.manifestPath,
-    manifest
+    manifest,
+    action: "created"
   };
+}
+
+function isMissingArtifactError(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    error.code === "ENOENT"
+  );
 }
 
 export async function validateClaudeAgentDefinitionArtifacts(input: {
@@ -120,6 +133,20 @@ export async function validateClaudeAgentDefinitionArtifacts(input: {
   return {
     agentsPath: paths.agentsPath,
     manifestPath: paths.manifestPath,
-    manifest
+    manifest,
+    action: "validated"
   };
+}
+
+export async function ensureValidClaudeAgentDefinitionArtifacts(input: {
+  readonly workspaceRoot: string;
+}): Promise<ClaudeAgentDefinitionArtifactResult> {
+  try {
+    return await validateClaudeAgentDefinitionArtifacts(input);
+  } catch (error) {
+    if (isMissingArtifactError(error)) {
+      return ensureClaudeAgentDefinitionArtifacts(input);
+    }
+    throw error;
+  }
 }
