@@ -6,8 +6,16 @@ export interface BuildRolePromptInput {
   readonly cwd: string;
 }
 
-export function buildRolePrompt(input: BuildRolePromptInput): string {
-  const readOnlyRules = input.role.defaultReadOnly
+export interface BuildReplyPromptInput {
+  readonly role: AgentRole;
+  readonly cwd: string;
+  readonly parentRunId: string;
+  readonly providerSessionId: string;
+  readonly message: string;
+}
+
+function readOnlyRules(role: AgentRole): readonly string[] {
+  return role.defaultReadOnly
     ? [
         "This is a read-only dispatch.",
         "Do not modify files.",
@@ -16,17 +24,10 @@ export function buildRolePrompt(input: BuildRolePromptInput): string {
         "Use evidence from the workspace and report uncertainty explicitly."
       ]
     : ["Follow the explicit permission policy for this role."];
+}
 
+function verdictProtocol(): readonly string[] {
   return [
-    `Role: ${input.role.displayName}`,
-    `Role id: ${input.role.id}`,
-    `Workspace: ${input.cwd}`,
-    "",
-    "Task:",
-    input.task,
-    "",
-    "Operating constraints:",
-    ...readOnlyRules.map((rule) => `- ${rule}`),
     "- Keep output concise and evidence-grounded.",
     "- End with exactly one verdict block using this protocol:",
     "",
@@ -40,5 +41,40 @@ export function buildRolePrompt(input: BuildRolePromptInput): string {
     "risks:",
     "- ...",
     "<<<END_VERDICT>>>"
+  ];
+}
+
+export function buildRolePrompt(input: BuildRolePromptInput): string {
+  return [
+    `Role: ${input.role.displayName}`,
+    `Role id: ${input.role.id}`,
+    `Workspace: ${input.cwd}`,
+    "",
+    "Task:",
+    input.task,
+    "",
+    "Operating constraints:",
+    ...readOnlyRules(input.role).map((rule) => `- ${rule}`),
+    ...verdictProtocol()
+  ].join("\n");
+}
+
+export function buildReplyPrompt(input: BuildReplyPromptInput): string {
+  return [
+    `Role: ${input.role.displayName}`,
+    `Role id: ${input.role.id}`,
+    `Workspace: ${input.cwd}`,
+    `Parent run: ${input.parentRunId}`,
+    `Provider session: ${input.providerSessionId}`,
+    "",
+    "This is a resumed continuation of the existing provider session.",
+    "The message below was recorded durably in the agent-team inbox; do not assume prior live delivery.",
+    "",
+    "New message:",
+    input.message,
+    "",
+    "Operating constraints:",
+    ...readOnlyRules(input.role).map((rule) => `- ${rule}`),
+    ...verdictProtocol()
   ].join("\n");
 }
