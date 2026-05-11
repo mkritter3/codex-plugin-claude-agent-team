@@ -108,4 +108,76 @@ describe("runDoctor", () => {
       status: "fail"
     });
   });
+
+  it("fails doctor when state directory is not writable", async () => {
+    const workspace = await tempWorkspace();
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: {},
+      ...cliFound(),
+      ensureWritableState: async () => {
+        throw new Error("permission denied");
+      }
+    });
+
+    expect(report.ok).toBe(false);
+    expect(report.checks.find((check) => check.id === "state-writable")).toMatchObject({
+      status: "fail",
+      details: { error: "permission denied" }
+    });
+  });
+
+  it("checks git worktree support when isolated write mode is enabled", async () => {
+    const workspace = await tempWorkspace();
+    await writeConfig(workspace, {
+      writeMode: { enabled: true, requireIsolatedWorktree: true }
+    });
+    const inspected: string[] = [];
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: {},
+      ...cliFound(),
+      inspectGitWorktreeSupport: async ({ workspaceRoot }) => {
+        inspected.push(workspaceRoot);
+        return {
+          ok: true,
+          gitVersion: "git version 2.50.0",
+          sourceRoot: workspace,
+          worktreeList: "worktree repo"
+        };
+      }
+    });
+
+    expect(inspected).toEqual([workspace]);
+    expect(report.checks.find((check) => check.id === "git-worktree")).toMatchObject({
+      status: "pass",
+      details: {
+        gitVersion: "git version 2.50.0",
+        sourceRoot: workspace
+      }
+    });
+  });
+
+  it("does not require git worktree support when write mode is disabled", async () => {
+    const workspace = await tempWorkspace();
+    let called = false;
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: {},
+      ...cliFound(),
+      inspectGitWorktreeSupport: async () => {
+        called = true;
+        return { ok: false, message: "should not be required" };
+      }
+    });
+
+    expect(called).toBe(false);
+    expect(report.checks.find((check) => check.id === "git-worktree")).toMatchObject({
+      status: "pass",
+      message: "Git worktree support is not required while write mode is disabled."
+    });
+  });
 });

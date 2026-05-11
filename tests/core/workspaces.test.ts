@@ -4,6 +4,7 @@ import {
   WorkspaceLeaseError,
   allocateIsolatedWorktree,
   cleanupIsolatedWorktree,
+  inspectGitWorktreeSupport,
   inspectImplementationWorkspace
 } from "../../src/core/workspaces.js";
 import { workspaceDiffPath } from "../../src/core/state/paths.js";
@@ -197,5 +198,48 @@ describe("isolated workspace leases", () => {
         }
       })
     ).rejects.toThrow(WorkspaceLeaseError);
+  });
+
+  it("inspects git and worktree support for a source workspace", async () => {
+    const calls: Array<{ file: string; args: readonly string[] }> = [];
+    const result = await inspectGitWorktreeSupport({
+      workspaceRoot: "/repo/src",
+      execFile: async (file, args) => {
+        calls.push({ file, args });
+        if (args.includes("--version")) {
+          return { stdout: "git version 2.50.0\n", stderr: "" };
+        }
+        if (args.includes("--show-toplevel")) {
+          return { stdout: "/repo\n", stderr: "" };
+        }
+        return { stdout: "worktree /repo\nHEAD abc\nbranch refs/heads/main\n", stderr: "" };
+      }
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      gitVersion: "git version 2.50.0",
+      sourceRoot: "/repo",
+      worktreeList: "worktree /repo\nHEAD abc\nbranch refs/heads/main\n"
+    });
+    expect(calls).toEqual([
+      { file: "git", args: ["--version"] },
+      { file: "git", args: ["-C", "/repo/src", "rev-parse", "--show-toplevel"] },
+      { file: "git", args: ["-C", "/repo", "worktree", "list", "--porcelain"] }
+    ]);
+  });
+
+  it("returns failed git support inspection instead of throwing raw git errors", async () => {
+    await expect(
+      inspectGitWorktreeSupport({
+        workspaceRoot: "/repo",
+        execFile: async () => {
+          throw new Error("git missing");
+        }
+      })
+    ).resolves.toEqual({
+      ok: false,
+      message: "git missing"
+    });
   });
 });

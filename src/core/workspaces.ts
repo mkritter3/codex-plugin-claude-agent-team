@@ -20,6 +20,14 @@ export class WorkspaceLeaseError extends Error {
   }
 }
 
+export interface GitWorktreeSupportInspection {
+  readonly ok: boolean;
+  readonly gitVersion?: string;
+  readonly sourceRoot?: string;
+  readonly worktreeList?: string;
+  readonly message?: string;
+}
+
 const execFileAsync = promisify(nodeExecFile);
 
 const defaultExecFile: ExecFileLike = async (file, args) => {
@@ -177,5 +185,41 @@ export async function inspectImplementationWorkspace(input: {
     throw new WorkspaceLeaseError(
       `Unable to inspect implementation workspace ${input.executionCwd}: ${message}`
     );
+  }
+}
+
+export async function inspectGitWorktreeSupport(input: {
+  readonly workspaceRoot: string;
+  readonly execFile?: ExecFileLike;
+}): Promise<GitWorktreeSupportInspection> {
+  const execFile = input.execFile ?? defaultExecFile;
+  try {
+    const version = await execFile("git", ["--version"]);
+    const root = await execFile("git", [
+      "-C",
+      input.workspaceRoot,
+      "rev-parse",
+      "--show-toplevel"
+    ]);
+    const sourceRoot = root.stdout.trim();
+    const worktrees = await execFile("git", [
+      "-C",
+      sourceRoot,
+      "worktree",
+      "list",
+      "--porcelain"
+    ]);
+
+    return {
+      ok: true,
+      gitVersion: version.stdout.trim(),
+      sourceRoot,
+      worktreeList: worktrees.stdout
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      message: error instanceof Error ? error.message : String(error)
+    };
   }
 }
