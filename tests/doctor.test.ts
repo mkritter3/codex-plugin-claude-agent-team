@@ -180,4 +180,71 @@ describe("runDoctor", () => {
       message: "Git worktree support is not required while write mode is disabled."
     });
   });
+
+  it("reports slice implementer routing as a warning until write mode is enabled", async () => {
+    const workspace = await tempWorkspace();
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: {},
+      ...cliFound()
+    });
+
+    expect(report.ok).toBe(true);
+    expect(
+      report.checks.find((check) => check.id === "role-routing:planner")
+    ).toMatchObject({
+      status: "pass"
+    });
+    expect(
+      report.checks.find((check) => check.id === "role-routing:slice-implementer")
+    ).toMatchObject({
+      status: "warn",
+      message: "slice-implementer is unavailable until isolated write mode is enabled."
+    });
+  });
+
+  it("fails slice implementer routing when write mode is enabled but no provider can satisfy it", async () => {
+    const workspace = await tempWorkspace();
+    await writeConfig(workspace, {
+      writeMode: { enabled: true, requireIsolatedWorktree: true }
+    });
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: {},
+      ...cliFound(),
+      providers: [],
+      inspectGitWorktreeSupport: async () => ({ ok: true })
+    });
+
+    expect(report.ok).toBe(false);
+    expect(
+      report.checks.find((check) => check.id === "role-routing:slice-implementer")
+    ).toMatchObject({
+      status: "fail"
+    });
+  });
+
+  it("passes slice implementer routing when write mode enables edit-capable Claude provider", async () => {
+    const workspace = await tempWorkspace();
+    await writeConfig(workspace, {
+      writeMode: { enabled: true, requireIsolatedWorktree: true }
+    });
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: {},
+      ...cliFound(),
+      inspectGitWorktreeSupport: async () => ({ ok: true })
+    });
+
+    expect(report.ok).toBe(true);
+    expect(
+      report.checks.find((check) => check.id === "role-routing:slice-implementer")
+    ).toMatchObject({
+      status: "pass",
+      details: { provider: "claude-code-cli" }
+    });
+  });
 });

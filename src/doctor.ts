@@ -6,12 +6,15 @@ import {
   DEFAULT_AGENT_TEAM_CONFIG,
   loadAgentTeamConfig
 } from "./core/config.js";
+import { listRoles } from "./core/roles.js";
+import { selectProvider } from "./core/router.js";
 import { STATE_DIR } from "./core/state/paths.js";
-import type { AgentTeamConfig } from "./core/types.js";
+import type { AgentProviderDescriptor, AgentTeamConfig } from "./core/types.js";
 import {
   inspectGitWorktreeSupport as defaultInspectGitWorktreeSupport
 } from "./core/workspaces.js";
 import { inspectClaudeEnvironment } from "./providers/claude-code-cli/doctor.js";
+import { listProviders } from "./providers/index.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -38,6 +41,7 @@ export interface DoctorInput {
   readonly loadConfig?: typeof loadAgentTeamConfig;
   readonly ensureWritableState?: (workspaceRoot: string) => Promise<void>;
   readonly inspectGitWorktreeSupport?: typeof defaultInspectGitWorktreeSupport;
+  readonly providers?: readonly AgentProviderDescriptor[];
 }
 
 async function defaultFindExecutable(name: string): Promise<string | undefined> {
@@ -203,9 +207,61 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
     });
   }
 
+  const providers = input.providers ?? listProviders({ config });
+  for (const role of listRoles()) {
+    if (!role.defaultReadOnly && !config.writeMode.enabled) {
+      checks.push({
+        id: `role-routing:${role.id}`,
+        status: "warn",
+        message: "slice-implementer is unavailable until isolated write mode is enabled.",
+        details: {
+          role: role.id,
+          requiredCapabilities: role.requiredCapabilities
+        }
+      });
+      continue;
+    }
+
+    try {
+      const provider = selectProvider({
+        roleId: role.id,
+        providers
+      });
+      checks.push({
+        id: `role-routing:${role.id}`,
+        status: "pass",
+        message: `Role ${role.id} can route to ${provider.id}.`,
+        details: {
+          role: role.id,
+          provider: provider.id,
+          requiredCapabilities: role.requiredCapabilities
+        }
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      checks.push({
+        id: `role-routing:${role.id}`,
+        status: "fail",
+        message: `Role ${role.id} cannot route to an available provider.`,
+        details: {
+          role: role.id,
+          error: message,
+          requiredCapabilities: role.requiredCapabilities
+        }
+      });
+    }
+  }
+
   return {
     ok: checks.every((check) => check.status !== "fail"),
     checks,
-    warnings: environment.warnings
+    warnings: [
+      ...new Set([
+        ...environment.warnings,
+        ...checks
+          .filter((check) => check.status === "warn")
+          .map((check) => check.message)
+      ])
+    ]
   };
 }

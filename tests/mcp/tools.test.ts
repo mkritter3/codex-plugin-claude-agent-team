@@ -419,6 +419,52 @@ describe("MCP tool handlers", () => {
     ]);
   });
 
+  it("passes optional cwd to agent_team_doctor", async () => {
+    const workspaces: string[] = [];
+    const handlers = createToolHandlers({
+      cwd: () => "/default",
+      doctor: async (input = {}) => {
+        const { workspaceRoot } = input;
+        workspaces.push(workspaceRoot ?? "");
+        return {
+          ok: true,
+          checks: [
+            {
+              id: "config",
+              status: "pass",
+              message: "ok"
+            }
+          ],
+          warnings: []
+        };
+      }
+    });
+
+    const result = await handlers.handleToolCall("agent_team_doctor", {
+      cwd: "/repo"
+    });
+
+    expect(workspaces).toEqual(["/repo"]);
+    expect(result.structuredContent?.ok).toBe(true);
+  });
+
+  it("validates doctor cwd before invoking doctor", async () => {
+    let called = false;
+    const handlers = createToolHandlers({
+      doctor: async () => {
+        called = true;
+        throw new Error("should not call doctor");
+      }
+    });
+
+    const result = await handlers.handleToolCall("agent_team_doctor", {
+      cwd: 42
+    });
+
+    expect(called).toBe(false);
+    expect(result.structuredContent?.status).toBe("validation_error");
+  });
+
   it("returns execution cwd from implementation starts", async () => {
     const handlers = createToolHandlers({
       cwd: () => "/repo",

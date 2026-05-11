@@ -46,6 +46,7 @@ export interface ToolDependencies {
     readonly windDownRun: (cwd: string, runId: string) => Promise<AgentControlResult>;
   };
   readonly lifecycleFactory?: (config: AgentTeamConfig) => NonNullable<ToolDependencies["lifecycle"]>;
+  readonly doctor?: typeof runDoctor;
   readonly cwd?: () => string;
   readonly config?: AgentTeamConfig;
 }
@@ -169,6 +170,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
   ) => Promise<JsonToolResult>;
 } {
   const dispatch = deps.dispatch ?? dispatchReadOnlyAgent;
+  const doctor = deps.doctor ?? runDoctor;
   const cwd = deps.cwd ?? process.cwd;
 
   async function config(workspaceRoot: string): Promise<AgentTeamConfig> {
@@ -198,7 +200,11 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
       }
 
       if (name === "agent_team_doctor") {
-        return jsonToolResult({ ...(await runDoctor()) });
+        if (args.cwd !== undefined && typeof args.cwd !== "string") {
+          return validationError("agent_team_doctor cwd must be a string.");
+        }
+        const workspaceRoot = args.cwd ?? cwd();
+        return jsonToolResult({ ...(await doctor({ workspaceRoot })) });
       }
 
       if (name === "agent_team_dispatch") {
