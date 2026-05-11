@@ -238,6 +238,7 @@ export interface RunSidecar {
   readonly pendingOutboxRequest?: AgentOutboxRequestEvidence;
   readonly outboxRequestIds?: readonly string[];
   readonly detached?: boolean;
+  readonly detachedAt?: string;
   readonly warnings?: readonly string[];
   readonly recentActivities?: readonly ProviderSessionActivity[];
   readonly currentActivity?: ProviderSessionActivity | null;

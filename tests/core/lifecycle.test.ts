@@ -313,8 +313,53 @@ describe("AgentLifecycleManager", () => {
     const restartedManager = new AgentLifecycleManager();
     await expect(restartedManager.getStatus(workspace, "run_life_3")).resolves.toMatchObject({
       status: "running",
-      detached: true
+      detached: true,
+      detachedAt: expect.any(String)
     });
+    await expect(readRunSidecar(workspace, "run_life_3")).resolves.toMatchObject({
+      status: "running",
+      detached: true,
+      detachedAt: expect.any(String),
+      warnings: [
+        "Run run_life_3 is running, but no active process handle is attached."
+      ]
+    });
+    await restartedManager.getStatus(workspace, "run_life_3");
+    await expect(readMailboxRecords(workspace, "run_life_3", "events")).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ messageType: "detached_handle_missing" })
+      ])
+    );
+    const events = await readMailboxRecords(workspace, "run_life_3", "events");
+    expect(
+      events.filter((record) => record.messageType === "detached_handle_missing")
+    ).toHaveLength(1);
+    const persisted = await readRunSidecar(workspace, "run_life_3");
+    expect(
+      persisted.warnings?.filter((warning) => warning.includes("no active process handle"))
+    ).toHaveLength(1);
+  });
+
+  it("does not mark terminal sidecars as detached", async () => {
+    const terminal: RunSidecar = {
+      runId: "run_terminal_not_detached",
+      role: "planner",
+      provider: "claude-code-cli",
+      status: "completed",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:00:00.000Z",
+      capabilitiesUsed: ["structuredOutput"],
+      evidencePaths: [],
+      outputSummary: "Done"
+    };
+    await writeRunSidecar(workspace, terminal);
+
+    await expect(
+      new AgentLifecycleManager().getStatus(workspace, "run_terminal_not_detached")
+    ).resolves.not.toHaveProperty("detached");
+    await expect(
+      readMailboxRecords(workspace, "run_terminal_not_detached", "events")
+    ).resolves.toEqual([]);
   });
 
   it("cancels active runs without allowing late completion to overwrite cancelled", async () => {

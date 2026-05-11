@@ -320,13 +320,7 @@ export class AgentLifecycleManager {
     }
 
     if (!isTerminalRunStatus(sidecar.status)) {
-      return {
-        ...sidecar,
-        detached: true,
-        warnings: [
-          `Run ${runId} is ${sidecar.status}, but no active process handle is attached.`
-        ]
-      };
+      return this.reconcileDetachedRun(workspaceRoot, sidecar);
     }
 
     return sidecar;
@@ -795,6 +789,50 @@ export class AgentLifecycleManager {
       current = await this.persistOutboxRequest(workspaceRoot, current, request);
     }
     return current;
+  }
+
+  private async reconcileDetachedRun(
+    workspaceRoot: string,
+    sidecar: RunSidecar
+  ): Promise<RunSidecar> {
+    if (isTerminalRunStatus(sidecar.status)) {
+      return sidecar;
+    }
+
+    const warning = `Run ${sidecar.runId} is ${sidecar.status}, but no active process handle is attached.`;
+    if (sidecar.detached === true) {
+      return {
+        ...sidecar,
+        warnings: [...new Set([...(sidecar.warnings ?? []), warning])]
+      };
+    }
+
+    const detachedAt = this.now().toISOString();
+    const reconciled = await transitionRunSidecar(
+      workspaceRoot,
+      sidecar.runId,
+      (current) => ({
+        ...current,
+        detached: true,
+        detachedAt,
+        updatedAt: detachedAt,
+        warnings: [...new Set([...(current.warnings ?? []), warning])]
+      })
+    );
+
+    await appendEventRecord(workspaceRoot, sidecar.runId, {
+      role: reconciled.role,
+      provider: reconciled.provider,
+      messageType: "detached_handle_missing",
+      correlationId: sidecar.runId,
+      createdAt: detachedAt,
+      payload: {
+        status: reconciled.status,
+        detachedAt
+      }
+    });
+
+    return reconciled;
   }
 
   private async persistOutboxRequest(
