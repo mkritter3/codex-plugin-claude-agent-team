@@ -124,11 +124,13 @@ export async function dispatchReadOnlyAgent(
   const createdAt = now().toISOString();
   const role = getRole(request.role);
   const providers = deps.providers ?? listProviders();
-  const provider = selectProvider({
-    roleId: request.role,
-    providers,
-    ...(request.provider === undefined ? {} : { requestedProviderId: request.provider })
-  });
+  const provider = role.defaultReadOnly
+    ? selectProvider({
+        roleId: request.role,
+        providers,
+        ...(request.provider === undefined ? {} : { requestedProviderId: request.provider })
+      })
+    : providers[0] ?? listProviders()[0]!;
 
   const finish = async (input: {
     readonly status: RunStatus;
