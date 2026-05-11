@@ -1,3 +1,5 @@
+import type { RoleId } from "../core/types.js";
+
 export interface ProviderSessionActivity {
   readonly type: "tool_start" | "text" | "result" | "error";
   readonly summary: string;
@@ -22,6 +24,7 @@ export type ProviderSessionPermissionMode =
 export interface ProviderPrintInput {
   readonly prompt: string;
   readonly cwd: string;
+  readonly roleId?: RoleId;
   readonly timeoutMs?: number;
   readonly env?: NodeJS.ProcessEnv;
 }
@@ -40,6 +43,7 @@ export interface ProviderStartSessionInput {
   readonly cwd: string;
   readonly workspaceRoot: string;
   readonly runId: string;
+  readonly roleId?: RoleId;
   readonly env?: NodeJS.ProcessEnv;
   readonly sessionId?: string;
   readonly permissionMode?: ProviderSessionPermissionMode;
