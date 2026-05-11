@@ -1,6 +1,6 @@
 # Agent Team MCP Milestone 8 In-Flight Control Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Make `agent_team_message` and `agent_team_wind_down` honest first-class live-control surfaces while preserving durable mailbox fallback and retained implementation evidence.
 
@@ -42,7 +42,7 @@
 - Modify: `src/providers/claude-code-cli/background.ts`
 - Test: `tests/providers/claude-code-cli/background.test.ts`
 
-- [ ] **Step 1: Write failing provider handle tests**
+- [x] **Step 1: Write failing provider handle tests**
 
 Add tests proving:
 
@@ -58,7 +58,7 @@ npm test -- tests/providers/claude-code-cli/background.test.ts
 
 Expected: FAIL because `supportsStdin` is not in the provider handle contract and `writeStdin` currently returns void.
 
-- [ ] **Step 2: Implement handle contract**
+- [x] **Step 2: Implement handle contract**
 
 Update `ProviderSessionHandle`:
 
@@ -73,7 +73,7 @@ In Claude background sessions:
 - `writeStdin` returns `false` if stdin is missing or destroyed.
 - otherwise write the payload and return the boolean from `child.stdin.write(data)`.
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -84,7 +84,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/providers/types.ts src/providers/claude-code-cli/background.ts tests/providers/claude-code-cli/background.test.ts
@@ -99,7 +99,7 @@ git commit -m "feat: expose provider stdin support"
 - Test: `tests/core/lifecycle.test.ts`
 - Test: `tests/mcp/tools.test.ts`
 
-- [ ] **Step 1: Write failing live message tests**
+- [x] **Step 1: Write failing live message tests**
 
 Add tests proving:
 
@@ -116,7 +116,7 @@ npm test -- tests/core/lifecycle.test.ts tests/mcp/tools.test.ts
 
 Expected: FAIL because `messageRun` only records for resume.
 
-- [ ] **Step 2: Implement live delivery**
+- [x] **Step 2: Implement live delivery**
 
 Extend `AgentMessageResult.status` to:
 
@@ -138,7 +138,7 @@ In `messageRun`:
   - return `delivered_live`
 - otherwise return `recorded_for_resume`
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -149,7 +149,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/types.ts src/core/lifecycle.ts tests/core/lifecycle.test.ts tests/mcp/tools.test.ts
@@ -163,7 +163,7 @@ git commit -m "feat: deliver live messages when supported"
 - Modify: `src/core/lifecycle.ts`
 - Test: `tests/core/lifecycle.test.ts`
 
-- [ ] **Step 1: Write failing wind-down tests**
+- [x] **Step 1: Write failing wind-down tests**
 
 Add tests proving:
 
@@ -181,7 +181,7 @@ npm test -- tests/core/lifecycle.test.ts
 
 Expected: FAIL because sidecars do not close input and wind-down does not wait.
 
-- [ ] **Step 2: Implement wind-down semantics**
+- [x] **Step 2: Implement wind-down semantics**
 
 Extend `RunSidecar`:
 
@@ -211,7 +211,7 @@ In `windDownRun`:
 
 In `messageRun`, reject when `inputClosed === true` or status is `winding-down`, `cancelling`, `cancelled`, `failed`, or `expired`.
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -222,7 +222,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/types.ts src/core/lifecycle.ts tests/core/lifecycle.test.ts
@@ -234,7 +234,7 @@ git commit -m "feat: close input during wind-down"
 **Files:**
 - Modify only if verification finds issues.
 
-- [ ] **Step 1: Run focused Milestone 8 tests**
+- [x] **Step 1: Run focused Milestone 8 tests**
 
 Run:
 
@@ -244,7 +244,7 @@ npm test -- tests/providers/claude-code-cli/background.test.ts tests/core/lifecy
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -256,7 +256,7 @@ npm run build
 
 Expected: PASS.
 
-- [ ] **Step 3: Review diff**
+- [x] **Step 3: Review diff**
 
 Run:
 
@@ -267,6 +267,22 @@ git diff --stat main..HEAD
 
 Expected: only planned files changed.
 
-- [ ] **Step 4: Merge and push**
+- [x] **Step 4: Merge and push**
 
 Fast-forward merge the verified worktree branch into `main`, push, and remove the temporary implementation worktree.
+
+## Completed Implementation Evidence
+
+- Planned on `main` in `221ed52`.
+- Implemented in isolated worktree `.worktrees/milestone-8-inflight-control` on branch `codex/milestone-8-inflight-control`.
+- Implementation commits:
+  - `fe4b56c feat: expose provider stdin support`
+  - `7fdc48c feat: deliver live messages when supported`
+  - `1945b19 feat: close input during wind-down`
+  - `930d3cb fix: handle wind-down completion race`
+- Focused verification:
+  - `npm test -- tests/providers/claude-code-cli/background.test.ts tests/core/lifecycle.test.ts tests/mcp/tools.test.ts`
+  - Result: 3 test files passed, 55 tests passed.
+- Full verification:
+  - `npm run typecheck && npm test && npm run build`
+  - Result: typecheck passed, 21 test files passed, 127 tests passed, build passed.
