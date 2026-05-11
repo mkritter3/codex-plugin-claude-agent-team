@@ -92,8 +92,10 @@ V1 exposes a narrow Codex-facing surface:
 - `agent_team_dispatch`: run one role against one task.
 - `agent_team_start`: start a durable role session.
 - `agent_team_reply`: continue a durable session.
+- `agent_team_message`: send a control message, clarification, or additional evidence to an active run.
 - `agent_team_status`: inspect background run state.
 - `agent_team_cancel`: terminate a background run.
+- `agent_team_wind_down`: gracefully stop a run, harvest outputs, summarize state, and release resources.
 - `agent_team_doctor`: verify transport, credentials, settings, capabilities, and writable state.
 - `agent_team_list_roles`: list roles and required capabilities.
 - `agent_team_list_providers`: list configured providers and health.
@@ -183,6 +185,93 @@ Sidecars are the source of truth for orchestration state. They include:
 
 Provider transcripts can be large. Store bounded summaries in sidecars and full logs under `.agent-team/logs/` with max-byte rotation.
 
+## Run Lifecycle
+
+Every run moves through explicit states:
+
+```text
+queued -> starting -> running -> awaiting-input -> winding-down -> completed
+queued -> starting -> running -> cancelling -> cancelled
+queued -> starting -> running -> failed
+queued -> expired
+```
+
+The orchestrator owns state transitions. Provider adapters report observations, but they do not directly decide terminal state.
+
+Terminal states are:
+
+- `completed`: provider exited successfully and the verdict was parsed.
+- `cancelled`: the user or Codex intentionally stopped the run.
+- `failed`: provider crashed, output was unrecoverable, or required state could not be written.
+- `expired`: the run never started before its queue deadline.
+
+All terminal states must write a final sidecar with status, timestamps, evidence paths, transcript summary, and cleanup result.
+
+## Mailboxes And In-Flight Communication
+
+Each run has an append-only mailbox:
+
+```text
+.agent-team/mailboxes/<run-id>/
+  inbox.jsonl
+  outbox.jsonl
+  control.jsonl
+  events.jsonl
+```
+
+Mailbox responsibilities:
+
+- `inbox.jsonl`: Codex-to-agent messages, clarifications, new evidence, or revised constraints.
+- `outbox.jsonl`: agent-to-Codex questions, progress notes, partial findings, or requested approvals.
+- `control.jsonl`: structured control events such as cancel, wind-down, timeout extension, or permission changes.
+- `events.jsonl`: orchestrator-observed lifecycle and transport events.
+
+All mailbox records include:
+
+- monotonic sequence number
+- run id
+- role
+- provider
+- message type
+- created timestamp
+- correlation id
+- content hash
+- payload
+
+Communication rules:
+
+- Codex is the communication hub. Agents do not message each other directly in v1.
+- Provider adapters poll or stream mailbox changes only through the orchestrator.
+- A running agent may enter `awaiting-input` if it needs clarification or approval.
+- `agent_team_message` appends to `inbox.jsonl` and wakes the provider when supported.
+- If the provider cannot accept live input, the orchestrator records the message and uses it on the next resume.
+- Permission changes require a control event and capability revalidation before the agent can act on them.
+
+## Wind-Down And Cleanup
+
+Wind-down is distinct from cancellation. It asks an active run to stop taking new work, summarize what happened, emit a final verdict if possible, and release resources cleanly.
+
+`agent_team_wind_down` performs:
+
+1. append `wind_down_requested` to `control.jsonl`
+2. ask the provider for a concise final summary and current verdict
+3. stop accepting new mailbox input except cancellation
+4. wait up to the configured grace period
+5. persist final transcript summary, raw log path, changed files, and parsed verdict
+6. close provider session handles
+7. check worktree cleanliness for implementation roles
+8. mark temporary worktrees as retained, archived, or removable according to policy
+9. rotate oversized logs
+10. write final sidecar status
+
+Cleanup policy:
+
+- Review/planning/debugging runs keep sidecars and bounded summaries; raw logs rotate by size.
+- Implementation runs keep worktrees by default until Codex reviews and integrates the diff.
+- No run deletes changed files automatically.
+- Cancellation kills the provider process only after a soft-stop grace period.
+- Hard-killed runs are marked `cancelled` with `cleanup: partial` and preserve logs.
+
 ## Verdict Protocol
 
 Agent outputs must include a structured verdict block:
@@ -212,6 +301,8 @@ The system fails closed:
 - Timeout: cancel process, record status, preserve partial logs.
 - Provider crash: record command, exit code, stderr summary, and recovery hint.
 - Sidecar corruption: archive corrupt file, halt the affected run, and require user intervention.
+- Mailbox corruption: archive the corrupted mailbox file, halt the affected run, and require user intervention.
+- Wind-down failure: preserve logs, mark cleanup as partial, and make the run visible through `agent_team_status`.
 
 ## Doctor
 
@@ -241,6 +332,8 @@ V1 test coverage:
 - auth-precedence diagnostics
 - verdict parser
 - sidecar atomic writes and corruption handling
+- mailbox append ordering and corruption handling
+- wind-down finalization and cleanup policy
 - timeout and cancellation behavior
 - MCP tool schema validation
 
@@ -267,9 +360,10 @@ Live provider smoke tests should be opt-in because they depend on local subscrip
 5. Implement Claude Code CLI provider command construction and JSON parsing.
 6. Add MCP tools.
 7. Add doctor.
-8. Add background dispatch, status, and cancellation.
-9. Add isolated worktree support for `slice-implementer`.
-10. Add docs and examples.
+8. Add mailboxes and in-flight communication.
+9. Add background dispatch, status, wind-down, and cancellation.
+10. Add isolated worktree support for `slice-implementer`.
+11. Add docs and examples.
 
 ## V1 Decisions
 
