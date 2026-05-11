@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { inspectClaudeEnvironment } from "../../../src/providers/claude-code-cli/doctor.js";
+import {
+  checkClaudeAgentDefinitions,
+  inspectClaudeEnvironment
+} from "../../../src/providers/claude-code-cli/doctor.js";
 
 describe("inspectClaudeEnvironment", () => {
   it("warns when API-key variables may override subscription OAuth", () => {
@@ -30,5 +33,13 @@ describe("inspectClaudeEnvironment", () => {
     });
 
     expect(report.warnings).toEqual([]);
+  });
+
+  it("passes generated Claude agent definition validation", () => {
+    expect(checkClaudeAgentDefinitions()).toMatchObject({
+      id: "claude-agent-definitions",
+      status: "pass",
+      details: { count: 7 }
+    });
   });
 });

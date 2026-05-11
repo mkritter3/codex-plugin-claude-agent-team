@@ -10,6 +10,7 @@ import type {
   ProviderSessionHandle,
   ProviderSessionSnapshot
 } from "../types.js";
+import { buildClaudeAgentDefinitions } from "./agents.js";
 import { buildClaudeCommand } from "./commands.js";
 import type { ClaudePermissionMode } from "./types.js";
 import { inspectClaudeEnvironment } from "./doctor.js";
@@ -118,6 +119,12 @@ export function startClaudeBackgroundSession(
     cwd: input.cwd,
     outputFormat: "stream-json",
     inputFormat: "stream-json",
+    ...(input.roleId === undefined
+      ? {}
+      : {
+          agents: buildClaudeAgentDefinitions(),
+          agentName: input.roleId
+        }),
     permissionMode: policy?.permissionMode ?? input.permissionMode ?? "default",
     excludeDynamicSystemPromptSections: true,
     ...(policy === undefined ? {} : { allowedTools: policy.allowedTools }),

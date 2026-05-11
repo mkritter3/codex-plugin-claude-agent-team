@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import type { AgentExecutionPolicy, RoleId } from "../../core/types.js";
+import { buildClaudeAgentDefinitions } from "./agents.js";
 import { buildClaudeCommand } from "./commands.js";
 import { parseClaudeJsonOutput } from "./output.js";
 import { claudeRolePolicyFor } from "./role-policy.js";
@@ -82,6 +83,12 @@ export async function runClaudePrint(input: {
     prompt: input.prompt,
     cwd: input.cwd,
     outputFormat: "json",
+    ...(input.roleId === undefined
+      ? {}
+      : {
+          agents: buildClaudeAgentDefinitions(),
+          agentName: input.roleId
+        }),
     permissionMode: policy?.permissionMode ?? "default",
     ...(policy === undefined ? {} : { allowedTools: policy.allowedTools }),
     ...(policy === undefined ? {} : { disallowedTools: policy.disallowedTools })

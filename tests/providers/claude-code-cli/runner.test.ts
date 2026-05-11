@@ -59,6 +59,9 @@ describe("runClaudePrint", () => {
 
     expect(calls[0]?.args).toEqual(
       expect.arrayContaining([
+        "--agents",
+        "--agent",
+        "code-reviewer",
         "--permission-mode",
         "default",
         "--allowedTools",
@@ -66,6 +69,10 @@ describe("runClaudePrint", () => {
         "--disallowedTools",
         "Edit,MultiEdit,Write,NotebookEdit,Bash"
       ])
+    );
+    const agentsIndex = calls[0]?.args.indexOf("--agents") ?? -1;
+    expect(JSON.parse(calls[0]?.args[agentsIndex + 1] ?? "{}")).toHaveProperty(
+      "code-reviewer"
     );
     expect(calls[0]?.args).not.toContain("acceptEdits");
     expect(calls[0]?.args).not.toContain("bypassPermissions");

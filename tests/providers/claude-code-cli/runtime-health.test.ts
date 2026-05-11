@@ -22,6 +22,10 @@ describe("Claude Code CLI runtime health", () => {
       status: "pass",
       details: { command: "claude auth status" }
     });
+    expect(checks.find((check) => check.id === "claude-agent-definitions")).toMatchObject({
+      status: "pass",
+      details: { count: 7 }
+    });
   });
 
   it("fails closed when Claude CLI auth status fails", async () => {

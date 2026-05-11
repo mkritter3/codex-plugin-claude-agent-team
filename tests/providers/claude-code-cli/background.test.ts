@@ -115,6 +115,9 @@ describe("Claude background session runner", () => {
 
     expect(calls[0]?.args).toEqual(
       expect.arrayContaining([
+        "--agents",
+        "--agent",
+        "planner",
         "--permission-mode",
         "default",
         "--allowedTools",
@@ -122,6 +125,10 @@ describe("Claude background session runner", () => {
         "--disallowedTools",
         "Edit,MultiEdit,Write,NotebookEdit,Bash"
       ])
+    );
+    const agentsIndex = calls[0]?.args.indexOf("--agents") ?? -1;
+    expect(JSON.parse(calls[0]?.args[agentsIndex + 1] ?? "{}")).toHaveProperty(
+      "planner"
     );
     expect(calls[0]?.args).not.toContain("acceptEdits");
     expect(calls[0]?.args).not.toContain("bypassPermissions");
@@ -138,6 +145,7 @@ describe("Claude background session runner", () => {
         cwd: workspace,
         workspaceRoot: workspace,
         runId: "run_bg_resume",
+        roleId: "planner",
         sessionId: "session_abc",
         env: {}
       },
@@ -154,6 +162,9 @@ describe("Claude background session runner", () => {
       expect.arrayContaining([
         "--resume",
         "session_abc",
+        "--agents",
+        "--agent",
+        "planner",
         "--exclude-dynamic-system-prompt-sections",
         "--input-format",
         "stream-json",

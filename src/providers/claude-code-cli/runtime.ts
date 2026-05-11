@@ -1,7 +1,10 @@
 import { claudeCodeCliProvider } from "../index.js";
 import type { AgentProviderRuntime } from "../runtime.js";
 import { startClaudeBackgroundSession } from "./background.js";
-import { inspectClaudeEnvironment } from "./doctor.js";
+import {
+  checkClaudeAgentDefinitions,
+  inspectClaudeEnvironment
+} from "./doctor.js";
 import { runClaudePrint } from "./runner.js";
 
 export const claudeCodeCliRuntime: AgentProviderRuntime = {
@@ -31,6 +34,7 @@ export const claudeCodeCliRuntime: AgentProviderRuntime = {
     });
 
     return [
+      checkClaudeAgentDefinitions(),
       {
         id: "claude-cli",
         status: "pass",
