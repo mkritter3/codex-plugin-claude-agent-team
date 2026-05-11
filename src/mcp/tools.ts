@@ -1,6 +1,7 @@
 import { runDoctor } from "../doctor.js";
 import { loadAgentTeamConfig } from "../core/config.js";
 import { dispatchReadOnlyAgent } from "../core/dispatch.js";
+import { LifecycleRegistry } from "../core/lifecycle-registry.js";
 import { AgentLifecycleManager } from "../core/lifecycle.js";
 import { listRoles } from "../core/roles.js";
 import type {
@@ -35,17 +36,24 @@ export type ToolName = (typeof TOOL_NAMES)[number];
 
 const ROLE_IDS = new Set<string>(listRoles().map((role) => role.id));
 
+type LifecycleLike = {
+  readonly startRun: (request: AgentDispatchRequest) => Promise<AgentStartResult>;
+  readonly messageRun: (request: AgentMessageRequest) => Promise<AgentMessageResult>;
+  readonly replyRun: (request: AgentReplyRequest) => Promise<AgentReplyResult>;
+  readonly getStatus: (cwd: string, runId: string) => Promise<RunSidecar>;
+  readonly cancelRun: (cwd: string, runId: string) => Promise<AgentControlResult>;
+  readonly windDownRun: (cwd: string, runId: string) => Promise<AgentControlResult>;
+};
+
+const defaultLifecycleRegistry = new LifecycleRegistry<LifecycleLike>({
+  createLifecycle: (config) => new AgentLifecycleManager({ config })
+});
+
 export interface ToolDependencies {
   readonly dispatch?: typeof dispatchReadOnlyAgent;
-  readonly lifecycle?: {
-    readonly startRun: (request: AgentDispatchRequest) => Promise<AgentStartResult>;
-    readonly messageRun: (request: AgentMessageRequest) => Promise<AgentMessageResult>;
-    readonly replyRun: (request: AgentReplyRequest) => Promise<AgentReplyResult>;
-    readonly getStatus: (cwd: string, runId: string) => Promise<RunSidecar>;
-    readonly cancelRun: (cwd: string, runId: string) => Promise<AgentControlResult>;
-    readonly windDownRun: (cwd: string, runId: string) => Promise<AgentControlResult>;
-  };
-  readonly lifecycleFactory?: (config: AgentTeamConfig) => NonNullable<ToolDependencies["lifecycle"]>;
+  readonly lifecycle?: LifecycleLike;
+  readonly lifecycleFactory?: (config: AgentTeamConfig) => LifecycleLike;
+  readonly lifecycleRegistry?: LifecycleRegistry<LifecycleLike>;
   readonly doctor?: typeof runDoctor;
   readonly cwd?: () => string;
   readonly config?: AgentTeamConfig;
@@ -172,6 +180,13 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
   const dispatch = deps.dispatch ?? dispatchReadOnlyAgent;
   const doctor = deps.doctor ?? runDoctor;
   const cwd = deps.cwd ?? process.cwd;
+  const lifecycleRegistry =
+    deps.lifecycleRegistry ??
+    (deps.lifecycleFactory === undefined
+      ? defaultLifecycleRegistry
+      : new LifecycleRegistry<LifecycleLike>({
+          createLifecycle: deps.lifecycleFactory
+        }));
 
   async function config(workspaceRoot: string): Promise<AgentTeamConfig> {
     return deps.config ?? loadAgentTeamConfig(workspaceRoot);
@@ -179,14 +194,12 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
 
   async function lifecycleFor(
     workspaceRoot: string
-  ): Promise<NonNullable<ToolDependencies["lifecycle"]>> {
+  ): Promise<LifecycleLike> {
     if (deps.lifecycle !== undefined) {
       return deps.lifecycle;
     }
     const resolvedConfig = await config(workspaceRoot);
-    return deps.lifecycleFactory?.(resolvedConfig) ?? new AgentLifecycleManager({
-      config: resolvedConfig
-    });
+    return lifecycleRegistry.get(workspaceRoot, resolvedConfig);
   }
 
   return {

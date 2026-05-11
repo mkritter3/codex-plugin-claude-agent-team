@@ -140,6 +140,124 @@ describe("MCP tool handlers", () => {
     expect(configs).toEqual([false]);
   });
 
+  it("keeps default lifecycle managers live across repeated tool calls for a workspace", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-mcp-live-"));
+    const createdManagers: string[] = [];
+    const handlers = createToolHandlers({
+      cwd: () => workspace,
+      lifecycleFactory: () => {
+        const managerId = `manager_${createdManagers.length + 1}`;
+        const activeRuns = new Set<string>();
+        createdManagers.push(managerId);
+        return {
+          async startRun(request) {
+            activeRuns.add("run_live");
+            return {
+              runId: "run_live",
+              status: "running",
+              provider: "claude-code-cli",
+              role: request.role,
+              sidecarPath: join(workspace, ".agent-team", "runs", "run_live.json"),
+              logPath: join(workspace, ".agent-team", "logs", "run_live.log"),
+              mailboxPaths: {
+                inbox: join(workspace, ".agent-team", "mailboxes", "run_live", "inbox.jsonl"),
+                outbox: join(workspace, ".agent-team", "mailboxes", "run_live", "outbox.jsonl"),
+                control: join(workspace, ".agent-team", "mailboxes", "run_live", "control.jsonl"),
+                events: join(workspace, ".agent-team", "mailboxes", "run_live", "events.jsonl")
+              }
+            };
+          },
+          async messageRun(request) {
+            if (!activeRuns.has(request.runId)) {
+              throw new Error(`lost active handle in ${managerId}`);
+            }
+            return {
+              runId: request.runId,
+              status: "delivered_live",
+              record: {
+                sequence: 1,
+                runId: request.runId,
+                role: "planner",
+                provider: "claude-code-cli",
+                messageType: "user_message",
+                createdAt: "2026-05-11T00:00:00.000Z",
+                correlationId: "msg",
+                contentHash: "hash",
+                payload: { message: request.message }
+              },
+              message: "Message delivered live."
+            };
+          },
+          async getStatus(cwd, runId) {
+            if (!activeRuns.has(runId)) {
+              throw new Error(`lost active handle in ${managerId}`);
+            }
+            return {
+              runId,
+              role: "planner",
+              provider: "claude-code-cli",
+              status: "running",
+              createdAt: "2026-05-11T00:00:00.000Z",
+              updatedAt: "2026-05-11T00:00:00.000Z",
+              capabilitiesUsed: ["structuredOutput"],
+              evidencePaths: []
+            };
+          },
+          async replyRun() {
+            throw new Error("should not reply");
+          },
+          async cancelRun(cwd, runId) {
+            if (!activeRuns.has(runId)) {
+              throw new Error(`lost active handle in ${managerId}`);
+            }
+            return {
+              runId,
+              status: "cancelled",
+              sidecarPath: join(cwd, ".agent-team", "runs", `${runId}.json`),
+              message: "Run cancelled."
+            };
+          },
+          async windDownRun(cwd, runId) {
+            if (!activeRuns.has(runId)) {
+              throw new Error(`lost active handle in ${managerId}`);
+            }
+            return {
+              runId,
+              status: "winding-down",
+              sidecarPath: join(cwd, ".agent-team", "runs", `${runId}.json`),
+              message: "Wind-down requested."
+            };
+          }
+        };
+      }
+    });
+
+    await expect(
+      handlers.handleToolCall("agent_team_start", {
+        role: "planner",
+        task: "Review plan"
+      })
+    ).resolves.toMatchObject({ structuredContent: { runId: "run_live" } });
+    await expect(
+      handlers.handleToolCall("agent_team_status", { runId: "run_live" })
+    ).resolves.toMatchObject({ structuredContent: { run: { status: "running" } } });
+    await expect(
+      handlers.handleToolCall("agent_team_message", {
+        runId: "run_live",
+        message: "Please keep going."
+      })
+    ).resolves.toMatchObject({
+      structuredContent: { status: "delivered_live", runId: "run_live" }
+    });
+    await expect(
+      handlers.handleToolCall("agent_team_cancel", { runId: "run_live" })
+    ).resolves.toMatchObject({ structuredContent: { status: "cancelled" } });
+    await expect(
+      handlers.handleToolCall("agent_team_wind_down", { runId: "run_live" })
+    ).resolves.toMatchObject({ structuredContent: { status: "winding-down" } });
+    expect(createdManagers).toEqual(["manager_1"]);
+  });
+
   it("dispatches through injected read-only dispatcher", async () => {
     const handlers = createToolHandlers({
       cwd: () => "/repo",
