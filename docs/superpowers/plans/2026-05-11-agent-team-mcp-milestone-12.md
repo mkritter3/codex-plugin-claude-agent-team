@@ -42,7 +42,7 @@
 - Modify: `package.json`
 - Modify: `package-lock.json`
 
-- [ ] **Step 1: Write failing server schema tests**
+- [x] **Step 1: Write failing server schema tests**
 
 Add tests proving:
 
@@ -59,7 +59,7 @@ npm test -- tests/mcp/server.test.ts
 
 Expected: FAIL because server registration currently passes only title and description.
 
-- [ ] **Step 2: Implement schema module and registration**
+- [x] **Step 2: Implement schema module and registration**
 
 Create `src/mcp/schemas.ts` with:
 
@@ -71,7 +71,7 @@ Update `src/mcp/server.ts` to use the metadata map when registering tools.
 
 If importing `zod` directly, add it as an explicit runtime dependency.
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -82,7 +82,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/mcp/schemas.ts src/mcp/server.ts tests/mcp/server.test.ts package.json package-lock.json
@@ -95,7 +95,7 @@ git commit -m "feat: register mcp tool input schemas"
 - Modify: `scripts/smoke-mcp-stdio.mjs`
 - Modify: `tests/package-runtime.test.ts`
 
-- [ ] **Step 1: Write failing packaged schema smoke assertions**
+- [x] **Step 1: Write failing packaged schema smoke assertions**
 
 Update the smoke expectations so `client.listTools()` proves:
 
@@ -112,11 +112,11 @@ npm run smoke:mcp-stdio
 
 Expected: FAIL before schema registration is wired into the packaged server.
 
-- [ ] **Step 2: Implement smoke schema assertions**
+- [x] **Step 2: Implement smoke schema assertions**
 
 Update `scripts/smoke-mcp-stdio.mjs` to inspect `tools.tools[].inputSchema` and assert required fields without calling Claude or starting model work.
 
-- [ ] **Step 3: Run focused verification**
+- [x] **Step 3: Run focused verification**
 
 Run:
 
@@ -128,7 +128,7 @@ npm run smoke:mcp-stdio
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add scripts/smoke-mcp-stdio.mjs tests/package-runtime.test.ts
@@ -140,7 +140,7 @@ git commit -m "test: assert packaged mcp tool schemas"
 **Files:**
 - Modify only if verification finds issues.
 
-- [ ] **Step 1: Run focused milestone tests**
+- [x] **Step 1: Run focused milestone tests**
 
 Run:
 
@@ -150,7 +150,7 @@ npm test -- tests/mcp/server.test.ts tests/mcp/tools.test.ts tests/package-runti
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -164,7 +164,7 @@ npm run ci
 
 Expected: PASS.
 
-- [ ] **Step 3: Review schema content**
+- [x] **Step 3: Review schema content**
 
 Run:
 
@@ -174,7 +174,7 @@ rg "Claude|prompt|system prompt|claude-code-cli" src/mcp/schemas.ts scripts/smok
 
 Expected: no provider-specific prompt leakage in schema metadata.
 
-- [ ] **Step 4: Commit final plan checkbox update**
+- [x] **Step 4: Commit final plan checkbox update**
 
 Mark completed checklist items in this file and commit the update.
 
