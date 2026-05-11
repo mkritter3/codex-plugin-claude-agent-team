@@ -41,7 +41,7 @@
 - Modify: `src/core/lifecycle.ts`
 - Modify: `tests/core/lifecycle.test.ts`
 
-- [ ] **Step 1: Write failing lifecycle cleanup tests**
+- [x] **Step 1: Write failing lifecycle cleanup tests**
 
 Add tests proving:
 
@@ -63,7 +63,7 @@ npm test -- tests/core/lifecycle.test.ts
 
 Expected: FAIL because the lifecycle cleanup method and cleanup result types do not exist.
 
-- [ ] **Step 2: Implement provider-neutral lifecycle cleanup**
+- [x] **Step 2: Implement provider-neutral lifecycle cleanup**
 
 Add `AgentCleanupRequest` and `AgentCleanupResult` types. Add an injectable `cleanupWorkspace` dependency defaulting to `cleanupIsolatedWorktree`.
 
@@ -80,7 +80,7 @@ Implement `cleanupRunWorkspace(request)` to:
 - append a `workspace_cleanup_removed` event
 - on remover failure, append a warning to the sidecar and return a failed result without claiming removal
 
-- [ ] **Step 3: Run focused lifecycle tests**
+- [x] **Step 3: Run focused lifecycle tests**
 
 Run:
 
@@ -91,7 +91,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/types.ts src/core/lifecycle.ts tests/core/lifecycle.test.ts
@@ -106,7 +106,7 @@ git commit -m "feat: add lifecycle workspace cleanup"
 - Modify: `tests/mcp/tools.test.ts`
 - Modify: `tests/mcp/server.test.ts`
 
-- [ ] **Step 1: Write failing MCP cleanup tests**
+- [x] **Step 1: Write failing MCP cleanup tests**
 
 Add tests proving:
 
@@ -124,7 +124,7 @@ npm test -- tests/mcp/tools.test.ts tests/mcp/server.test.ts
 
 Expected: FAIL because the tool is not registered or handled.
 
-- [ ] **Step 2: Implement MCP cleanup schema and handler**
+- [x] **Step 2: Implement MCP cleanup schema and handler**
 
 Add `agent_team_cleanup` to:
 
@@ -136,7 +136,7 @@ Add `agent_team_cleanup` to:
 
 Keep the handler thin: parse arguments, resolve cwd, get the lifecycle, delegate to `cleanupRunWorkspace`, and return the lifecycle result as JSON.
 
-- [ ] **Step 3: Run focused MCP tests**
+- [x] **Step 3: Run focused MCP tests**
 
 Run:
 
@@ -147,7 +147,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/mcp/tools.ts src/mcp/schemas.ts tests/mcp/tools.test.ts tests/mcp/server.test.ts
@@ -159,7 +159,7 @@ git commit -m "feat: expose workspace cleanup tool"
 **Files:**
 - Modify only if verification finds issues.
 
-- [ ] **Step 1: Run focused milestone tests**
+- [x] **Step 1: Run focused milestone tests**
 
 Run:
 
@@ -169,7 +169,7 @@ npm test -- tests/core/lifecycle.test.ts tests/mcp/tools.test.ts tests/mcp/serve
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -183,7 +183,7 @@ npm run ci
 
 Expected: PASS.
 
-- [ ] **Step 3: Review provider-neutral boundaries**
+- [x] **Step 3: Review provider-neutral boundaries**
 
 Run:
 
@@ -194,7 +194,7 @@ rg "CLAUDE|claude|Claude" src/core/lifecycle.ts src/core/workspaces.ts src/mcp/t
 
 Expected: cleanup orchestration remains provider-neutral; Claude-specific code is not touched.
 
-- [ ] **Step 4: Commit final plan checkbox update**
+- [x] **Step 4: Commit final plan checkbox update**
 
 Mark completed checklist items in this file and commit the update.
 
