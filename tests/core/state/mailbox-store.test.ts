@@ -8,6 +8,7 @@ import {
   appendEventRecord,
   appendInboxRecord,
   appendMailboxRecord,
+  appendOutboxRecord,
   readMailboxRecords
 } from "../../../src/core/state/mailbox-store.js";
 
@@ -128,6 +129,30 @@ describe("mailbox-store", () => {
       correlationId: "msg_1",
       payload: { message: "Here is more evidence." }
     });
+    expect(records).toEqual([record]);
+  });
+
+  it("appends typed outbox records for agent requests", async () => {
+    const record = await appendOutboxRecord(workspace, "run_6", {
+      role: "debugger",
+      provider: "claude-code-cli",
+      messageType: "clarification_request",
+      correlationId: "ask_1",
+      payload: { question: "Which failing test should I prioritize?" }
+    });
+
+    const records = await readMailboxRecords(workspace, "run_6", "outbox");
+
+    expect(record).toMatchObject({
+      sequence: 1,
+      runId: "run_6",
+      role: "debugger",
+      provider: "claude-code-cli",
+      messageType: "clarification_request",
+      correlationId: "ask_1",
+      payload: { question: "Which failing test should I prioritize?" }
+    });
+    expect(record.contentHash).toMatch(/^[a-f0-9]{64}$/);
     expect(records).toEqual([record]);
   });
 });
