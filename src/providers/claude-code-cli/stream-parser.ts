@@ -6,7 +6,7 @@ export interface ClaudeStreamParserOptions {
 }
 
 export interface ClaudeStreamParserSnapshot {
-  readonly providerSessionId?: string;
+  readonly providerSessionId: string | undefined;
   readonly text: string;
   readonly warnings: readonly string[];
   readonly recentActivities: readonly ProviderSessionActivity[];
@@ -138,7 +138,7 @@ export function createClaudeStreamParser(
 
     snapshot(): ClaudeStreamParserSnapshot {
       return {
-        ...(providerSessionId === undefined ? {} : { providerSessionId }),
+        providerSessionId,
         text: textParts.join(""),
         warnings: [...warnings],
         recentActivities: [...recentActivities],

@@ -13,6 +13,9 @@ export function buildClaudeCommand(input: ClaudeCommandInput): ClaudeCommand {
 
   const args = ["-p", input.prompt, "--output-format", input.outputFormat];
 
+  if (input.inputFormat !== undefined) {
+    args.push("--input-format", input.inputFormat);
+  }
   if (input.outputFormat === "stream-json" || input.verbose === true) {
     args.push("--verbose");
   }

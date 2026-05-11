@@ -1,6 +1,7 @@
 import type { ProviderAuthMode } from "../../core/types.js";
 
 export type ClaudeOutputFormat = "json" | "stream-json";
+export type ClaudeInputFormat = "stream-json";
 export type ClaudePermissionMode =
   | "default"
   | "acceptEdits"
@@ -11,6 +12,7 @@ export interface ClaudeCommandInput {
   readonly prompt: string;
   readonly cwd: string;
   readonly outputFormat: ClaudeOutputFormat;
+  readonly inputFormat?: ClaudeInputFormat;
   readonly sessionId?: string;
   readonly allowedTools?: readonly string[];
   readonly disallowedTools?: readonly string[];
