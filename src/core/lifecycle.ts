@@ -257,6 +257,7 @@ export class AgentLifecycleManager {
         cwd: executionCwd,
         workspaceRoot: request.cwd,
         runId,
+        roleId: request.role,
         ...(role.defaultReadOnly ? {} : { permissionMode: "acceptEdits" }),
         ...(this.env === undefined ? {} : { env: this.env })
       });
@@ -477,6 +478,7 @@ export class AgentLifecycleManager {
         cwd: request.cwd,
         workspaceRoot: request.cwd,
         runId,
+        roleId: parent.role,
         sessionId: parent.providerSessionId,
         ...(this.env === undefined ? {} : { env: this.env })
       });

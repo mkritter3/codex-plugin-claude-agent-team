@@ -250,6 +250,7 @@ export async function dispatchReadOnlyAgent(
   const providerResult = await runtime.runPrint({
     prompt,
     cwd: request.cwd,
+    roleId: request.role,
     ...(request.timeoutMs === undefined ? {} : { timeoutMs: request.timeoutMs }),
     ...(deps.env === undefined ? {} : { env: deps.env })
   });
