@@ -147,6 +147,14 @@ afterEach(async () => {
 });
 
 describe("AgentLifecycleManager", () => {
+  it("delegates terminal run construction to shared run pipeline helpers", async () => {
+    const source = await readFile(join(process.cwd(), "src", "core", "lifecycle.ts"), "utf8");
+
+    expect(source).toContain("finalizeRunSidecar");
+    expect(source).not.toContain("function blockedVerdict");
+    expect(source).not.toContain("function sidecarWithSnapshot");
+  });
+
   it("starts a background run through the selected provider runtime", async () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
@@ -268,8 +276,17 @@ describe("AgentLifecycleManager", () => {
       status: "completed",
       providerSessionId: "session_123",
       verdict: { status: "SHIP", summary: "ready" },
-      cleanup: "complete"
+      cleanup: "complete",
+      logPath: "/tmp/run.log",
+      transcriptPath: "/tmp/transcript.jsonl"
     });
+    expect(completed.evidencePaths).toEqual(
+      expect.arrayContaining(["/tmp/run.log", "/tmp/transcript.jsonl"])
+    );
+    await expect(readMailboxRecords(workspace, "run_life_2", "events")).resolves.toMatchObject([
+      { messageType: "running" },
+      { messageType: "completed", payload: { verdict: "SHIP" } }
+    ]);
   });
 
   it("transitions to expired when the provider handle times out", async () => {
@@ -1139,6 +1156,8 @@ describe("AgentLifecycleManager", () => {
 
     expect(inspected).toEqual([`${workspace}-completed-worktree`]);
     expect(completed).toMatchObject({
+      status: "completed",
+      cleanup: "complete",
       changedFiles: ["src/core/config.ts"],
       workspaceStatus: [" M src/core/config.ts"],
       workspaceDiffPath: join(

@@ -24,6 +24,12 @@ import { getRole } from "./roles.js";
 import { selectProvider } from "./router.js";
 import { createRunId as defaultCreateRunId, hashPrompt } from "./run-ids.js";
 import {
+  blockedVerdict,
+  buildRunSidecar,
+  finalizeRunSidecar,
+  sidecarWithSnapshot
+} from "./run-pipeline.js";
+import {
   appendControlRecord,
   appendEventRecord,
   appendInboxRecord,
@@ -63,7 +69,6 @@ import type {
   AgentStartResult,
   AgentTeamConfig,
   MailboxRecord,
-  ParsedVerdict,
   RunSidecar,
   WorkspaceLease
 } from "./types.js";
@@ -102,60 +107,12 @@ function activeKey(workspaceRoot: string, runId: string): string {
   return `${workspaceRoot}\0${runId}`;
 }
 
-function blockedVerdict(summary: string): ParsedVerdict {
-  return {
-    status: "BLOCKED",
-    summary,
-    requiredChanges: [],
-    evidence: [],
-    risks: [],
-    warnings: [],
-    raw: summary
-  };
-}
-
-function sidecarWithSnapshot(
-  sidecar: RunSidecar,
-  snapshot: ProviderSessionSnapshot
-): RunSidecar {
-  return {
-    ...sidecar,
-    ...(snapshot.providerSessionId === undefined
-      ? {}
-      : { providerSessionId: snapshot.providerSessionId }),
-    recentActivities: snapshot.recentActivities,
-    currentActivity: snapshot.currentActivity,
-    lastStderr: snapshot.lastStderr,
-    warnings: snapshot.warnings,
-    ...(snapshot.transcriptPath === undefined
-      ? {}
-      : { transcriptPath: snapshot.transcriptPath }),
-    ...(snapshot.logPath === undefined ? {} : { logPath: snapshot.logPath })
-  };
-}
-
 function mailboxPaths(workspaceRoot: string, runId: string) {
   return {
     inbox: mailboxPath(workspaceRoot, runId, "inbox"),
     outbox: mailboxPath(workspaceRoot, runId, "outbox"),
     control: mailboxPath(workspaceRoot, runId, "control"),
     events: mailboxPath(workspaceRoot, runId, "events")
-  };
-}
-
-function workspaceSidecarFields(lease: WorkspaceLease | undefined): Partial<RunSidecar> {
-  if (lease === undefined) {
-    return {};
-  }
-
-  return {
-    sourceCwd: lease.sourceCwd,
-    executionCwd: lease.executionCwd,
-    workspaceBranchName: lease.branchName,
-    workspaceBaseRef: lease.baseRef,
-    workspaceIsolation: lease.isolation,
-    workspaceRetention: lease.retention,
-    workspaceCleanup: lease.cleanup
   };
 }
 
@@ -225,20 +182,18 @@ export class AgentLifecycleManager {
         });
     const promptDigest = hashPrompt(prompt);
     const logPath = runLogPath(request.cwd, runId);
-    const sidecar: RunSidecar = {
+    const sidecar = buildRunSidecar({
       runId,
       role: request.role,
-      provider: provider.id,
+      provider,
       status: "running",
       createdAt,
       updatedAt: createdAt,
-      capabilitiesUsed: provider.capabilities,
       evidencePaths: [logPath],
-      authMode: provider.authMode,
       promptHash: promptDigest,
       logPath,
-      ...workspaceSidecarFields(lease)
-    };
+      ...(lease === undefined ? {} : { workspaceLease: lease })
+    });
 
     await writeRunSidecar(request.cwd, sidecar);
     await appendEventRecord(request.cwd, runId, {
@@ -266,21 +221,17 @@ export class AgentLifecycleManager {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const verdict = blockedVerdict(`Provider session failed to start: ${message}`);
-      await transitionRunSidecar(request.cwd, runId, (current) => ({
-        ...current,
+      await finalizeRunSidecar({
+        workspaceRoot: request.cwd,
+        runId,
+        provider: provider.id,
         status: "failed",
         updatedAt: this.now().toISOString(),
-        outputSummary: verdict.summary,
         cleanup: "partial",
+        eventCreatedAt: this.now().toISOString(),
+        eventPayload: { reason: "provider_start_failed", message },
+        outputSummary: verdict.summary,
         verdict
-      }));
-      await appendEventRecord(request.cwd, runId, {
-        role: request.role,
-        provider: provider.id,
-        messageType: "failed",
-        correlationId: runId,
-        createdAt: this.now().toISOString(),
-        payload: { reason: "provider_start_failed", message }
       });
       throw error;
     }
@@ -434,23 +385,21 @@ export class AgentLifecycleManager {
     });
     const promptDigest = hashPrompt(prompt);
     const logPath = runLogPath(request.cwd, runId);
-    const sidecar: RunSidecar = {
+    const sidecar = buildRunSidecar({
       runId,
       role: parent.role,
-      provider: provider.id,
+      provider,
       status: "running",
       createdAt,
       updatedAt: createdAt,
-      capabilitiesUsed: provider.capabilities,
       evidencePaths: [logPath],
-      authMode: provider.authMode,
       promptHash: promptDigest,
       logPath,
       providerSessionId: parent.providerSessionId,
       parentRunId: parent.runId,
       resumedFromRunId: parent.runId,
       ...(resumeSequence === undefined ? {} : { resumeSequence })
-    };
+    });
 
     await writeRunSidecar(request.cwd, sidecar);
     await appendEventRecord(request.cwd, runId, {
@@ -483,21 +432,17 @@ export class AgentLifecycleManager {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       const verdict = blockedVerdict(`Provider session failed to start: ${message}`);
-      await transitionRunSidecar(request.cwd, runId, (current) => ({
-        ...current,
+      await finalizeRunSidecar({
+        workspaceRoot: request.cwd,
+        runId,
+        provider: provider.id,
         status: "failed",
         updatedAt: this.now().toISOString(),
-        outputSummary: verdict.summary,
         cleanup: "partial",
+        eventCreatedAt: this.now().toISOString(),
+        eventPayload: { reason: "provider_start_failed", message },
+        outputSummary: verdict.summary,
         verdict
-      }));
-      await appendEventRecord(request.cwd, runId, {
-        role: parent.role,
-        provider: provider.id,
-        messageType: "failed",
-        correlationId: runId,
-        createdAt: this.now().toISOString(),
-        payload: { reason: "provider_start_failed", message }
       });
       throw error;
     }
@@ -1111,34 +1056,19 @@ export class AgentLifecycleManager {
           runId,
           existing
         );
-        const completed = await transitionRunSidecar(workspaceRoot, runId, (current) =>
-          sidecarWithSnapshot(
-            {
-              ...current,
-              ...implementationEvidence.sidecar,
-              status: "completed",
-              updatedAt: this.now().toISOString(),
-              outputSummary: verdict.summary,
-              cleanup: "complete",
-              verdict,
-              evidencePaths: [
-                ...new Set([
-                  ...current.evidencePaths,
-                  ...(snapshot.logPath === undefined ? [] : [snapshot.logPath]),
-                  ...(snapshot.transcriptPath === undefined ? [] : [snapshot.transcriptPath]),
-                  ...implementationEvidence.evidencePaths
-                ])
-              ]
-            },
-            snapshot
-          )
-        );
-        await appendEventRecord(workspaceRoot, runId, {
-          role: completed.role,
+        await finalizeRunSidecar({
+          workspaceRoot,
+          runId,
           provider: provider.id,
-          messageType: "completed",
-          correlationId: runId,
-          payload: { verdict: verdict.status }
+          status: "completed",
+          updatedAt: this.now().toISOString(),
+          outputSummary: verdict.summary,
+          cleanup: "complete",
+          verdict,
+          snapshot,
+          sidecarPatch: implementationEvidence.sidecar,
+          evidencePaths: implementationEvidence.evidencePaths,
+          eventPayload: { verdict: verdict.status }
         });
         return;
       }
@@ -1150,34 +1080,19 @@ export class AgentLifecycleManager {
           runId,
           existing
         );
-        const expired = await transitionRunSidecar(workspaceRoot, runId, (current) =>
-          sidecarWithSnapshot(
-            {
-              ...current,
-              ...implementationEvidence.sidecar,
-              status: "expired",
-              updatedAt: this.now().toISOString(),
-              outputSummary: verdict.summary,
-              cleanup: "partial",
-              verdict,
-              evidencePaths: [
-                ...new Set([
-                  ...current.evidencePaths,
-                  ...(snapshot.logPath === undefined ? [] : [snapshot.logPath]),
-                  ...(snapshot.transcriptPath === undefined ? [] : [snapshot.transcriptPath]),
-                  ...implementationEvidence.evidencePaths
-                ])
-              ]
-            },
-            snapshot
-          )
-        );
-        await appendEventRecord(workspaceRoot, runId, {
-          role: expired.role,
+        await finalizeRunSidecar({
+          workspaceRoot,
+          runId,
           provider: provider.id,
-          messageType: "expired",
-          correlationId: runId,
-          payload: { status }
+          status: "expired",
+          updatedAt: this.now().toISOString(),
+          outputSummary: verdict.summary,
+          cleanup: "partial",
+          verdict,
+          snapshot,
+          sidecarPatch: implementationEvidence.sidecar,
+          evidencePaths: implementationEvidence.evidencePaths,
+          eventPayload: { status }
         });
         return;
       }
@@ -1188,34 +1103,19 @@ export class AgentLifecycleManager {
         runId,
         existing
       );
-      const failed = await transitionRunSidecar(workspaceRoot, runId, (current) =>
-        sidecarWithSnapshot(
-          {
-            ...current,
-            ...implementationEvidence.sidecar,
-            status: "failed",
-            updatedAt: this.now().toISOString(),
-            outputSummary: verdict.summary,
-            cleanup: "partial",
-            verdict,
-            evidencePaths: [
-              ...new Set([
-                ...current.evidencePaths,
-                ...(snapshot.logPath === undefined ? [] : [snapshot.logPath]),
-                ...(snapshot.transcriptPath === undefined ? [] : [snapshot.transcriptPath]),
-                ...implementationEvidence.evidencePaths
-              ])
-            ]
-          },
-          snapshot
-        )
-      );
-      await appendEventRecord(workspaceRoot, runId, {
-        role: failed.role,
+      await finalizeRunSidecar({
+        workspaceRoot,
+        runId,
         provider: provider.id,
-        messageType: "failed",
-        correlationId: runId,
-        payload: { status }
+        status: "failed",
+        updatedAt: this.now().toISOString(),
+        outputSummary: verdict.summary,
+        cleanup: "partial",
+        verdict,
+        snapshot,
+        sidecarPatch: implementationEvidence.sidecar,
+        evidencePaths: implementationEvidence.evidencePaths,
+        eventPayload: { status }
       });
     } catch (error) {
       if (!(error instanceof InvalidRunTransitionError)) {
