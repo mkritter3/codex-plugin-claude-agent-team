@@ -1,6 +1,6 @@
 # Agent Team MCP Milestone 4 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Make durable continuation real by implementing `agent_team_message` and `agent_team_reply` as mailbox-backed, provider-neutral resume flows that use Claude Code CLI subscription OAuth and `--resume` without reopening terminal sidecars or keeping Claude processes alive indefinitely.
 
@@ -50,7 +50,7 @@
 - Test: `tests/core/lifecycle.test.ts`
 - Test: `tests/mcp/tools.test.ts`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Extend tests to prove:
 
@@ -66,7 +66,7 @@ npm test -- tests/core/state/run-store.test.ts tests/core/lifecycle.test.ts test
 
 Expected: FAIL because default status bypasses lifecycle, start failure leaves `running`, and non-terminal transitions are not fully guarded.
 
-- [ ] **Step 2: Implement hardening**
+- [x] **Step 2: Implement hardening**
 
 Implement:
 
@@ -89,7 +89,7 @@ const ALLOWED_TRANSITIONS: Record<RunStatus, readonly RunStatus[]> = {
 };
 ```
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 Run:
 
@@ -99,7 +99,7 @@ npm test -- tests/core/state/run-store.test.ts tests/core/lifecycle.test.ts test
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/state/run-store.ts src/core/lifecycle.ts src/mcp/tools.ts tests/core/state/run-store.test.ts tests/core/lifecycle.test.ts tests/mcp/tools.test.ts
@@ -113,7 +113,7 @@ git commit -m "fix: harden lifecycle status and transitions"
 - Modify: `src/core/state/mailbox-store.ts`
 - Test: `tests/core/state/mailbox-store.test.ts`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Extend mailbox-store tests to prove:
 
@@ -125,7 +125,7 @@ Run: `npm test -- tests/core/state/mailbox-store.test.ts`
 
 Expected: FAIL because `appendInboxRecord` does not exist.
 
-- [ ] **Step 2: Implement types and helper**
+- [x] **Step 2: Implement types and helper**
 
 Add types:
 
@@ -175,13 +175,13 @@ export async function appendInboxRecord(
 ): Promise<MailboxRecord>;
 ```
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 Run: `npm test -- tests/core/state/mailbox-store.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/types.ts src/core/state/mailbox-store.ts tests/core/state/mailbox-store.test.ts
@@ -194,7 +194,7 @@ git commit -m "feat: add inbox message primitives"
 - Modify: `src/core/prompts.ts`
 - Test: `tests/core/prompts.test.ts`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Extend prompt tests to prove:
 
@@ -207,7 +207,7 @@ Run: `npm test -- tests/core/prompts.test.ts`
 
 Expected: FAIL because `buildReplyPrompt` does not exist.
 
-- [ ] **Step 2: Implement prompt builder**
+- [x] **Step 2: Implement prompt builder**
 
 Add:
 
@@ -225,13 +225,13 @@ export function buildReplyPrompt(input: BuildReplyPromptInput): string;
 
 Use the same read-only rules and verdict protocol shape as `buildRolePrompt`; do not duplicate the verdict text by hand if a small shared helper keeps the prompt safer.
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 Run: `npm test -- tests/core/prompts.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/prompts.ts tests/core/prompts.test.ts
@@ -245,7 +245,7 @@ git commit -m "feat: add resumed reply prompt"
 - Modify: `src/providers/claude-code-cli/background.ts`
 - Test: `tests/providers/claude-code-cli/background.test.ts`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Extend background runner tests to prove:
 
@@ -257,7 +257,7 @@ Run: `npm test -- tests/providers/claude-code-cli/background.test.ts`
 
 Expected: PASS if the runner already supports this, or FAIL if the lifecycle-facing type is missing.
 
-- [ ] **Step 2: Extend provider start type**
+- [x] **Step 2: Extend provider start type**
 
 Extend the lifecycle `StartProviderSession` input with:
 
@@ -267,13 +267,13 @@ readonly sessionId?: string;
 
 Ensure `startClaudeBackgroundSession` already forwards that optional value to `buildClaudeCommand`. Add a command option for `excludeDynamicSystemPromptSections?: boolean` and enable it for background Claude sessions. Do not enable `--bare`.
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 Run: `npm test -- tests/providers/claude-code-cli/background.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/lifecycle.ts src/providers/claude-code-cli/background.ts tests/providers/claude-code-cli/background.test.ts
@@ -286,7 +286,7 @@ git commit -m "feat: support background resume sessions"
 - Modify: `src/core/lifecycle.ts`
 - Test: `tests/core/lifecycle.test.ts`
 
-- [ ] **Step 1: Write failing lifecycle tests**
+- [x] **Step 1: Write failing lifecycle tests**
 
 Extend lifecycle tests to prove:
 
@@ -303,7 +303,7 @@ Run: `npm test -- tests/core/lifecycle.test.ts`
 
 Expected: FAIL because `messageRun` and `replyRun` do not exist.
 
-- [ ] **Step 2: Implement lifecycle methods**
+- [x] **Step 2: Implement lifecycle methods**
 
 Add to `AgentLifecycleManager`:
 
@@ -324,13 +324,13 @@ Rules:
 - Register the child run in the active handle map.
 - Reuse existing completion observation for the child run.
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 Run: `npm test -- tests/core/lifecycle.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/lifecycle.ts tests/core/lifecycle.test.ts
@@ -343,7 +343,7 @@ git commit -m "feat: add mailbox-backed reply lifecycle"
 - Modify: `src/mcp/tools.ts`
 - Test: `tests/mcp/tools.test.ts`
 
-- [ ] **Step 1: Write failing MCP tests**
+- [x] **Step 1: Write failing MCP tests**
 
 Extend MCP tests to prove:
 
@@ -356,7 +356,7 @@ Run: `npm test -- tests/mcp/tools.test.ts`
 
 Expected: FAIL until the tools are wired.
 
-- [ ] **Step 2: Implement tool wiring**
+- [x] **Step 2: Implement tool wiring**
 
 Extend `ToolDependencies.lifecycle` with:
 
@@ -367,25 +367,25 @@ readonly replyRun: (request: AgentReplyRequest) => Promise<AgentReplyResult>;
 
 Add argument validation. `agent_team_message` requires non-empty `message`; `agent_team_reply` may omit `message` only if the parent inbox already has recorded messages.
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 Run: `npm test -- tests/mcp/tools.test.ts`
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/mcp/tools.ts tests/mcp/tools.test.ts
 git commit -m "feat: wire message and reply MCP tools"
 ```
 
-## Task 6: MCP Message And Reply Wiring
+## Task 6: Verification And Integration
 
 **Files:**
 - Modify only if verification finds issues.
 
-- [ ] **Step 1: Run focused tests**
+- [x] **Step 1: Run focused tests**
 
 Run:
 
@@ -395,7 +395,7 @@ npm test -- tests/core/state/mailbox-store.test.ts tests/core/prompts.test.ts te
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -407,7 +407,7 @@ npm run build
 
 Expected: PASS.
 
-- [ ] **Step 3: Review diff**
+- [x] **Step 3: Review diff**
 
 Run:
 
@@ -418,7 +418,13 @@ git diff --stat main..HEAD
 
 Expected: only planned files changed.
 
-- [ ] **Step 4: Merge and push**
+- [x] **Step 4: Merge and push**
 
 Fast-forward merge the verified worktree branch into `main`, push, and remove the temporary implementation worktree.
-## Task 7: Verification And Integration
+
+## Completed Implementation Evidence
+
+- Planned on `main` in commit `be586bf docs: plan durable reply milestone`.
+- Implemented in isolated worktree `.worktrees/milestone-4-durable-reply` on branch `codex/milestone-4-durable-reply`.
+- Focused verification passed: `npm test -- tests/core/state/run-store.test.ts tests/core/state/mailbox-store.test.ts tests/core/prompts.test.ts tests/providers/claude-code-cli/background.test.ts tests/providers/claude-code-cli/commands.test.ts tests/core/lifecycle.test.ts tests/mcp/tools.test.ts` (7 files, 43 tests).
+- Full verification passed: `npm run typecheck`, `npm test` (17 files, 70 tests), and `npm run build`.
