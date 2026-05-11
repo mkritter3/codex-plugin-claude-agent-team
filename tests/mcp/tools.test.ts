@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { writeRunSidecar } from "../../src/core/state/run-store.js";
 import { createToolHandlers, handleToolCall, listToolNames } from "../../src/mcp/tools.js";
 
@@ -33,6 +35,109 @@ describe("MCP tool handlers", () => {
     expect(result.structuredContent?.providers?.[0]?.capabilities).toContain(
       "workspaceIsolation"
     );
+  });
+
+  it("loads workspace config for default lifecycle starts", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-mcp-config-"));
+    await mkdir(join(workspace, ".agent-team"), { recursive: true });
+    await writeFile(
+      join(workspace, ".agent-team", "config.json"),
+      JSON.stringify({
+        writeMode: { enabled: true, requireIsolatedWorktree: true }
+      }),
+      "utf8"
+    );
+    const configs: boolean[] = [];
+    const handlers = createToolHandlers({
+      cwd: () => workspace,
+      lifecycleFactory: (config) => {
+        configs.push(config.writeMode.enabled);
+        return {
+          async startRun(request) {
+            return {
+              runId: "run_configured_slice",
+              status: "running",
+              provider: "claude-code-cli",
+              role: request.role,
+              sidecarPath: join(workspace, ".agent-team", "runs", "run_configured_slice.json"),
+              logPath: join(workspace, ".agent-team", "logs", "run_configured_slice.log"),
+              executionCwd: `${workspace}-worktree`,
+              mailboxPaths: {
+                inbox: join(workspace, ".agent-team", "mailboxes", "run_configured_slice", "inbox.jsonl"),
+                outbox: join(workspace, ".agent-team", "mailboxes", "run_configured_slice", "outbox.jsonl"),
+                control: join(workspace, ".agent-team", "mailboxes", "run_configured_slice", "control.jsonl"),
+                events: join(workspace, ".agent-team", "mailboxes", "run_configured_slice", "events.jsonl")
+              }
+            };
+          },
+          async getStatus() {
+            throw new Error("should not status");
+          },
+          async messageRun() {
+            throw new Error("should not message");
+          },
+          async replyRun() {
+            throw new Error("should not reply");
+          },
+          async cancelRun() {
+            throw new Error("should not cancel");
+          },
+          async windDownRun() {
+            throw new Error("should not wind down");
+          }
+        };
+      }
+    });
+
+    const result = await handlers.handleToolCall("agent_team_start", {
+      role: "slice-implementer",
+      task: "Implement the bounded slice."
+    });
+
+    expect(configs).toEqual([true]);
+    expect(result.structuredContent).toMatchObject({
+      runId: "run_configured_slice",
+      executionCwd: `${workspace}-worktree`
+    });
+  });
+
+  it("loads default write-disabled config for lifecycle starts when config is missing", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-mcp-config-"));
+    const configs: boolean[] = [];
+    const handlers = createToolHandlers({
+      cwd: () => workspace,
+      lifecycleFactory: (config) => {
+        configs.push(config.writeMode.enabled);
+        return {
+          async startRun() {
+            throw new Error("write mode is disabled");
+          },
+          async getStatus() {
+            throw new Error("should not status");
+          },
+          async messageRun() {
+            throw new Error("should not message");
+          },
+          async replyRun() {
+            throw new Error("should not reply");
+          },
+          async cancelRun() {
+            throw new Error("should not cancel");
+          },
+          async windDownRun() {
+            throw new Error("should not wind down");
+          }
+        };
+      }
+    });
+
+    await expect(
+      handlers.handleToolCall("agent_team_start", {
+        role: "slice-implementer",
+        task: "Implement the bounded slice."
+      })
+    ).rejects.toThrow("write mode is disabled");
+    expect(configs).toEqual([false]);
   });
 
   it("dispatches through injected read-only dispatcher", async () => {

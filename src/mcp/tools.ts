@@ -1,7 +1,7 @@
 import { runDoctor } from "../doctor.js";
 import { loadAgentTeamConfig } from "../core/config.js";
 import { dispatchReadOnlyAgent } from "../core/dispatch.js";
-import { defaultLifecycleManager } from "../core/lifecycle.js";
+import { AgentLifecycleManager } from "../core/lifecycle.js";
 import { listRoles } from "../core/roles.js";
 import type {
   AgentControlResult,
@@ -45,6 +45,7 @@ export interface ToolDependencies {
     readonly cancelRun: (cwd: string, runId: string) => Promise<AgentControlResult>;
     readonly windDownRun: (cwd: string, runId: string) => Promise<AgentControlResult>;
   };
+  readonly lifecycleFactory?: (config: AgentTeamConfig) => NonNullable<ToolDependencies["lifecycle"]>;
   readonly cwd?: () => string;
   readonly config?: AgentTeamConfig;
 }
@@ -168,11 +169,22 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
   ) => Promise<JsonToolResult>;
 } {
   const dispatch = deps.dispatch ?? dispatchReadOnlyAgent;
-  const lifecycle = deps.lifecycle ?? defaultLifecycleManager;
   const cwd = deps.cwd ?? process.cwd;
 
-  async function config(): Promise<AgentTeamConfig> {
-    return deps.config ?? loadAgentTeamConfig(cwd());
+  async function config(workspaceRoot: string): Promise<AgentTeamConfig> {
+    return deps.config ?? loadAgentTeamConfig(workspaceRoot);
+  }
+
+  async function lifecycleFor(
+    workspaceRoot: string
+  ): Promise<NonNullable<ToolDependencies["lifecycle"]>> {
+    if (deps.lifecycle !== undefined) {
+      return deps.lifecycle;
+    }
+    const resolvedConfig = await config(workspaceRoot);
+    return deps.lifecycleFactory?.(resolvedConfig) ?? new AgentLifecycleManager({
+      config: resolvedConfig
+    });
   }
 
   return {
@@ -182,7 +194,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
       }
 
       if (name === "agent_team_list_providers") {
-        return jsonToolResult({ providers: listProviders({ config: await config() }) });
+        return jsonToolResult({ providers: listProviders({ config: await config(cwd()) }) });
       }
 
       if (name === "agent_team_doctor") {
@@ -202,7 +214,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
         if ("content" in parsed) {
           return parsed;
         }
-        return jsonToolResult({ ...(await lifecycle.startRun(parsed)) });
+        return jsonToolResult({ ...(await (await lifecycleFor(parsed.cwd)).startRun(parsed)) });
       }
 
       if (name === "agent_team_message") {
@@ -210,7 +222,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
         if ("content" in parsed) {
           return parsed;
         }
-        return jsonToolResult({ ...(await lifecycle.messageRun(parsed)) });
+        return jsonToolResult({ ...(await (await lifecycleFor(parsed.cwd)).messageRun(parsed)) });
       }
 
       if (name === "agent_team_reply") {
@@ -218,7 +230,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
         if ("content" in parsed) {
           return parsed;
         }
-        return jsonToolResult({ ...(await lifecycle.replyRun(parsed)) });
+        return jsonToolResult({ ...(await (await lifecycleFor(parsed.cwd)).replyRun(parsed)) });
       }
 
       if (name === "agent_team_status") {
@@ -230,7 +242,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
         }
         const workspaceRoot = args.cwd ?? cwd();
         return jsonToolResult({
-          run: await lifecycle.getStatus(workspaceRoot, args.runId)
+          run: await (await lifecycleFor(workspaceRoot)).getStatus(workspaceRoot, args.runId)
         });
       }
 
@@ -242,6 +254,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
           return validationError(`${name} cwd must be a string.`);
         }
         const workspaceRoot = args.cwd ?? cwd();
+        const lifecycle = await lifecycleFor(workspaceRoot);
         const result =
           name === "agent_team_cancel"
             ? await lifecycle.cancelRun(workspaceRoot, args.runId)
