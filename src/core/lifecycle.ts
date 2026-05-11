@@ -1100,6 +1100,45 @@ export class AgentLifecycleManager {
         return;
       }
 
+      if (status === "expired") {
+        const verdict = blockedVerdict("Provider session expired after timeout.");
+        const implementationEvidence = await this.implementationEvidence(
+          workspaceRoot,
+          runId,
+          existing
+        );
+        const expired = await transitionRunSidecar(workspaceRoot, runId, (current) =>
+          sidecarWithSnapshot(
+            {
+              ...current,
+              ...implementationEvidence.sidecar,
+              status: "expired",
+              updatedAt: this.now().toISOString(),
+              outputSummary: verdict.summary,
+              cleanup: "partial",
+              verdict,
+              evidencePaths: [
+                ...new Set([
+                  ...current.evidencePaths,
+                  ...(snapshot.logPath === undefined ? [] : [snapshot.logPath]),
+                  ...(snapshot.transcriptPath === undefined ? [] : [snapshot.transcriptPath]),
+                  ...implementationEvidence.evidencePaths
+                ])
+              ]
+            },
+            snapshot
+          )
+        );
+        await appendEventRecord(workspaceRoot, runId, {
+          role: expired.role,
+          provider: provider.id,
+          messageType: "expired",
+          correlationId: runId,
+          payload: { status }
+        });
+        return;
+      }
+
       const verdict = blockedVerdict(`Provider session ended with status ${status}.`);
       const implementationEvidence = await this.implementationEvidence(
         workspaceRoot,

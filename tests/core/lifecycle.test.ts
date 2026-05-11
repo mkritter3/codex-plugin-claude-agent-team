@@ -257,6 +257,45 @@ describe("AgentLifecycleManager", () => {
     });
   });
 
+  it("transitions to expired when the provider handle times out", async () => {
+    const done = deferred<ProviderSessionDoneStatus>();
+    const handle = fakeHandle(done.promise);
+    const manager = new AgentLifecycleManager({
+      createRunId: () => "run_life_expired",
+      now: () => new Date("2026-05-11T00:00:00.000Z"),
+      startSession: () => handle
+    });
+
+    await manager.startRun({ role: "planner", task: "Review", cwd: workspace });
+    done.resolve("expired");
+
+    const expired = await waitForSidecar(
+      "run_life_expired",
+      (sidecar) => sidecar.status === "expired"
+    );
+    expect(expired).toMatchObject({
+      status: "expired",
+      providerSessionId: "session_123",
+      outputSummary: "Provider session expired after timeout.",
+      cleanup: "partial",
+      verdict: {
+        status: "BLOCKED",
+        summary: "Provider session expired after timeout."
+      }
+    });
+    expect(expired.evidencePaths).toEqual(
+      expect.arrayContaining(["/tmp/run.log", "/tmp/transcript.jsonl"])
+    );
+    await expect(readMailboxRecords(workspace, "run_life_expired", "events")).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          messageType: "expired",
+          payload: { status: "expired" }
+        })
+      ])
+    );
+  });
+
   it("enriches status from active handles and flags detached running sidecars", async () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
