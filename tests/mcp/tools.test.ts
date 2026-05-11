@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { handleToolCall, listToolNames } from "../../src/mcp/tools.js";
+import { writeRunSidecar } from "../../src/core/state/run-store.js";
+import { createToolHandlers, handleToolCall, listToolNames } from "../../src/mcp/tools.js";
 
 describe("MCP tool handlers", () => {
   it("lists roles with capability requirements", async () => {
@@ -15,16 +16,83 @@ describe("MCP tool handlers", () => {
     expect(result.structuredContent?.providers?.[0]?.id).toBe("claude-code-cli");
   });
 
-  it("returns stable not_implemented envelopes for deferred lifecycle tools", async () => {
-    const result = await handleToolCall("agent_team_dispatch", {
+  it("dispatches through injected read-only dispatcher", async () => {
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      dispatch: async (request) => ({
+        runId: "run_mcp",
+        status: "completed",
+        provider: "claude-code-cli",
+        role: request.role,
+        verdict: {
+          status: "SHIP",
+          summary: "ok",
+          requiredChanges: [],
+          evidence: [],
+          risks: [],
+          warnings: [],
+          raw: ""
+        },
+        sidecarPath: "/repo/.agent-team/runs/run_mcp.json",
+        logPath: "/repo/.agent-team/logs/run_mcp.log"
+      })
+    });
+
+    const result = await handlers.handleToolCall("agent_team_dispatch", {
       role: "planner",
       task: "Review plan"
     });
 
-    expect(result.structuredContent).toEqual({
+    expect(result.structuredContent?.runId).toBe("run_mcp");
+    expect(result.structuredContent?.role).toBe("planner");
+  });
+
+  it("validates dispatch args before invoking dispatcher", async () => {
+    let called = false;
+    const handlers = createToolHandlers({
+      dispatch: async () => {
+        called = true;
+        throw new Error("should not dispatch");
+      }
+    });
+
+    const result = await handlers.handleToolCall("agent_team_dispatch", {
+      role: "planner"
+    });
+
+    expect(called).toBe(false);
+    expect(result.structuredContent?.status).toBe("validation_error");
+  });
+
+  it("reads persisted status by run id", async () => {
+    const workspace = await import("node:fs/promises").then((fs) =>
+      fs.mkdtemp("/tmp/agent-team-status-")
+    );
+    await writeRunSidecar(workspace, {
+      runId: "run_status",
+      role: "planner",
+      provider: "claude-code-cli",
+      status: "completed",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:00:01.000Z",
+      capabilitiesUsed: ["structuredOutput"],
+      evidencePaths: []
+    });
+    const handlers = createToolHandlers({ cwd: () => workspace });
+
+    const result = await handlers.handleToolCall("agent_team_status", {
+      runId: "run_status"
+    });
+
+    expect(result.structuredContent?.run?.status).toBe("completed");
+  });
+
+  it("keeps non-dispatch lifecycle tools deferred", async () => {
+    const result = await handleToolCall("agent_team_cancel", { runId: "run_1" });
+
+    expect(result.structuredContent).toMatchObject({
       status: "not_implemented",
-      tool: "agent_team_dispatch",
-      milestone: "milestone-2"
+      tool: "agent_team_cancel"
     });
   });
 
