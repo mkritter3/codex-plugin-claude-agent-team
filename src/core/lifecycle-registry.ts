@@ -46,3 +46,9 @@ export class LifecycleRegistry<TLifecycle = AgentLifecycleManager> {
     return lifecycle;
   }
 }
+
+export function createDefaultLifecycleRegistry(): LifecycleRegistry<AgentLifecycleManager> {
+  return new LifecycleRegistry<AgentLifecycleManager>({
+    createLifecycle: (config) => new AgentLifecycleManager({ config })
+  });
+}

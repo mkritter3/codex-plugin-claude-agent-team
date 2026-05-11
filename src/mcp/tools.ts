@@ -1,8 +1,10 @@
 import { runDoctor } from "../doctor.js";
 import { loadAgentTeamConfig } from "../core/config.js";
 import { dispatchReadOnlyAgent } from "../core/dispatch.js";
-import { LifecycleRegistry } from "../core/lifecycle-registry.js";
-import { AgentLifecycleManager } from "../core/lifecycle.js";
+import {
+  createDefaultLifecycleRegistry,
+  LifecycleRegistry
+} from "../core/lifecycle-registry.js";
 import { listRoles } from "../core/roles.js";
 import type {
   AgentControlResult,
@@ -45,9 +47,7 @@ type LifecycleLike = {
   readonly windDownRun: (cwd: string, runId: string) => Promise<AgentControlResult>;
 };
 
-const defaultLifecycleRegistry = new LifecycleRegistry<LifecycleLike>({
-  createLifecycle: (config) => new AgentLifecycleManager({ config })
-});
+const defaultLifecycleRegistry = createDefaultLifecycleRegistry();
 
 export interface ToolDependencies {
   readonly dispatch?: typeof dispatchReadOnlyAgent;
