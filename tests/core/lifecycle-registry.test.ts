@@ -1,0 +1,56 @@
+import { describe, expect, it } from "vitest";
+import { LifecycleRegistry } from "../../src/core/lifecycle-registry.js";
+import type { AgentTeamConfig } from "../../src/core/types.js";
+
+function config(input: {
+  readonly writeEnabled?: boolean;
+  readonly requireWorktree?: boolean;
+  readonly allowApiKeyFallback?: boolean;
+} = {}): AgentTeamConfig {
+  return {
+    writeMode: {
+      enabled: input.writeEnabled ?? false,
+      requireIsolatedWorktree: input.requireWorktree ?? true
+    },
+    auth: {
+      allowApiKeyFallback: input.allowApiKeyFallback ?? false
+    }
+  };
+}
+
+describe("LifecycleRegistry", () => {
+  it("reuses a lifecycle manager for the same workspace and config identity", () => {
+    const created: AgentTeamConfig[] = [];
+    const registry = new LifecycleRegistry({
+      createLifecycle: (lifecycleConfig) => {
+        created.push(lifecycleConfig);
+        return { id: `manager_${created.length}` };
+      }
+    });
+
+    const first = registry.get("/repo", config());
+    const second = registry.get("/repo", config());
+
+    expect(second).toBe(first);
+    expect(created).toHaveLength(1);
+  });
+
+  it("keeps different workspace roots isolated", () => {
+    const registry = new LifecycleRegistry({
+      createLifecycle: () => ({ id: crypto.randomUUID() })
+    });
+
+    expect(registry.get("/repo-a", config())).not.toBe(registry.get("/repo-b", config()));
+  });
+
+  it("creates a new lifecycle when config identity changes", () => {
+    const registry = new LifecycleRegistry({
+      createLifecycle: () => ({ id: crypto.randomUUID() })
+    });
+    const baseline = registry.get("/repo", config());
+
+    expect(registry.get("/repo", config({ writeEnabled: true }))).not.toBe(baseline);
+    expect(registry.get("/repo", config({ requireWorktree: false }))).not.toBe(baseline);
+    expect(registry.get("/repo", config({ allowApiKeyFallback: true }))).not.toBe(baseline);
+  });
+});
