@@ -764,16 +764,16 @@ describe("MCP tool handlers", () => {
     );
   });
 
-  it("runs build in CI after tests", async () => {
+  it("runs the shared CI script in GitHub CI", async () => {
     const workflow = await readFile(
       new URL("../../.github/workflows/ci.yml", import.meta.url),
       "utf8"
     );
 
-    expect(workflow).toContain("- run: npm test");
-    expect(workflow).toContain("- run: npm run build");
-    expect(workflow.indexOf("- run: npm run build")).toBeGreaterThan(
-      workflow.indexOf("- run: npm test")
+    expect(workflow).toContain("- run: npm ci");
+    expect(workflow).toContain("- run: npm run ci");
+    expect(workflow.indexOf("- run: npm run ci")).toBeGreaterThan(
+      workflow.indexOf("- run: npm ci")
     );
   });
 
