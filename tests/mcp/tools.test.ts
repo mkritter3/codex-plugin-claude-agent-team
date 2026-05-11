@@ -87,12 +87,121 @@ describe("MCP tool handlers", () => {
     expect(result.structuredContent?.run?.status).toBe("completed");
   });
 
-  it("keeps non-dispatch lifecycle tools deferred", async () => {
-    const result = await handleToolCall("agent_team_cancel", { runId: "run_1" });
+  it("delegates start, status, cancel, and wind-down to injected lifecycle", async () => {
+    const calls: string[] = [];
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      lifecycle: {
+        async startRun(request) {
+          calls.push(`start:${request.role}:${request.task}:${request.cwd}`);
+          return {
+            runId: "run_lifecycle",
+            status: "running",
+            provider: "claude-code-cli",
+            role: request.role,
+            sidecarPath: "/repo/.agent-team/runs/run_lifecycle.json",
+            logPath: "/repo/.agent-team/logs/run_lifecycle.log",
+            mailboxPaths: {
+              inbox: "/repo/.agent-team/mailboxes/run_lifecycle/inbox.jsonl",
+              outbox: "/repo/.agent-team/mailboxes/run_lifecycle/outbox.jsonl",
+              control: "/repo/.agent-team/mailboxes/run_lifecycle/control.jsonl",
+              events: "/repo/.agent-team/mailboxes/run_lifecycle/events.jsonl"
+            }
+          };
+        },
+        async getStatus(cwd, runId) {
+          calls.push(`status:${cwd}:${runId}`);
+          return {
+            runId,
+            role: "planner",
+            provider: "claude-code-cli",
+            status: "running",
+            createdAt: "2026-05-11T00:00:00.000Z",
+            updatedAt: "2026-05-11T00:00:00.000Z",
+            capabilitiesUsed: ["structuredOutput"],
+            evidencePaths: []
+          };
+        },
+        async cancelRun(cwd, runId) {
+          calls.push(`cancel:${cwd}:${runId}`);
+          return {
+            runId,
+            status: "cancelled",
+            sidecarPath: `${cwd}/.agent-team/runs/${runId}.json`,
+            message: "Run cancelled."
+          };
+        },
+        async windDownRun(cwd, runId) {
+          calls.push(`wind:${cwd}:${runId}`);
+          return {
+            runId,
+            status: "winding-down",
+            sidecarPath: `${cwd}/.agent-team/runs/${runId}.json`,
+            message: "Wind-down requested."
+          };
+        }
+      }
+    });
+
+    await expect(
+      handlers.handleToolCall("agent_team_start", {
+        role: "planner",
+        task: "Review plan"
+      })
+    ).resolves.toMatchObject({ structuredContent: { runId: "run_lifecycle" } });
+    await expect(
+      handlers.handleToolCall("agent_team_status", { runId: "run_lifecycle" })
+    ).resolves.toMatchObject({ structuredContent: { run: { status: "running" } } });
+    await expect(
+      handlers.handleToolCall("agent_team_cancel", { runId: "run_lifecycle" })
+    ).resolves.toMatchObject({ structuredContent: { status: "cancelled" } });
+    await expect(
+      handlers.handleToolCall("agent_team_wind_down", { runId: "run_lifecycle" })
+    ).resolves.toMatchObject({ structuredContent: { status: "winding-down" } });
+
+    expect(calls).toEqual([
+      "start:planner:Review plan:/repo",
+      "status:/repo:run_lifecycle",
+      "cancel:/repo:run_lifecycle",
+      "wind:/repo:run_lifecycle"
+    ]);
+  });
+
+  it("validates lifecycle control run ids before invoking lifecycle", async () => {
+    let called = false;
+    const handlers = createToolHandlers({
+      lifecycle: {
+        async startRun() {
+          called = true;
+          throw new Error("should not start");
+        },
+        async getStatus() {
+          called = true;
+          throw new Error("should not status");
+        },
+        async cancelRun() {
+          called = true;
+          throw new Error("should not cancel");
+        },
+        async windDownRun() {
+          called = true;
+          throw new Error("should not wind down");
+        }
+      }
+    });
+
+    const result = await handlers.handleToolCall("agent_team_cancel", { runId: "" });
+
+    expect(called).toBe(false);
+    expect(result.structuredContent?.status).toBe("validation_error");
+  });
+
+  it("keeps live message tools deferred", async () => {
+    const result = await handleToolCall("agent_team_message", { runId: "run_1" });
 
     expect(result.structuredContent).toMatchObject({
       status: "not_implemented",
-      tool: "agent_team_cancel"
+      tool: "agent_team_message"
     });
   });
 

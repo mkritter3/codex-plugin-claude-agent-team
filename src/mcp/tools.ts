@@ -1,8 +1,15 @@
 import { runDoctor } from "../doctor.js";
 import { dispatchReadOnlyAgent } from "../core/dispatch.js";
+import { defaultLifecycleManager } from "../core/lifecycle.js";
 import { listRoles } from "../core/roles.js";
 import { readRunSidecar } from "../core/state/run-store.js";
-import type { AgentDispatchRequest, RoleId } from "../core/types.js";
+import type {
+  AgentControlResult,
+  AgentDispatchRequest,
+  AgentStartResult,
+  RoleId,
+  RunSidecar
+} from "../core/types.js";
 import { listProviders } from "../providers/index.js";
 import { jsonToolResult, type JsonToolResult } from "../utils/json.js";
 
@@ -22,17 +29,20 @@ export const TOOL_NAMES = [
 export type ToolName = (typeof TOOL_NAMES)[number];
 
 const DEFERRED_TOOLS = new Set<ToolName>([
-  "agent_team_start",
   "agent_team_reply",
-  "agent_team_message",
-  "agent_team_cancel",
-  "agent_team_wind_down"
+  "agent_team_message"
 ]);
 
 const ROLE_IDS = new Set<string>(listRoles().map((role) => role.id));
 
 export interface ToolDependencies {
   readonly dispatch?: typeof dispatchReadOnlyAgent;
+  readonly lifecycle?: {
+    readonly startRun: (request: AgentDispatchRequest) => Promise<AgentStartResult>;
+    readonly getStatus: (cwd: string, runId: string) => Promise<RunSidecar>;
+    readonly cancelRun: (cwd: string, runId: string) => Promise<AgentControlResult>;
+    readonly windDownRun: (cwd: string, runId: string) => Promise<AgentControlResult>;
+  };
   readonly cwd?: () => string;
 }
 
@@ -83,6 +93,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
   ) => Promise<JsonToolResult>;
 } {
   const dispatch = deps.dispatch ?? dispatchReadOnlyAgent;
+  const lifecycle = deps.lifecycle ?? defaultLifecycleManager;
   const cwd = deps.cwd ?? process.cwd;
 
   return {
@@ -107,6 +118,14 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
         return jsonToolResult({ ...(await dispatch(parsed)) });
       }
 
+      if (name === "agent_team_start") {
+        const parsed = parseDispatchArgs(args, cwd());
+        if ("content" in parsed) {
+          return parsed;
+        }
+        return jsonToolResult({ ...(await lifecycle.startRun(parsed)) });
+      }
+
       if (name === "agent_team_status") {
         if (typeof args.runId !== "string" || args.runId.trim().length === 0) {
           return validationError("agent_team_status requires a non-empty runId.");
@@ -114,9 +133,28 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
         if (args.cwd !== undefined && typeof args.cwd !== "string") {
           return validationError("agent_team_status cwd must be a string.");
         }
+        const workspaceRoot = args.cwd ?? cwd();
         return jsonToolResult({
-          run: await readRunSidecar(args.cwd ?? cwd(), args.runId)
+          run:
+            deps.lifecycle === undefined
+              ? await readRunSidecar(workspaceRoot, args.runId)
+              : await lifecycle.getStatus(workspaceRoot, args.runId)
         });
+      }
+
+      if (name === "agent_team_cancel" || name === "agent_team_wind_down") {
+        if (typeof args.runId !== "string" || args.runId.trim().length === 0) {
+          return validationError(`${name} requires a non-empty runId.`);
+        }
+        if (args.cwd !== undefined && typeof args.cwd !== "string") {
+          return validationError(`${name} cwd must be a string.`);
+        }
+        const workspaceRoot = args.cwd ?? cwd();
+        const result =
+          name === "agent_team_cancel"
+            ? await lifecycle.cancelRun(workspaceRoot, args.runId)
+            : await lifecycle.windDownRun(workspaceRoot, args.runId);
+        return jsonToolResult({ ...result });
       }
 
       if (DEFERRED_TOOLS.has(name)) {
