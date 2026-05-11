@@ -1,6 +1,6 @@
 # Agent Team MCP Milestone 5 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Make `slice-implementer` real only behind explicit write policy, isolated retained worktrees, durable sidecars/mailboxes, and Claude Code CLI subscription OAuth.
 
@@ -56,7 +56,7 @@
 - Test: `tests/core/config.test.ts`
 - Test: `tests/core/router.test.ts`
 
-- [ ] **Step 1: Write failing config and routing tests**
+- [x] **Step 1: Write failing config and routing tests**
 
 Add tests proving:
 
@@ -74,7 +74,7 @@ npm test -- tests/core/config.test.ts tests/core/router.test.ts
 
 Expected: FAIL because config loading and policy-aware provider capabilities do not exist yet.
 
-- [ ] **Step 2: Implement config loader and provider capability policy**
+- [x] **Step 2: Implement config loader and provider capability policy**
 
 Add:
 
@@ -107,7 +107,7 @@ export function listProviders(input: { readonly config?: AgentTeamConfig } = {})
 
 Only include `edits` and `workspaceIsolation` when `config.writeMode.enabled === true && config.writeMode.requireIsolatedWorktree === true`.
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 Run:
 
@@ -117,7 +117,7 @@ npm test -- tests/core/config.test.ts tests/core/router.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/config.ts src/core/types.ts src/providers/index.ts tests/core/config.test.ts tests/core/router.test.ts
@@ -131,7 +131,7 @@ git commit -m "feat: add policy-aware provider capabilities"
 - Modify: `src/core/types.ts`
 - Test: `tests/core/workspaces.test.ts`
 
-- [ ] **Step 1: Write failing worktree tests**
+- [x] **Step 1: Write failing worktree tests**
 
 Add tests proving:
 
@@ -148,7 +148,7 @@ npm test -- tests/core/workspaces.test.ts
 
 Expected: FAIL because the module does not exist.
 
-- [ ] **Step 2: Implement worktree allocator**
+- [x] **Step 2: Implement worktree allocator**
 
 Implement:
 
@@ -172,7 +172,7 @@ export async function allocateIsolatedWorktree(input: {
 
 Use branch name `agent-team/<runId>` and base ref `HEAD`. Do not delete the worktree automatically.
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 Run:
 
@@ -182,7 +182,7 @@ npm test -- tests/core/workspaces.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/workspaces.ts src/core/types.ts tests/core/workspaces.test.ts
@@ -198,7 +198,7 @@ git commit -m "feat: add isolated worktree leases"
 - Test: `tests/core/prompts.test.ts`
 - Test: `tests/providers/claude-code-cli/background.test.ts`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Add tests proving:
 
@@ -215,7 +215,7 @@ npm test -- tests/core/prompts.test.ts tests/providers/claude-code-cli/backgroun
 
 Expected: FAIL until prompt and provider input support are added.
 
-- [ ] **Step 2: Implement prompt and permission mode plumbing**
+- [x] **Step 2: Implement prompt and permission mode plumbing**
 
 Add:
 
@@ -236,7 +236,7 @@ readonly permissionMode?: ClaudePermissionMode;
 
 Use `permissionMode ?? "default"` when building the Claude command.
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 Run:
 
@@ -246,7 +246,7 @@ npm test -- tests/core/prompts.test.ts tests/providers/claude-code-cli/backgroun
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/prompts.ts src/providers/claude-code-cli/background.ts src/providers/claude-code-cli/types.ts tests/core/prompts.test.ts tests/providers/claude-code-cli/background.test.ts
@@ -260,7 +260,7 @@ git commit -m "feat: add isolated implementation prompt"
 - Modify: `src/core/types.ts`
 - Test: `tests/core/lifecycle.test.ts`
 
-- [ ] **Step 1: Write failing lifecycle tests**
+- [x] **Step 1: Write failing lifecycle tests**
 
 Add tests proving:
 
@@ -279,7 +279,7 @@ npm test -- tests/core/lifecycle.test.ts
 
 Expected: FAIL until lifecycle supports policy-enabled implementation starts.
 
-- [ ] **Step 2: Implement lifecycle integration**
+- [x] **Step 2: Implement lifecycle integration**
 
 Extend lifecycle dependencies with config and worktree allocator injection:
 
@@ -298,7 +298,7 @@ Behavior:
 - call provider with `cwd: executionCwd`, `workspaceRoot: sourceCwd`, and `permissionMode: "acceptEdits"`
 - keep mailboxes, logs, and sidecars rooted in the source workspace
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 Run:
 
@@ -308,7 +308,7 @@ npm test -- tests/core/lifecycle.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/lifecycle.ts src/core/types.ts tests/core/lifecycle.test.ts
@@ -322,7 +322,7 @@ git commit -m "feat: enable isolated slice implementer runs"
 - Modify: `.codex-plugin/plugin.json`
 - Test: `tests/mcp/tools.test.ts`
 
-- [ ] **Step 1: Write failing MCP tests**
+- [x] **Step 1: Write failing MCP tests**
 
 Add tests proving:
 
@@ -339,11 +339,11 @@ npm test -- tests/mcp/tools.test.ts
 
 Expected: FAIL until MCP dependency wiring and plugin metadata are updated.
 
-- [ ] **Step 2: Implement MCP policy wiring**
+- [x] **Step 2: Implement MCP policy wiring**
 
 Thread loaded config into provider listing. Preserve existing tool names; do not add cleanup or merge tools in this milestone.
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 Run:
 
@@ -353,7 +353,7 @@ npm test -- tests/mcp/tools.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/mcp/tools.ts .codex-plugin/plugin.json tests/mcp/tools.test.ts
@@ -365,7 +365,7 @@ git commit -m "feat: expose isolated implementation runs"
 **Files:**
 - Modify only if verification finds issues.
 
-- [ ] **Step 1: Run focused tests**
+- [x] **Step 1: Run focused tests**
 
 Run:
 
@@ -375,7 +375,7 @@ npm test -- tests/core/config.test.ts tests/core/workspaces.test.ts tests/core/r
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -387,7 +387,7 @@ npm run build
 
 Expected: PASS.
 
-- [ ] **Step 3: Review diff**
+- [x] **Step 3: Review diff**
 
 Run:
 
@@ -398,7 +398,14 @@ git diff --stat main..HEAD
 
 Expected: only planned files changed.
 
-- [ ] **Step 4: Merge and push**
+- [x] **Step 4: Merge and push**
 
 Fast-forward merge the verified worktree branch into `main`, push, and remove the temporary implementation worktree.
 
+## Completed Implementation Evidence
+
+- Planned on `main` in commit `fc5cc79 docs: plan isolated slice implementer milestone`.
+- Implemented in isolated worktree `.worktrees/milestone-5-isolated-slice` on branch `codex/milestone-5-isolated-slice`.
+- Focused verification passed: `npm test -- tests/core/config.test.ts tests/core/workspaces.test.ts tests/core/router.test.ts tests/core/prompts.test.ts tests/providers/claude-code-cli/background.test.ts tests/core/lifecycle.test.ts tests/mcp/tools.test.ts` (7 files, 49 tests).
+- Full verification initially found one legacy synchronous-dispatch regression, fixed in `fcd6d79 fix: keep read-only dispatch fail-closed`.
+- Full verification then passed: `npm run typecheck`, `npm test` (19 files, 88 tests), and `npm run build`.
