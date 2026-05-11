@@ -587,21 +587,32 @@ export class AgentLifecycleManager {
     }
 
     const active = this.activeRuns.get(activeKey(workspaceRoot, runId));
-    const windingDown = await transitionRunSidecar(workspaceRoot, runId, (current) => ({
-      ...current,
-      status: "winding-down",
-      updatedAt: requestedAt,
-      inputClosed: true,
-      windDownRequestedAt: requestedAt,
-      ...(active === undefined
-        ? {
-            warnings: [
-              ...(current.warnings ?? []),
-              `Run ${runId} is winding down, but no active process handle is attached.`
-            ]
-          }
-        : {})
-    }));
+    let windingDown: RunSidecar;
+    try {
+      windingDown = await transitionRunSidecar(workspaceRoot, runId, (current) => ({
+        ...current,
+        status: "winding-down",
+        updatedAt: requestedAt,
+        inputClosed: true,
+        windDownRequestedAt: requestedAt,
+        ...(active === undefined
+          ? {
+              warnings: [
+                ...(current.warnings ?? []),
+                `Run ${runId} is winding down, but no active process handle is attached.`
+              ]
+            }
+          : {})
+      }));
+    } catch (error) {
+      if (error instanceof InvalidRunTransitionError) {
+        const current = await readRunSidecar(workspaceRoot, runId);
+        if (isTerminalRunStatus(current.status)) {
+          return this.result(workspaceRoot, current, "Run is already terminal.");
+        }
+      }
+      throw error;
+    }
     if (active?.handle.supportsStdin === true) {
       active.handle.writeStdin?.(
         `${JSON.stringify({
