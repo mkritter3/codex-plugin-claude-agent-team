@@ -237,6 +237,47 @@ describe("MCP tool handlers", () => {
     });
   });
 
+  it("returns implementation handoff fields from persisted status sidecars", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-status-"));
+    await writeRunSidecar(workspace, {
+      runId: "run_impl_status",
+      role: "slice-implementer",
+      provider: "claude-code-cli",
+      status: "completed",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:00:01.000Z",
+      capabilitiesUsed: [
+        "structuredOutput",
+        "tools",
+        "edits",
+        "sessionResume",
+        "cancellation",
+        "workspaceIsolation"
+      ],
+      evidencePaths: [join(workspace, ".agent-team", "logs", "run_impl_status.diff.patch")],
+      executionCwd: "/tmp/.agent-team-worktrees/repo/run_impl_status",
+      changedFiles: ["src/core/config.ts"],
+      workspaceStatus: ["M src/core/config.ts"],
+      workspaceDiffPath: join(workspace, ".agent-team", "logs", "run_impl_status.diff.patch"),
+      workspaceCleanup: "retained"
+    });
+    const handlers = createToolHandlers({ cwd: () => workspace });
+
+    const result = await handlers.handleToolCall("agent_team_status", {
+      runId: "run_impl_status"
+    });
+
+    expect(result.structuredContent?.run).toMatchObject({
+      role: "slice-implementer",
+      status: "completed",
+      executionCwd: "/tmp/.agent-team-worktrees/repo/run_impl_status",
+      changedFiles: ["src/core/config.ts"],
+      workspaceStatus: ["M src/core/config.ts"],
+      workspaceDiffPath: join(workspace, ".agent-team", "logs", "run_impl_status.diff.patch"),
+      workspaceCleanup: "retained"
+    });
+  });
+
   it("delegates start, status, message, reply, cancel, and wind-down to injected lifecycle", async () => {
     const calls: string[] = [];
     const handlers = createToolHandlers({
@@ -437,6 +478,19 @@ describe("MCP tool handlers", () => {
 
     expect(plugin.interface?.defaultPrompt).toContain(
       "Start an isolated slice-implementer run for this bounded task."
+    );
+  });
+
+  it("runs build in CI after tests", async () => {
+    const workflow = await readFile(
+      new URL("../../.github/workflows/ci.yml", import.meta.url),
+      "utf8"
+    );
+
+    expect(workflow).toContain("- run: npm test");
+    expect(workflow).toContain("- run: npm run build");
+    expect(workflow.indexOf("- run: npm run build")).toBeGreaterThan(
+      workflow.indexOf("- run: npm test")
     );
   });
 
