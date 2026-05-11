@@ -38,7 +38,7 @@
 - Modify: `src/core/lifecycle.ts`
 - Modify: `tests/core/lifecycle.test.ts`
 
-- [ ] **Step 1: Write failing detached status reconciliation tests**
+- [x] **Step 1: Write failing detached status reconciliation tests**
 
 Add tests proving:
 
@@ -56,7 +56,7 @@ npm test -- tests/core/lifecycle.test.ts
 
 Expected: FAIL because detached status is currently returned ephemerally and no detached event is written.
 
-- [ ] **Step 2: Implement detached reconciliation helper**
+- [x] **Step 2: Implement detached reconciliation helper**
 
 In `src/core/types.ts`, add:
 
@@ -85,7 +85,7 @@ The helper should:
 
 Update `getStatus` so a nonterminal sidecar with no active handle returns the reconciled sidecar.
 
-- [ ] **Step 3: Run focused lifecycle tests**
+- [x] **Step 3: Run focused lifecycle tests**
 
 Run:
 
@@ -96,7 +96,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/types.ts src/core/lifecycle.ts tests/core/lifecycle.test.ts
@@ -109,7 +109,7 @@ git commit -m "feat: persist detached run reconciliation"
 - Modify: `src/core/lifecycle.ts`
 - Modify: `tests/core/lifecycle.test.ts`
 
-- [ ] **Step 1: Write failing detached control tests**
+- [x] **Step 1: Write failing detached control tests**
 
 Add tests proving:
 
@@ -126,7 +126,7 @@ npm test -- tests/core/lifecycle.test.ts
 
 Expected: FAIL because cancel currently records intent without durable detached metadata and wind-down warning is not normalized through detached reconciliation.
 
-- [ ] **Step 2: Use detached reconciliation in cancel and wind-down**
+- [x] **Step 2: Use detached reconciliation in cancel and wind-down**
 
 In `src/core/lifecycle.ts`:
 
@@ -135,7 +135,7 @@ In `src/core/lifecycle.ts`:
 - keep the existing control mailbox records
 - do not call `kill`, `forceKill`, or provider stdin when no active handle exists
 
-- [ ] **Step 3: Run focused lifecycle tests**
+- [x] **Step 3: Run focused lifecycle tests**
 
 Run:
 
@@ -146,7 +146,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/lifecycle.ts tests/core/lifecycle.test.ts
@@ -158,7 +158,7 @@ git commit -m "feat: reconcile detached run controls"
 **Files:**
 - Modify only if verification finds issues.
 
-- [ ] **Step 1: Run focused milestone tests**
+- [x] **Step 1: Run focused milestone tests**
 
 Run:
 
@@ -168,7 +168,7 @@ npm test -- tests/core/lifecycle.test.ts tests/mcp/tools.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -182,7 +182,7 @@ npm run ci
 
 Expected: PASS.
 
-- [ ] **Step 3: Review boundary and safety invariants**
+- [x] **Step 3: Review boundary and safety invariants**
 
 Run:
 
@@ -193,7 +193,7 @@ rg "allowApiKeyFallback|benchmark|embedding|mock LLM|bypassPermissions|pid|proce
 
 Expected: detached reconciliation stays provider-neutral; no process-pid reattachment, non-Claude runtime, API fallback, benchmark, embedding, mock LLM, or bypass-permission runtime path is introduced.
 
-- [ ] **Step 4: Commit final plan checkbox update**
+- [x] **Step 4: Commit final plan checkbox update**
 
 Mark completed checklist items in this file and commit the update.
 
