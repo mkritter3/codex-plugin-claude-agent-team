@@ -113,6 +113,34 @@ describe("Claude background session runner", () => {
     expect(calls[0]?.args).not.toContain("--bare");
   });
 
+  it("uses acceptEdits only when isolated implementation execution requests it", () => {
+    const child = new FakeChildProcess();
+    const calls: Array<{ command: string; args: readonly string[]; cwd: string }> = [];
+
+    startClaudeBackgroundSession(
+      {
+        prompt: "Implement the slice",
+        cwd: workspace,
+        workspaceRoot: workspace,
+        runId: "run_bg_write",
+        permissionMode: "acceptEdits",
+        env: {}
+      },
+      {
+        spawn: (command, args, options) => {
+          calls.push({ command, args, cwd: options.cwd });
+          return child;
+        }
+      }
+    );
+
+    expect(calls[0]?.args).toEqual(
+      expect.arrayContaining(["--permission-mode", "acceptEdits"])
+    );
+    expect(calls[0]?.args).not.toContain("--bare");
+    expect(calls[0]?.args).not.toContain("bypassPermissions");
+  });
+
   it("captures stdout transcript, parsed text, activities, and bounded stderr", async () => {
     const child = new FakeChildProcess();
     const handle = startClaudeBackgroundSession(

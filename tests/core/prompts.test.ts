@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { getRole } from "../../src/core/roles.js";
-import { buildReplyPrompt, buildRolePrompt } from "../../src/core/prompts.js";
+import {
+  buildImplementationPrompt,
+  buildReplyPrompt,
+  buildRolePrompt
+} from "../../src/core/prompts.js";
 
 describe("buildRolePrompt", () => {
   it("builds a read-only role prompt with the verdict protocol", () => {
@@ -37,6 +41,28 @@ describe("buildRolePrompt", () => {
     expect(prompt).toContain("Please revise the plan with the new constraint.");
     expect(prompt).toContain("Do not modify files.");
     expect(prompt).toContain("Do not run write commands.");
+    expect(prompt).toContain("<<<VERDICT>>>");
+    expect(prompt).toContain("status: SHIP | REVISE | BLOCKED | INCONCLUSIVE");
+    expect(prompt).toContain("<<<END_VERDICT>>>");
+  });
+
+  it("builds an isolated implementation prompt with source and execution workspaces", () => {
+    const prompt = buildImplementationPrompt({
+      role: getRole("slice-implementer"),
+      task: "Add the config loader.",
+      sourceCwd: "/repo",
+      executionCwd: "/tmp/.agent-team-worktrees/repo/run_1"
+    });
+
+    expect(prompt).toContain("Role: Slice Implementer");
+    expect(prompt).toContain("Source workspace: /repo");
+    expect(prompt).toContain(
+      "Execution workspace: /tmp/.agent-team-worktrees/repo/run_1"
+    );
+    expect(prompt).toContain("Add the config loader.");
+    expect(prompt).toContain("Only modify files inside the execution workspace.");
+    expect(prompt).toContain("Do not modify the source workspace.");
+    expect(prompt).toContain("Do not create commits.");
     expect(prompt).toContain("<<<VERDICT>>>");
     expect(prompt).toContain("status: SHIP | REVISE | BLOCKED | INCONCLUSIVE");
     expect(prompt).toContain("<<<END_VERDICT>>>");

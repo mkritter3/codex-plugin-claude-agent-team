@@ -14,6 +14,13 @@ export interface BuildReplyPromptInput {
   readonly message: string;
 }
 
+export interface BuildImplementationPromptInput {
+  readonly role: AgentRole;
+  readonly task: string;
+  readonly sourceCwd: string;
+  readonly executionCwd: string;
+}
+
 function readOnlyRules(role: AgentRole): readonly string[] {
   return role.defaultReadOnly
     ? [
@@ -75,6 +82,27 @@ export function buildReplyPrompt(input: BuildReplyPromptInput): string {
     "",
     "Operating constraints:",
     ...readOnlyRules(input.role).map((rule) => `- ${rule}`),
+    ...verdictProtocol()
+  ].join("\n");
+}
+
+export function buildImplementationPrompt(input: BuildImplementationPromptInput): string {
+  return [
+    `Role: ${input.role.displayName}`,
+    `Role id: ${input.role.id}`,
+    `Source workspace: ${input.sourceCwd}`,
+    `Execution workspace: ${input.executionCwd}`,
+    "",
+    "Task:",
+    input.task,
+    "",
+    "Operating constraints:",
+    "- This is an isolated implementation run.",
+    "- Only modify files inside the execution workspace.",
+    "- Do not modify the source workspace.",
+    "- Do not create commits.",
+    "- Keep changes scoped to the requested slice.",
+    "- Run focused verification when the repository provides it.",
     ...verdictProtocol()
   ].join("\n");
 }

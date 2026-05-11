@@ -10,6 +10,7 @@ import type {
   ProviderSessionSnapshot
 } from "../types.js";
 import { buildClaudeCommand } from "./commands.js";
+import type { ClaudePermissionMode } from "./types.js";
 import { inspectClaudeEnvironment } from "./doctor.js";
 import { createClaudeStreamParser } from "./stream-parser.js";
 
@@ -27,6 +28,7 @@ export interface StartClaudeBackgroundSessionInput {
   readonly runId: string;
   readonly env?: NodeJS.ProcessEnv;
   readonly sessionId?: string;
+  readonly permissionMode?: ClaudePermissionMode;
 }
 
 export interface SpawnOptions {
@@ -95,7 +97,7 @@ export function startClaudeBackgroundSession(
     cwd: input.cwd,
     outputFormat: "stream-json",
     inputFormat: "stream-json",
-    permissionMode: "default",
+    permissionMode: input.permissionMode ?? "default",
     excludeDynamicSystemPromptSections: true,
     ...(input.sessionId === undefined ? {} : { sessionId: input.sessionId })
   });
