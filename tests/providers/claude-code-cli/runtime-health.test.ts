@@ -1,4 +1,4 @@
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -72,6 +72,45 @@ describe("Claude Code CLI runtime health", () => {
     await expect(
       readFile(join(root, ".agent-team", "providers", "claude", "manifest.json"), "utf8")
     ).resolves.toContain("\"definitionsHash\"");
+  });
+
+  it("fails artifact health on persisted definition drift without hiding auth state", async () => {
+    const root = await workspace();
+    const agentsPath = join(root, ".agent-team", "providers", "claude", "agents.json");
+    const manifestPath = join(root, ".agent-team", "providers", "claude", "manifest.json");
+    let authStatusCalls = 0;
+    const healthInput = {
+      workspaceRoot: root,
+      env: {},
+      findExecutable: async () => "/usr/local/bin/claude",
+      getVersion: async () => "1.0.0",
+      runCommand: async () => {
+        authStatusCalls += 1;
+        return { ok: true, stdout: "authenticated", stderr: "", exitCode: 0 };
+      }
+    };
+
+    await claudeCodeCliRuntime.healthCheck(healthInput);
+    const definitions = JSON.parse(await readFile(agentsPath, "utf8"));
+    definitions.planner.description = "Drifted planner description.";
+    await writeFile(agentsPath, `${JSON.stringify(definitions, null, 2)}\n`, "utf8");
+
+    const checks = await claudeCodeCliRuntime.healthCheck(healthInput);
+
+    expect(authStatusCalls).toBe(2);
+    expect(checks.find((check) => check.id === "claude-auth")).toMatchObject({
+      status: "pass"
+    });
+    expect(checks.find((check) => check.id === "claude-agent-definition-artifacts")).toMatchObject({
+      status: "fail",
+      details: {
+        agentsPath: ".agent-team/providers/claude/agents.json",
+        manifestPath: ".agent-team/providers/claude/manifest.json",
+        error: "Claude agent definition artifact hash mismatch.",
+        fix: "Repair Claude agent definitions by regenerating provider artifacts after reviewing the drift."
+      }
+    });
+    await expect(readFile(manifestPath, "utf8")).resolves.toContain("\"definitionsHash\"");
   });
 
   it("fails closed when Claude CLI auth status fails", async () => {

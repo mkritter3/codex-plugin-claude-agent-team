@@ -1,7 +1,11 @@
+import { relative } from "node:path";
 import { claudeCodeCliProvider } from "../index.js";
 import type { AgentProviderRuntime } from "../runtime.js";
 import type { ProviderHealthCheck } from "../types.js";
-import { ensureClaudeAgentDefinitionArtifacts } from "./agent-definition-store.js";
+import {
+  claudeAgentDefinitionArtifacts,
+  ensureValidClaudeAgentDefinitionArtifacts
+} from "./agent-definition-store.js";
 import { startClaudeBackgroundSession } from "./background.js";
 import {
   checkClaudeAgentDefinitions,
@@ -13,7 +17,7 @@ async function checkClaudeAgentDefinitionArtifacts(
   workspaceRoot: string
 ): Promise<ProviderHealthCheck> {
   try {
-    const artifact = await ensureClaudeAgentDefinitionArtifacts({ workspaceRoot });
+    const artifact = await ensureValidClaudeAgentDefinitionArtifacts({ workspaceRoot });
     return {
       id: "claude-agent-definition-artifacts",
       status: "pass",
@@ -22,17 +26,21 @@ async function checkClaudeAgentDefinitionArtifacts(
         agentsPath: artifact.manifest.agentsPath,
         manifestPath: artifact.manifest.manifestPath,
         definitionCount: artifact.manifest.definitionCount,
-        definitionsHash: artifact.manifest.definitionsHash
+        definitionsHash: artifact.manifest.definitionsHash,
+        action: artifact.action
       }
     };
   } catch (error) {
+    const paths = claudeAgentDefinitionArtifacts(workspaceRoot);
     return {
       id: "claude-agent-definition-artifacts",
       status: "fail",
-      message: "Generated Claude agent definition artifacts could not be written.",
+      message: "Generated Claude agent definition artifacts are not valid.",
       details: {
+        agentsPath: relative(workspaceRoot, paths.agentsPath),
+        manifestPath: relative(workspaceRoot, paths.manifestPath),
         error: error instanceof Error ? error.message : String(error),
-        fix: "Verify the workspace .agent-team directory is writable and rerun doctor."
+        fix: "Repair Claude agent definitions by regenerating provider artifacts after reviewing the drift."
       }
     };
   }
