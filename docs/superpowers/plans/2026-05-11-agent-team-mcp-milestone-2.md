@@ -33,6 +33,10 @@
 - `agent_team_status` reads the persisted sidecar by run id.
 - CLI execution is injectable in tests; CI does not require live Claude auth.
 - Production runner uses `claude -p --output-format json` and never `--bare`.
+- Production read-only dispatch uses a read-only Claude profile: no accept-edits mode, no bypass mode, no edit-oriented tool allowlist.
+- Dispatch validates `role`, `task`, `cwd`, `provider`, and `timeoutMs` before invoking a provider.
+- Dispatch blocks subscription-mode runs when API-key override variables are present unless an explicit future config allows them.
+- Plugin metadata does not advertise write capability until implementation roles are actually shipped.
 - `npm run typecheck`, `npm test`, and `npm run build` pass.
 
 ## Task 1: Dispatch Types, Paths, And Prompt Builder
@@ -126,6 +130,7 @@ Create tests proving:
 - runner returns parsed `sessionId`, text, raw stdout, raw stderr, and exit code
 - runner records non-zero exits as typed failures
 - runner supports timeout argument without requiring real timers
+- read-only runner profile never uses `acceptEdits`, `bypassPermissions`, or `--bare`
 
 Run: `npm test -- tests/providers/claude-code-cli/runner.test.ts`
 
@@ -193,6 +198,8 @@ Create tests proving:
 - malformed verdict returns `completed` with `INCONCLUSIVE`
 - provider failure writes `failed` sidecar and returns a failed result
 - `slice-implementer` is rejected with a clear unsupported milestone result before provider execution
+- subscription-mode dispatch refuses to run when `ANTHROPIC_API_KEY` or `ANTHROPIC_AUTH_TOKEN` is present in the provided environment
+- provider availability is checked before routing, so a missing Claude CLI does not get selected for live dispatch
 
 Run: `npm test -- tests/core/dispatch.test.ts`
 
@@ -222,6 +229,8 @@ Rules:
 - role `defaultReadOnly` must be true
 - provider routing goes through `selectProvider`
 - provider must be `claude-code-cli` in this milestone
+- provider must be available according to injected health/availability
+- subscription OAuth auth-precedence warnings are blocking for live dispatch in this milestone
 - write initial sidecar before provider execution
 - append lifecycle events through mailbox store
 - build prompt through `buildRolePrompt`
@@ -256,6 +265,7 @@ Extend tests to prove:
 - `agent_team_dispatch` calls the dispatcher and returns run id, status, provider, role, verdict, sidecar path, and log path
 - `agent_team_dispatch` accepts `role`, `task`, optional `cwd`, optional `provider`, and optional `timeoutMs`
 - `cwd` defaults to `process.cwd()`
+- invalid dispatch args return structured validation errors without invoking the dispatcher
 - `agent_team_status` reads a sidecar for a run id
 - missing `runId` for status returns a structured validation error
 - start/reply/message/cancel/wind-down remain `not_implemented`
@@ -297,9 +307,13 @@ git commit -m "feat: wire dispatch and status MCP tools"
 ## Task 5: Verification And Merge Choice
 
 **Files:**
-- Modify only if verification finds issues.
+- Modify: `.codex-plugin/plugin.json`
 
-- [ ] **Step 1: Run full verification**
+- [ ] **Step 1: Narrow plugin metadata capability**
+
+Remove `"Write"` from `.codex-plugin/plugin.json` capabilities for Milestone 2. The plugin can restore write capability when `slice-implementer` ships.
+
+- [ ] **Step 2: Run full verification**
 
 Run:
 
@@ -312,7 +326,7 @@ git status --short
 
 Expected: typecheck/test/build pass and worktree is clean.
 
-- [ ] **Step 2: Push implementation branch**
+- [ ] **Step 3: Push implementation branch**
 
 Run:
 
@@ -322,7 +336,7 @@ git push -u origin feature/milestone-2-live-dispatch
 
 Expected: branch pushes successfully.
 
-- [ ] **Step 3: Present integration options**
+- [ ] **Step 4: Present integration options**
 
 Offer:
 
@@ -330,4 +344,3 @@ Offer:
 2. create PR
 3. keep branch as-is
 4. discard
-
