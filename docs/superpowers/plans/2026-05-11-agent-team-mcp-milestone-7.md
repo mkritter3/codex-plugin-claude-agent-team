@@ -1,10 +1,10 @@
-# Agent Team MCP Milestone 7 Implementation Plan
+# Agent Team MCP Milestone 7 Runtime And Doctor Readiness Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make `agent_team_doctor` a truthful workspace preflight for subscription-backed Claude Code CLI runs, explicit write-mode readiness, provider routing, and build-gated local CI.
+**Goal:** Make the packaged MCP runtime launchable from its declared entrypoint and make `agent_team_doctor` a truthful workspace preflight for subscription-backed Claude Code CLI runs, explicit write-mode readiness, provider routing, and build-gated local CI.
 
-**Architecture:** Keep doctor as a provider-neutral orchestration check with Claude Code CLI as the first provider-specific adapter. The top-level doctor loads the same workspace config as MCP lifecycle tools, fails closed on auth ambiguity unless API-key fallback is explicitly configured, validates `.agent-team` writability, checks git worktree support only when write mode requires it, and proves configured providers can satisfy the role registry. MCP remains a thin validation layer that passes the requested workspace into the shared doctor pipeline.
+**Architecture:** First fix the product boundary: package bin and `.mcp.json` must point at a file the build actually emits, and the local build config must not emit tests as runtime artifacts. Then keep doctor as a provider-neutral orchestration check with Claude Code CLI as the first provider-specific adapter. The top-level doctor loads the same workspace config as MCP lifecycle tools, fails closed on auth ambiguity unless API-key fallback is explicitly configured, validates `.agent-team` writability, checks git worktree support only when write mode requires it, and proves configured providers can satisfy the role registry. MCP remains a thin validation layer that passes the requested workspace into the shared doctor pipeline.
 
 **Tech Stack:** TypeScript, Node.js ESM, Vitest, existing config/router/workspace/provider modules, injectable filesystem and git adapters for deterministic tests.
 
@@ -12,11 +12,14 @@
 
 ## File Structure
 
+- Create `tsconfig.build.json`: build only runtime `src/**/*.ts` into `dist/`.
+- Modify `package.json`: make `bin.agent-team-mcp` point at emitted `./dist/index.js`, make `build` use the runtime build config, and make `npm run ci` include build so local and GitHub gates match.
+- Modify `.mcp.json`: keep MCP launch path aligned with the packaged bin entrypoint.
+- Create `tests/package-runtime.test.ts`: assert package bin, MCP config, and build config agree on the emitted runtime entrypoint.
 - Modify `src/doctor.ts`: expand doctor input, load workspace config, aggregate config/auth/state/git/routing checks, and preserve exact fix guidance in check details.
 - Modify `src/core/workspaces.ts`: add a reusable git/worktree readiness inspector.
 - Modify `src/core/types.ts`: add small doctor readiness types only if needed by shared helpers.
 - Modify `src/mcp/tools.ts`: validate optional doctor `cwd` and call `runDoctor({ workspaceRoot })`.
-- Modify `package.json`: make `npm run ci` include build so local and GitHub gates match.
 - Modify `tests/doctor.test.ts`: cover config loading, auth fail-closed policy, writable state checks, git readiness, and routing readiness.
 - Modify `tests/core/workspaces.test.ts`: cover git/worktree inspector command shape and failures.
 - Modify `tests/mcp/tools.test.ts`: cover doctor `cwd` plumbing and validation.
@@ -24,6 +27,9 @@
 
 ## Success Criteria
 
+- `npm run build` emits `dist/index.js`, not only `dist/src/index.js`.
+- `package.json` bin and `.mcp.json` both launch the emitted `dist/index.js`.
+- Runtime build output excludes tests and Vitest config.
 - `agent_team_doctor` accepts an optional `cwd` and checks that workspace, defaulting to process cwd.
 - Doctor loads `.agent-team/config.json` with the same parser as lifecycle and provider listing.
 - Invalid config JSON or unsafe write config is a `fail` check and makes `report.ok === false`.
@@ -39,7 +45,71 @@
 - No API-key fallback, provider-specific bypass, benchmark mock, or heuristic model-quality behavior is introduced.
 - `npm run typecheck`, `npm test`, and `npm run build` pass before merge.
 
-## Task 1: Config And Auth-Aware Doctor
+## Task 1: Packaged MCP Runtime Contract
+
+**Files:**
+- Create: `tsconfig.build.json`
+- Modify: `package.json`
+- Modify: `.mcp.json`
+- Create: `tests/package-runtime.test.ts`
+
+- [ ] **Step 1: Write failing runtime contract tests**
+
+Create tests proving:
+
+- `package.json` `bin.agent-team-mcp` equals `./dist/index.js`.
+- `.mcp.json` launches `node ./dist/index.js`.
+- `tsconfig.build.json` has `rootDir: "src"`, `outDir: "dist"`, and includes only `src/**/*.ts`.
+- `package.json` `build` script uses `tsconfig.build.json`.
+
+Run:
+
+```bash
+npm test -- tests/package-runtime.test.ts
+```
+
+Expected: FAIL because `tsconfig.build.json` does not exist and current build emits `dist/src/index.js`.
+
+- [ ] **Step 2: Implement runtime build config**
+
+Create `tsconfig.build.json` that extends `tsconfig.json` and overrides:
+
+```json
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["dist", "node_modules", ".worktrees", ".agent-team", "tests"]
+}
+```
+
+Change package scripts so `build` uses `tsc -p tsconfig.build.json`.
+
+- [ ] **Step 3: Run focused tests and build**
+
+Run:
+
+```bash
+npm test -- tests/package-runtime.test.ts
+npm run build
+test -f dist/index.js
+test ! -e dist/src/index.js
+npm run typecheck
+```
+
+Expected: PASS.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add tsconfig.build.json package.json .mcp.json tests/package-runtime.test.ts
+git commit -m "fix: align packaged MCP runtime entrypoint"
+```
+
+## Task 2: Config And Auth-Aware Doctor
 
 **Files:**
 - Modify: `src/doctor.ts`
@@ -99,7 +169,7 @@ git add src/doctor.ts tests/doctor.test.ts
 git commit -m "feat: make doctor config and auth aware"
 ```
 
-## Task 2: Workspace State And Git Worktree Readiness
+## Task 3: Workspace State And Git Worktree Readiness
 
 **Files:**
 - Modify: `src/core/workspaces.ts`
@@ -175,7 +245,7 @@ git add src/core/workspaces.ts src/doctor.ts tests/core/workspaces.test.ts tests
 git commit -m "feat: add workspace doctor preflight checks"
 ```
 
-## Task 3: Provider Routing Readiness And MCP Doctor CWD
+## Task 4: Provider Routing Readiness And MCP Doctor CWD
 
 **Files:**
 - Modify: `src/doctor.ts`
@@ -234,7 +304,7 @@ git add src/doctor.ts src/mcp/tools.ts tests/doctor.test.ts tests/mcp/tools.test
 git commit -m "feat: report provider routing readiness"
 ```
 
-## Task 4: Local CI Script Parity
+## Task 5: Local CI Script Parity
 
 **Files:**
 - Modify: `package.json`
@@ -290,7 +360,7 @@ git add package.json tests/package-scripts.test.ts
 git commit -m "test: align local ci script with build gate"
 ```
 
-## Task 5: Verification And Integration
+## Task 6: Verification And Integration
 
 **Files:**
 - Modify only if verification finds issues.
@@ -300,7 +370,7 @@ git commit -m "test: align local ci script with build gate"
 Run:
 
 ```bash
-npm test -- tests/doctor.test.ts tests/core/workspaces.test.ts tests/mcp/tools.test.ts tests/package-scripts.test.ts
+npm test -- tests/package-runtime.test.ts tests/doctor.test.ts tests/core/workspaces.test.ts tests/mcp/tools.test.ts tests/package-scripts.test.ts
 ```
 
 Expected: PASS.
