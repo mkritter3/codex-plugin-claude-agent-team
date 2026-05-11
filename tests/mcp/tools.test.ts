@@ -260,6 +260,234 @@ describe("MCP tool handlers", () => {
     expect(createdManagers).toEqual(["manager_1"]);
   });
 
+  it("starts parallel agent runs through the shared lifecycle registry with defaults", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-mcp-parallel-"));
+    const createdManagers: string[] = [];
+    const requests: Array<{
+      readonly managerId: string;
+      readonly role: string;
+      readonly task: string;
+      readonly cwd: string;
+      readonly provider: string | undefined;
+      readonly timeoutMs: number | undefined;
+    }> = [];
+    const handlers = createToolHandlers({
+      cwd: () => workspace,
+      lifecycleFactory: () => {
+        const managerId = `manager_${createdManagers.length + 1}`;
+        createdManagers.push(managerId);
+        return {
+          async startRun(request) {
+            requests.push({
+              managerId,
+              role: request.role,
+              task: request.task,
+              cwd: request.cwd,
+              provider: request.provider,
+              timeoutMs: request.timeoutMs
+            });
+            return {
+              runId: `run_${request.role}`,
+              status: "running",
+              provider: request.provider ?? "claude-code-cli",
+              role: request.role,
+              sidecarPath: join(request.cwd, ".agent-team", "runs", `run_${request.role}.json`),
+              logPath: join(request.cwd, ".agent-team", "logs", `run_${request.role}.log`),
+              mailboxPaths: {
+                inbox: join(request.cwd, ".agent-team", "mailboxes", `run_${request.role}`, "inbox.jsonl"),
+                outbox: join(request.cwd, ".agent-team", "mailboxes", `run_${request.role}`, "outbox.jsonl"),
+                control: join(request.cwd, ".agent-team", "mailboxes", `run_${request.role}`, "control.jsonl"),
+                events: join(request.cwd, ".agent-team", "mailboxes", `run_${request.role}`, "events.jsonl")
+              }
+            };
+          },
+          async getStatus() {
+            throw new Error("should not status");
+          },
+          async messageRun() {
+            throw new Error("should not message");
+          },
+          async replyRun() {
+            throw new Error("should not reply");
+          },
+          async cancelRun() {
+            throw new Error("should not cancel");
+          },
+          async windDownRun() {
+            throw new Error("should not wind down");
+          }
+        };
+      }
+    });
+
+    const result = await handlers.handleToolCall("agent_team_start_parallel", {
+      cwd: workspace,
+      provider: "claude-code-cli",
+      timeoutMs: 1234,
+      concurrency: 2,
+      runs: [
+        { role: "planner", task: "Plan", correlationId: "plan" },
+        { role: "debugger", task: "Debug", provider: "claude-code-cli", timeoutMs: 5678 }
+      ]
+    });
+
+    expect(createdManagers).toEqual(["manager_1"]);
+    expect(requests).toEqual([
+      {
+        managerId: "manager_1",
+        role: "planner",
+        task: "Plan",
+        cwd: workspace,
+        provider: "claude-code-cli",
+        timeoutMs: 1234
+      },
+      {
+        managerId: "manager_1",
+        role: "debugger",
+        task: "Debug",
+        cwd: workspace,
+        provider: "claude-code-cli",
+        timeoutMs: 5678
+      }
+    ]);
+    expect(result.structuredContent).toMatchObject({
+      status: "started",
+      concurrency: 2,
+      runs: [
+        {
+          status: "started",
+          index: 0,
+          correlationId: "plan",
+          run: { runId: "run_planner" }
+        },
+        {
+          status: "started",
+          index: 1,
+          run: { runId: "run_debugger" }
+        }
+      ]
+    });
+    expect(String(result.structuredContent?.batchId)).toMatch(/^batch_/);
+  });
+
+  it("returns partial failure for parallel starts without dropping later runs", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-mcp-parallel-"));
+    const attempted: string[] = [];
+    const handlers = createToolHandlers({
+      cwd: () => workspace,
+      lifecycleFactory: () => ({
+        async startRun(request) {
+          attempted.push(request.role);
+          if (request.role === "debugger") {
+            throw new Error("provider failed");
+          }
+          return {
+            runId: `run_${request.role}`,
+            status: "running",
+            provider: "claude-code-cli",
+            role: request.role,
+            sidecarPath: join(workspace, ".agent-team", "runs", `run_${request.role}.json`),
+            logPath: join(workspace, ".agent-team", "logs", `run_${request.role}.log`),
+            mailboxPaths: {
+              inbox: join(workspace, ".agent-team", "mailboxes", `run_${request.role}`, "inbox.jsonl"),
+              outbox: join(workspace, ".agent-team", "mailboxes", `run_${request.role}`, "outbox.jsonl"),
+              control: join(workspace, ".agent-team", "mailboxes", `run_${request.role}`, "control.jsonl"),
+              events: join(workspace, ".agent-team", "mailboxes", `run_${request.role}`, "events.jsonl")
+            }
+          };
+        },
+        async getStatus() {
+          throw new Error("should not status");
+        },
+        async messageRun() {
+          throw new Error("should not message");
+        },
+        async replyRun() {
+          throw new Error("should not reply");
+        },
+        async cancelRun() {
+          throw new Error("should not cancel");
+        },
+        async windDownRun() {
+          throw new Error("should not wind down");
+        }
+      })
+    });
+
+    const result = await handlers.handleToolCall("agent_team_start_parallel", {
+      runs: [
+        { role: "planner", task: "Plan" },
+        { role: "debugger", task: "Debug", correlationId: "debug" },
+        { role: "test-designer", task: "Test" }
+      ],
+      concurrency: 1
+    });
+
+    expect(attempted).toEqual(["planner", "debugger", "test-designer"]);
+    expect(result.structuredContent).toMatchObject({
+      status: "partial_failure",
+      runs: [
+        { status: "started", index: 0, run: { runId: "run_planner" } },
+        {
+          status: "failed",
+          index: 1,
+          correlationId: "debug",
+          role: "debugger",
+          task: "Debug",
+          error: "provider failed"
+        },
+        { status: "started", index: 2, run: { runId: "run_test-designer" } }
+      ]
+    });
+  });
+
+  it("validates parallel start args before invoking lifecycle", async () => {
+    let called = false;
+    const handlers = createToolHandlers({
+      lifecycleFactory: () => ({
+        async startRun() {
+          called = true;
+          throw new Error("should not start");
+        },
+        async getStatus() {
+          throw new Error("should not status");
+        },
+        async messageRun() {
+          throw new Error("should not message");
+        },
+        async replyRun() {
+          throw new Error("should not reply");
+        },
+        async cancelRun() {
+          throw new Error("should not cancel");
+        },
+        async windDownRun() {
+          throw new Error("should not wind down");
+        }
+      })
+    });
+
+    const cases: Array<Record<string, unknown>> = [
+      {},
+      { runs: [] },
+      { runs: [{ role: "nope", task: "Plan" }] },
+      { runs: [{ role: "planner", task: "" }] },
+      { runs: [{ role: "planner", task: "Plan", cwd: 1 }] },
+      { runs: [{ role: "planner", task: "Plan", provider: 1 }] },
+      { runs: [{ role: "planner", task: "Plan", timeoutMs: -1 }] },
+      { runs: [{ role: "planner", task: "Plan", correlationId: 1 }] },
+      { runs: [{ role: "planner", task: "Plan" }], concurrency: 0 },
+      { runs: [{ role: "planner", task: "Plan" }], concurrency: 9 },
+      { runs: [{ role: "planner", task: "Plan" }], concurrency: 1.5 }
+    ];
+
+    for (const input of cases) {
+      const result = await handlers.handleToolCall("agent_team_start_parallel", input);
+      expect(result.structuredContent?.status).toBe("validation_error");
+    }
+    expect(called).toBe(false);
+  });
+
   it("dispatches through injected read-only dispatcher", async () => {
     const handlers = createToolHandlers({
       cwd: () => "/repo",
@@ -1065,6 +1293,7 @@ describe("MCP tool handlers", () => {
     expect(listToolNames()).toEqual([
       "agent_team_dispatch",
       "agent_team_start",
+      "agent_team_start_parallel",
       "agent_team_reply",
       "agent_team_message",
       "agent_team_status",

@@ -6,7 +6,9 @@ import {
   createDefaultLifecycleRegistry,
   LifecycleRegistry
 } from "../core/lifecycle-registry.js";
+import { startAgentTeamInParallel } from "../core/parallel-start.js";
 import { listRoles } from "../core/roles.js";
+import { createRunId } from "../core/run-ids.js";
 import { recoverStateCorruption } from "../core/state/recovery.js";
 import type {
   AgentCleanupRequest,
@@ -15,6 +17,8 @@ import type {
   AgentDispatchRequest,
   AgentMessageRequest,
   AgentMessageResult,
+  AgentParallelStartRequest,
+  AgentParallelStartRun,
   AgentReplyRequest,
   AgentReplyResult,
   AgentStartResult,
@@ -28,6 +32,7 @@ import { jsonToolResult, type JsonToolResult } from "../utils/json.js";
 export const TOOL_NAMES = [
   "agent_team_dispatch",
   "agent_team_start",
+  "agent_team_start_parallel",
   "agent_team_reply",
   "agent_team_message",
   "agent_team_status",
@@ -125,6 +130,143 @@ function parseDispatchArgs(
     cwd: args.cwd ?? cwd,
     ...(args.provider === undefined ? {} : { provider: args.provider }),
     ...(args.timeoutMs === undefined ? {} : { timeoutMs: args.timeoutMs })
+  };
+}
+
+function readOptionalString(
+  value: unknown,
+  message: string
+): string | JsonToolResult | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return validationError(message);
+  }
+  return value;
+}
+
+function readOptionalTimeout(
+  value: unknown,
+  message: string
+): number | JsonToolResult | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "number" || value <= 0) {
+    return validationError(message);
+  }
+  return value;
+}
+
+function parseParallelStartArgs(
+  args: Record<string, unknown>,
+  cwd: string
+): AgentParallelStartRequest | JsonToolResult {
+  if (!Array.isArray(args.runs) || args.runs.length === 0) {
+    return validationError("agent_team_start_parallel requires a non-empty runs array.");
+  }
+
+  const defaultCwd = readOptionalString(
+    args.cwd,
+    "agent_team_start_parallel cwd must be a string."
+  );
+  if (typeof defaultCwd === "object") {
+    return defaultCwd;
+  }
+
+  const defaultProvider = readOptionalString(
+    args.provider,
+    "agent_team_start_parallel provider must be a string."
+  );
+  if (typeof defaultProvider === "object") {
+    return defaultProvider;
+  }
+
+  const defaultTimeoutMs = readOptionalTimeout(
+    args.timeoutMs,
+    "agent_team_start_parallel timeoutMs must be a positive number."
+  );
+  if (typeof defaultTimeoutMs === "object") {
+    return defaultTimeoutMs;
+  }
+
+  const concurrency = args.concurrency === undefined ? 3 : args.concurrency;
+  if (
+    typeof concurrency !== "number" ||
+    !Number.isInteger(concurrency) ||
+    concurrency < 1 ||
+    concurrency > 8
+  ) {
+    return validationError(
+      "agent_team_start_parallel concurrency must be an integer from 1 to 8."
+    );
+  }
+
+  const runs: AgentParallelStartRun[] = [];
+  for (const [index, value] of args.runs.entries()) {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      return validationError(`agent_team_start_parallel runs[${index}] must be an object.`);
+    }
+
+    const run = value as Record<string, unknown>;
+    if (typeof run.role !== "string" || !ROLE_IDS.has(run.role)) {
+      return validationError(`agent_team_start_parallel runs[${index}] requires a valid role.`);
+    }
+    if (typeof run.task !== "string" || run.task.trim().length === 0) {
+      return validationError(
+        `agent_team_start_parallel runs[${index}] requires a non-empty task.`
+      );
+    }
+
+    const itemCwd = readOptionalString(
+      run.cwd,
+      `agent_team_start_parallel runs[${index}] cwd must be a string.`
+    );
+    if (typeof itemCwd === "object") {
+      return itemCwd;
+    }
+
+    const itemProvider = readOptionalString(
+      run.provider,
+      `agent_team_start_parallel runs[${index}] provider must be a string.`
+    );
+    if (typeof itemProvider === "object") {
+      return itemProvider;
+    }
+
+    const itemTimeoutMs = readOptionalTimeout(
+      run.timeoutMs,
+      `agent_team_start_parallel runs[${index}] timeoutMs must be a positive number.`
+    );
+    if (typeof itemTimeoutMs === "object") {
+      return itemTimeoutMs;
+    }
+
+    const correlationId = readOptionalString(
+      run.correlationId,
+      `agent_team_start_parallel runs[${index}] correlationId must be a string.`
+    );
+    if (typeof correlationId === "object") {
+      return correlationId;
+    }
+
+    const provider = itemProvider ?? defaultProvider;
+    const timeoutMs = itemTimeoutMs ?? defaultTimeoutMs;
+    runs.push({
+      role: run.role as RoleId,
+      task: run.task,
+      cwd: itemCwd ?? defaultCwd ?? cwd,
+      ...(provider === undefined ? {} : { provider }),
+      ...(timeoutMs === undefined ? {} : { timeoutMs }),
+      ...(correlationId === undefined ? {} : { correlationId })
+    });
+  }
+
+  return {
+    batchId: createRunId().replace(/^run_/, "batch_"),
+    runs,
+    concurrency
   };
 }
 
@@ -288,6 +430,20 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
           operation: name,
           action: async () =>
             jsonToolResult({ ...(await (await lifecycleFor(parsed.cwd)).startRun(parsed)) })
+        });
+      }
+
+      if (name === "agent_team_start_parallel") {
+        const parsed = parseParallelStartArgs(args, cwd());
+        if ("content" in parsed) {
+          return parsed;
+        }
+
+        return jsonToolResult({
+          ...(await startAgentTeamInParallel(parsed, {
+            startRun: async (request) =>
+              (await lifecycleFor(request.cwd)).startRun(request)
+          }))
         });
       }
 

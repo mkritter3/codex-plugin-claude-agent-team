@@ -32,6 +32,23 @@ const dispatchInputSchema = {
   timeoutMs
 };
 
+const parallelRunInputSchema = z.object({
+  role,
+  task: z.string().min(1).describe("Bounded assignment for the role."),
+  cwd,
+  provider,
+  timeoutMs,
+  correlationId
+});
+
+const parallelStartInputSchema = {
+  runs: z.array(parallelRunInputSchema).min(1),
+  cwd,
+  provider,
+  timeoutMs,
+  concurrency: z.number().int().min(1).max(8).optional()
+};
+
 const replyInputSchema = {
   runId,
   cwd,
@@ -81,6 +98,11 @@ export const TOOL_METADATA_BY_NAME = {
     title: "Start Agent Session",
     description: "Start a durable role session with status and mailbox state.",
     inputSchema: dispatchInputSchema
+  },
+  agent_team_start_parallel: {
+    title: "Start Agent Team",
+    description: "Start multiple durable role sessions with bounded concurrency.",
+    inputSchema: parallelStartInputSchema
   },
   agent_team_reply: {
     title: "Reply To Agent Session",

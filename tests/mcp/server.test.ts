@@ -31,7 +31,12 @@ vi.mock("@modelcontextprotocol/sdk/server/mcp.js", () => ({
 }));
 
 vi.mock("../../src/mcp/tools.js", () => ({
-  listToolNames: () => ["agent_team_start", "agent_team_status", "agent_team_cleanup"],
+  listToolNames: () => [
+    "agent_team_start",
+    "agent_team_start_parallel",
+    "agent_team_status",
+    "agent_team_cleanup"
+  ],
   createToolHandlers: mocks.createToolHandlers,
   handleToolCall: mocks.handleToolCall
 }));
@@ -62,6 +67,7 @@ describe("MCP server", () => {
     expect(mocks.handleToolCall).not.toHaveBeenCalled();
     expect(mocks.registeredTools.map((tool) => tool.name)).toEqual([
       "agent_team_start",
+      "agent_team_start_parallel",
       "agent_team_status",
       "agent_team_cleanup"
     ]);
@@ -82,6 +88,9 @@ describe("MCP server", () => {
     expect(metadataByName.get("agent_team_start")?.inputSchema).toMatchObject({
       role: expect.any(Object),
       task: expect.any(Object)
+    });
+    expect(metadataByName.get("agent_team_start_parallel")?.inputSchema).toMatchObject({
+      runs: expect.any(Object)
     });
     expect(metadataByName.get("agent_team_status")?.inputSchema).toMatchObject({
       runId: expect.any(Object)
