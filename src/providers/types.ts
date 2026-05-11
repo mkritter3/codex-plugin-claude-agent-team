@@ -14,7 +14,7 @@ export interface ProviderOutboxRequest {
   readonly createdAt?: string;
 }
 
-export type ProviderSessionDoneStatus = "completed" | "failed" | "interrupted";
+export type ProviderSessionDoneStatus = "completed" | "failed" | "interrupted" | "expired";
 export type ProviderSessionPermissionMode =
   | "default"
   | "acceptEdits"

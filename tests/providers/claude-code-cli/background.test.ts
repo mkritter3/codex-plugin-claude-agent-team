@@ -175,6 +175,30 @@ describe("Claude background session runner", () => {
     expect(calls[0]?.args).not.toContain("--bare");
   });
 
+  it("terminates and expires background sessions when timeout elapses", async () => {
+    const child = new FakeChildProcess();
+    const handle = startClaudeBackgroundSession(
+      {
+        prompt: "Inspect",
+        cwd: workspace,
+        workspaceRoot: workspace,
+        runId: "run_bg_timeout",
+        timeoutMs: 1,
+        env: {}
+      },
+      { spawn: () => child }
+    );
+
+    await new Promise<void>((resolve) => setTimeout(resolve, 10));
+
+    expect(child.signals).toEqual(["SIGTERM", "SIGKILL"]);
+    child.emit("close", null, "SIGKILL");
+    await expect(handle.done).resolves.toBe("expired");
+    await expect(readFile(handle.logPath!, "utf8")).resolves.toContain(
+      "Session timed out after 1ms."
+    );
+  });
+
   it("uses acceptEdits only when isolated implementation execution requests it", () => {
     const child = new FakeChildProcess();
     const calls: Array<{ command: string; args: readonly string[]; cwd: string }> = [];

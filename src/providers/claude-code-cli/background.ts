@@ -34,6 +34,7 @@ export interface StartClaudeBackgroundSessionInput {
   readonly env?: NodeJS.ProcessEnv;
   readonly sessionId?: string;
   readonly permissionMode?: ClaudePermissionMode;
+  readonly timeoutMs?: number;
 }
 
 export interface SpawnOptions {
@@ -142,6 +143,8 @@ export function startClaudeBackgroundSession(
   const writes: Array<Promise<void>> = [];
   let writeQueue: Promise<void> = Promise.resolve();
   let sigkillSent = false;
+  let timedOut = false;
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
 
   const child = spawnImpl(command.command, command.args, {
     cwd: command.cwd,
@@ -159,6 +162,23 @@ export function startClaudeBackgroundSession(
     );
     writeQueue = nextWrite.catch(() => undefined);
     writes.push(nextWrite);
+  }
+
+  function clearTimeoutBudget(): void {
+    if (timeoutHandle !== undefined) {
+      clearTimeout(timeoutHandle);
+      timeoutHandle = undefined;
+    }
+  }
+
+  if (input.timeoutMs !== undefined) {
+    timeoutHandle = setTimeout(() => {
+      timedOut = true;
+      write(logPath, `Session timed out after ${input.timeoutMs}ms.\n`);
+      child.kill(process.platform === "win32" ? undefined : "SIGTERM");
+      child.kill(process.platform === "win32" ? undefined : "SIGKILL");
+    }, input.timeoutMs);
+    timeoutHandle.unref?.();
   }
 
   if (child.stdout !== null) {
@@ -180,7 +200,12 @@ export function startClaudeBackgroundSession(
 
   const done = new Promise<ProviderSessionDoneStatus>((resolve) => {
     child.on("close", (code, signal) => {
+      clearTimeoutBudget();
       void Promise.allSettled(writes).then(() => {
+        if (timedOut) {
+          resolve("expired");
+          return;
+        }
         if (signal === "SIGTERM" || signal === "SIGINT") {
           resolve("interrupted");
           return;
@@ -189,8 +214,9 @@ export function startClaudeBackgroundSession(
       });
     });
     child.on("error", (error) => {
+      clearTimeoutBudget();
       write(logPath, `${error.message}\n`);
-      void Promise.allSettled(writes).then(() => resolve("failed"));
+      void Promise.allSettled(writes).then(() => resolve(timedOut ? "expired" : "failed"));
     });
   });
 
