@@ -1,7 +1,9 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import type { RoleId } from "../../core/types.js";
 import { buildClaudeCommand } from "./commands.js";
 import { parseClaudeJsonOutput } from "./output.js";
+import { claudeRolePolicyFor } from "./role-policy.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -61,15 +63,22 @@ const defaultExecFile: ExecFileLike = async (command, args, options) => {
 export async function runClaudePrint(input: {
   readonly prompt: string;
   readonly cwd: string;
+  readonly roleId?: RoleId;
   readonly timeoutMs?: number;
   readonly execFile?: ExecFileLike;
   readonly env?: NodeJS.ProcessEnv;
 }): Promise<ClaudeProcessResult> {
+  const policy =
+    input.roleId === undefined
+      ? undefined
+      : claudeRolePolicyFor({ roleId: input.roleId });
   const command = buildClaudeCommand({
     prompt: input.prompt,
     cwd: input.cwd,
     outputFormat: "json",
-    permissionMode: "default"
+    permissionMode: policy?.permissionMode ?? "default",
+    ...(policy === undefined ? {} : { allowedTools: policy.allowedTools }),
+    ...(policy === undefined ? {} : { disallowedTools: policy.disallowedTools })
   });
   const execFileImpl = input.execFile ?? defaultExecFile;
 

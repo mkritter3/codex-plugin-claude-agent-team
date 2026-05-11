@@ -92,6 +92,42 @@ describe("Claude background session runner", () => {
     expect(calls[0]?.args).toContain("--exclude-dynamic-system-prompt-sections");
   });
 
+  it("applies read-only role policy to background sessions", () => {
+    const child = new FakeChildProcess();
+    const calls: Array<{ args: readonly string[] }> = [];
+
+    startClaudeBackgroundSession(
+      {
+        prompt: "Inspect the repo",
+        cwd: workspace,
+        workspaceRoot: workspace,
+        runId: "run_bg_policy",
+        roleId: "planner",
+        env: {}
+      },
+      {
+        spawn: (_command, args) => {
+          calls.push({ args });
+          return child;
+        }
+      }
+    );
+
+    expect(calls[0]?.args).toEqual(
+      expect.arrayContaining([
+        "--permission-mode",
+        "default",
+        "--allowedTools",
+        "Read,Grep,Glob,LS",
+        "--disallowedTools",
+        "Edit,MultiEdit,Write,NotebookEdit,Bash"
+      ])
+    );
+    expect(calls[0]?.args).not.toContain("acceptEdits");
+    expect(calls[0]?.args).not.toContain("bypassPermissions");
+    expect(calls[0]?.args).not.toContain("--bare");
+  });
+
   it("resumes an existing Claude Code session id without bare mode", () => {
     const child = new FakeChildProcess();
     const calls: Array<{ command: string; args: readonly string[]; cwd: string }> = [];
@@ -138,6 +174,7 @@ describe("Claude background session runner", () => {
         cwd: workspace,
         workspaceRoot: workspace,
         runId: "run_bg_write",
+        roleId: "slice-implementer",
         permissionMode: "acceptEdits",
         env: {}
       },
@@ -150,8 +187,14 @@ describe("Claude background session runner", () => {
     );
 
     expect(calls[0]?.args).toEqual(
-      expect.arrayContaining(["--permission-mode", "acceptEdits"])
+      expect.arrayContaining([
+        "--permission-mode",
+        "acceptEdits",
+        "--allowedTools",
+        "Read,Grep,Glob,LS,Edit,MultiEdit,Write,Bash"
+      ])
     );
+    expect(calls[0]?.args).not.toContain("--disallowedTools");
     expect(calls[0]?.args).not.toContain("--bare");
     expect(calls[0]?.args).not.toContain("bypassPermissions");
   });

@@ -38,6 +38,40 @@ describe("runClaudePrint", () => {
     });
   });
 
+  it("applies read-only role policy in print mode", async () => {
+    const calls: Array<{ args: readonly string[] }> = [];
+    const execFile: ExecFileLike = async (_command, args) => {
+      calls.push({ args });
+      return {
+        stdout: JSON.stringify({
+          result: "<<<VERDICT>>>\nstatus: SHIP\nsummary: ok\nrequired_changes:\n- none\nevidence:\n- test\nrisks:\n- none\n<<<END_VERDICT>>>"
+        }),
+        stderr: ""
+      };
+    };
+
+    await runClaudePrint({
+      prompt: "Review",
+      cwd: "/repo",
+      roleId: "code-reviewer",
+      execFile
+    });
+
+    expect(calls[0]?.args).toEqual(
+      expect.arrayContaining([
+        "--permission-mode",
+        "default",
+        "--allowedTools",
+        "Read,Grep,Glob,LS",
+        "--disallowedTools",
+        "Edit,MultiEdit,Write,NotebookEdit,Bash"
+      ])
+    );
+    expect(calls[0]?.args).not.toContain("acceptEdits");
+    expect(calls[0]?.args).not.toContain("bypassPermissions");
+    expect(calls[0]?.args).not.toContain("--bare");
+  });
+
   it("returns typed failures for non-zero exits", async () => {
     const execFile: ExecFileLike = async () => {
       throw new ClaudeProcessError("claude failed", {

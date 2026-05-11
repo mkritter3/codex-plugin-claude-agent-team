@@ -4,6 +4,7 @@ import { createInterface } from "node:readline";
 import type { Readable, Writable } from "node:stream";
 import { appendBoundedLog } from "../../core/logs.js";
 import { runLogPath } from "../../core/state/paths.js";
+import type { RoleId } from "../../core/types.js";
 import type {
   ProviderSessionDoneStatus,
   ProviderSessionHandle,
@@ -12,6 +13,7 @@ import type {
 import { buildClaudeCommand } from "./commands.js";
 import type { ClaudePermissionMode } from "./types.js";
 import { inspectClaudeEnvironment } from "./doctor.js";
+import { claudeRolePolicyFor } from "./role-policy.js";
 import { createClaudeStreamParser } from "./stream-parser.js";
 
 export class ClaudeBackgroundSessionError extends Error {
@@ -26,6 +28,7 @@ export interface StartClaudeBackgroundSessionInput {
   readonly cwd: string;
   readonly workspaceRoot: string;
   readonly runId: string;
+  readonly roleId?: RoleId;
   readonly env?: NodeJS.ProcessEnv;
   readonly sessionId?: string;
   readonly permissionMode?: ClaudePermissionMode;
@@ -97,13 +100,24 @@ export function startClaudeBackgroundSession(
     throw new ClaudeBackgroundSessionError(inspection.warnings.join("\n"));
   }
 
+  const policy =
+    input.roleId === undefined
+      ? undefined
+      : claudeRolePolicyFor({
+          roleId: input.roleId,
+          ...(input.permissionMode === undefined
+            ? {}
+            : { requestedPermissionMode: input.permissionMode })
+        });
   const command = buildClaudeCommand({
     prompt: input.prompt,
     cwd: input.cwd,
     outputFormat: "stream-json",
     inputFormat: "stream-json",
-    permissionMode: input.permissionMode ?? "default",
+    permissionMode: policy?.permissionMode ?? input.permissionMode ?? "default",
     excludeDynamicSystemPromptSections: true,
+    ...(policy === undefined ? {} : { allowedTools: policy.allowedTools }),
+    ...(policy === undefined ? {} : { disallowedTools: policy.disallowedTools }),
     ...(input.sessionId === undefined ? {} : { sessionId: input.sessionId })
   });
   const spawnImpl = deps.spawn ?? defaultSpawn;
