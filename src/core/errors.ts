@@ -40,8 +40,18 @@ export class ProviderNotFoundError extends AgentTeamError {
   }
 }
 
+export type StateCorruptionKind = "json" | "jsonl";
+
 export class StateCorruptionError extends AgentTeamError {
-  constructor(message: string) {
+  readonly path: string | undefined;
+  readonly kind: StateCorruptionKind | undefined;
+
+  constructor(
+    message: string,
+    metadata: { readonly path?: string; readonly kind?: StateCorruptionKind } = {}
+  ) {
     super(message);
+    this.path = metadata.path;
+    this.kind = metadata.kind;
   }
 }

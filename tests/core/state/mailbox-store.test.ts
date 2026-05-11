@@ -64,6 +64,10 @@ describe("mailbox-store", () => {
     await expect(readMailboxRecords(workspace, "run_2", "outbox")).rejects.toThrow(
       StateCorruptionError
     );
+    await expect(readMailboxRecords(workspace, "run_2", "outbox")).rejects.toMatchObject({
+      path: join(workspace, ".agent-team", "mailboxes", "run_2", "outbox.jsonl"),
+      kind: "jsonl"
+    } satisfies Partial<StateCorruptionError>);
   });
 
   it("appends typed control and event records to the correct mailbox", async () => {

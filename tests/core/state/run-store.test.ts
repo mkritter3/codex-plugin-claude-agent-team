@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -9,6 +9,7 @@ import {
   transitionRunSidecar,
   writeRunSidecar
 } from "../../../src/core/state/run-store.js";
+import { StateCorruptionError } from "../../../src/core/errors.js";
 import type { RunSidecar } from "../../../src/core/types.js";
 
 let workspace: string;
@@ -38,6 +39,18 @@ describe("run-store", () => {
     await writeRunSidecar(workspace, sidecar);
 
     await expect(readRunSidecar(workspace, "run_123")).resolves.toEqual(sidecar);
+  });
+
+  it("reports corrupt sidecar path and kind", async () => {
+    const path = join(workspace, ".agent-team", "runs", "run_corrupt.json");
+    await mkdir(join(workspace, ".agent-team", "runs"), { recursive: true });
+    await writeFile(path, "{ nope", "utf8");
+
+    await expect(readRunSidecar(workspace, "run_corrupt")).rejects.toMatchObject({
+      name: "StateCorruptionError",
+      path,
+      kind: "json"
+    } satisfies Partial<StateCorruptionError>);
   });
 
   it("identifies terminal run statuses", () => {

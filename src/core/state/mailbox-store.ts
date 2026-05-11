@@ -77,7 +77,11 @@ export async function readMailboxRecords(
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new StateCorruptionError(
-        `Invalid JSONL at ${path}:${index + 1}: ${message}`
+        `Invalid JSONL at ${path}:${index + 1}: ${message}`,
+        {
+          path,
+          kind: "jsonl"
+        }
       );
     }
   }

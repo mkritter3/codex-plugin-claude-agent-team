@@ -16,6 +16,9 @@ export async function readJsonFile<T>(path: string): Promise<T> {
     return JSON.parse(raw) as T;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    throw new StateCorruptionError(`Invalid JSON at ${path}: ${message}`);
+    throw new StateCorruptionError(`Invalid JSON at ${path}: ${message}`, {
+      path,
+      kind: "json"
+    });
   }
 }
