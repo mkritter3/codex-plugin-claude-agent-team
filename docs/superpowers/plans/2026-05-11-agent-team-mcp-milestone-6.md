@@ -47,7 +47,7 @@
 - Modify: `src/mcp/tools.ts`
 - Test: `tests/mcp/tools.test.ts`
 
-- [ ] **Step 1: Write failing MCP config tests**
+- [x] **Step 1: Write failing MCP config tests**
 
 Add tests proving:
 
@@ -85,7 +85,7 @@ npm test -- tests/mcp/tools.test.ts
 
 Expected: FAIL because default lifecycle handling is not config-aware and no lifecycle factory exists.
 
-- [ ] **Step 2: Implement config-aware lifecycle factory**
+- [x] **Step 2: Implement config-aware lifecycle factory**
 
 Extend `ToolDependencies` with:
 
@@ -100,7 +100,7 @@ Behavior:
 - Construct a fresh `AgentLifecycleManager({ config })` or call `deps.lifecycleFactory(config)`.
 - Use that manager for `agent_team_start`, `agent_team_reply`, `agent_team_message`, `agent_team_status`, `agent_team_cancel`, and `agent_team_wind_down`.
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 Run:
 
@@ -110,7 +110,7 @@ npm test -- tests/mcp/tools.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/mcp/tools.ts tests/mcp/tools.test.ts
@@ -125,7 +125,7 @@ git commit -m "fix: make MCP lifecycle config-aware"
 - Modify: `src/core/types.ts`
 - Test: `tests/core/workspaces.test.ts`
 
-- [ ] **Step 1: Write failing workspace inspector tests**
+- [x] **Step 1: Write failing workspace inspector tests**
 
 Add tests proving:
 
@@ -143,7 +143,7 @@ npm test -- tests/core/workspaces.test.ts
 
 Expected: FAIL because the inspector and diff path helper do not exist.
 
-- [ ] **Step 2: Implement inspector and types**
+- [x] **Step 2: Implement inspector and types**
 
 Add:
 
@@ -167,7 +167,7 @@ Parsing rules:
 - Keep ordering stable and remove duplicates.
 - Only include `diffText` when `git diff --binary` returns non-empty output.
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 Run:
 
@@ -177,7 +177,7 @@ npm test -- tests/core/workspaces.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/state/paths.ts src/core/workspaces.ts src/core/types.ts tests/core/workspaces.test.ts
@@ -191,7 +191,7 @@ git commit -m "feat: inspect implementation worktree diffs"
 - Modify: `src/core/types.ts`
 - Test: `tests/core/lifecycle.test.ts`
 
-- [ ] **Step 1: Write failing lifecycle completion tests**
+- [x] **Step 1: Write failing lifecycle completion tests**
 
 Add tests proving:
 
@@ -209,7 +209,7 @@ npm test -- tests/core/lifecycle.test.ts
 
 Expected: FAIL because lifecycle completion does not harvest implementation worktrees.
 
-- [ ] **Step 2: Implement completion harvesting**
+- [x] **Step 2: Implement completion harvesting**
 
 Extend lifecycle dependencies:
 
@@ -238,7 +238,7 @@ Behavior:
 - Return `changedFiles`, `workspaceStatus`, optional `workspaceDiffPath`, `workspaceCleanup: "retained"`, and evidence path additions.
 - On inspector failure, preserve a warning and do not throw away the provider verdict.
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 Run:
 
@@ -248,7 +248,7 @@ npm test -- tests/core/lifecycle.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/lifecycle.ts src/core/types.ts tests/core/lifecycle.test.ts
@@ -261,7 +261,7 @@ git commit -m "feat: harvest implementation completion evidence"
 - Modify: `src/core/lifecycle.ts`
 - Test: `tests/core/lifecycle.test.ts`
 
-- [ ] **Step 1: Write failing failure/cancellation tests**
+- [x] **Step 1: Write failing failure/cancellation tests**
 
 Add tests proving:
 
@@ -278,7 +278,7 @@ npm test -- tests/core/lifecycle.test.ts
 
 Expected: FAIL until failed/cancelled paths use the shared harvesting helper.
 
-- [ ] **Step 2: Implement failure and cancellation harvesting**
+- [x] **Step 2: Implement failure and cancellation harvesting**
 
 Use the same helper from Task 3 in:
 
@@ -287,7 +287,7 @@ Use the same helper from Task 3 in:
 
 Ensure `cleanup` remains `"partial"` for failed/interrupted/cancelled runs while `workspaceCleanup` remains `"retained"`.
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 Run:
 
@@ -297,7 +297,7 @@ npm test -- tests/core/lifecycle.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/lifecycle.ts tests/core/lifecycle.test.ts
@@ -311,7 +311,7 @@ git commit -m "feat: preserve implementation evidence on stop"
 - Modify: `.github/workflows/ci.yml`
 - Modify: `src/mcp/tools.ts` only if the red test proves status fields are stripped.
 
-- [ ] **Step 1: Write MCP status and CI regression tests**
+- [x] **Step 1: Write MCP status and CI regression tests**
 
 Add a test proving `agent_team_status` returns implementation handoff fields already present in a persisted sidecar:
 
@@ -343,7 +343,7 @@ npm test -- tests/mcp/tools.test.ts
 
 Expected: PASS for MCP if status already returns the sidecar whole; CI assertion fails until build is added.
 
-- [ ] **Step 2: Implement CI build and preserve MCP status fields**
+- [x] **Step 2: Implement CI build and preserve MCP status fields**
 
 Add:
 
@@ -355,7 +355,7 @@ after `npm test` in `.github/workflows/ci.yml`.
 
 If MCP status strips fields, preserve the full sidecar in structured content. Do not add a new tool in this milestone.
 
-- [ ] **Step 3: Run tests**
+- [x] **Step 3: Run tests**
 
 Run:
 
@@ -365,7 +365,7 @@ npm test -- tests/mcp/tools.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add .github/workflows/ci.yml src/mcp/tools.ts tests/mcp/tools.test.ts
@@ -377,7 +377,7 @@ git commit -m "test: cover implementation handoff status"
 **Files:**
 - Modify only if verification finds issues.
 
-- [ ] **Step 1: Run focused tests**
+- [x] **Step 1: Run focused tests**
 
 Run:
 
@@ -387,7 +387,7 @@ npm test -- tests/core/workspaces.test.ts tests/core/lifecycle.test.ts tests/mcp
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -399,7 +399,7 @@ npm run build
 
 Expected: PASS.
 
-- [ ] **Step 3: Review diff**
+- [x] **Step 3: Review diff**
 
 Run:
 
@@ -410,6 +410,23 @@ git diff --stat main..HEAD
 
 Expected: only planned files changed.
 
-- [ ] **Step 4: Merge and push**
+- [x] **Step 4: Merge and push**
 
 Fast-forward merge the verified worktree branch into `main`, push, and remove the temporary implementation worktree.
+
+## Completed Implementation Evidence
+
+- Planned on `main` in `dd17a66` and refined in `2c6ebf2`.
+- Implemented in isolated worktree `.worktrees/milestone-6-implementation-evidence` on branch `codex/milestone-6-implementation-evidence`.
+- Implementation commits:
+  - `eb92944 fix: make MCP lifecycle config-aware`
+  - `53c0c47 feat: inspect implementation worktree diffs`
+  - `d339bbf feat: harvest implementation completion evidence`
+  - `0e52919 feat: preserve implementation evidence on stop`
+  - `ddab7a1 test: cover implementation handoff status`
+- Focused verification:
+  - `npm test -- tests/core/workspaces.test.ts tests/core/lifecycle.test.ts tests/mcp/tools.test.ts`
+  - Result: 3 test files passed, 45 tests passed.
+- Full verification:
+  - `npm run typecheck && npm test && npm run build`
+  - Result: typecheck passed, 19 test files passed, 103 tests passed, build passed.
