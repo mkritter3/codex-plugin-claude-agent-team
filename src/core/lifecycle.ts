@@ -7,6 +7,7 @@ import {
   type AgentProviderRuntime
 } from "../providers/index.js";
 import type {
+  ProviderOutboxRequest,
   ProviderSessionDoneStatus,
   ProviderSessionHandle,
   ProviderSessionPermissionMode,
@@ -26,6 +27,7 @@ import {
   appendControlRecord,
   appendEventRecord,
   appendInboxRecord,
+  appendOutboxRecord,
   readMailboxRecords
 } from "./state/mailbox-store.js";
 import {
@@ -295,7 +297,13 @@ export class AgentLifecycleManager {
     const sidecar = await readRunSidecar(workspaceRoot, runId);
     const active = this.activeRuns.get(activeKey(workspaceRoot, runId));
     if (active !== undefined) {
-      return sidecarWithSnapshot(sidecar, active.handle.snapshot());
+      const snapshot = active.handle.snapshot();
+      const reconciled = await this.reconcileOutboxRequests(
+        workspaceRoot,
+        sidecar,
+        snapshot
+      );
+      return sidecarWithSnapshot(reconciled, snapshot);
     }
 
     if (!isTerminalRunStatus(sidecar.status)) {
@@ -312,7 +320,7 @@ export class AgentLifecycleManager {
   }
 
   async messageRun(request: AgentMessageRequest): Promise<AgentMessageResult> {
-    const sidecar = await readRunSidecar(request.cwd, request.runId);
+    let sidecar = await readRunSidecar(request.cwd, request.runId);
     if (this.inputClosed(sidecar)) {
       throw new Error(`Run ${request.runId} is not accepting new messages.`);
     }
@@ -325,6 +333,9 @@ export class AgentLifecycleManager {
         ? {}
         : { correlationId: request.correlationId })
     });
+    if (sidecar.status === "awaiting-input") {
+      sidecar = await this.resumeAwaitingInputRun(request.cwd, sidecar, record);
+    }
     const active = this.activeRuns.get(activeKey(request.cwd, request.runId));
     if (
       active?.handle.supportsStdin === true &&
@@ -667,6 +678,110 @@ export class AgentLifecycleManager {
       sidecar.status === "failed" ||
       sidecar.status === "expired"
     );
+  }
+
+  private async reconcileOutboxRequests(
+    workspaceRoot: string,
+    sidecar: RunSidecar,
+    snapshot: ProviderSessionSnapshot
+  ): Promise<RunSidecar> {
+    let current = sidecar;
+    for (const request of snapshot.pendingOutboxRequests) {
+      current = await this.persistOutboxRequest(workspaceRoot, current, request);
+    }
+    return current;
+  }
+
+  private async persistOutboxRequest(
+    workspaceRoot: string,
+    sidecar: RunSidecar,
+    request: ProviderOutboxRequest
+  ): Promise<RunSidecar> {
+    if (sidecar.status !== "running" && sidecar.status !== "awaiting-input") {
+      return sidecar;
+    }
+    if ((sidecar.outboxRequestIds ?? []).includes(request.id)) {
+      return sidecar;
+    }
+
+    const now = this.now().toISOString();
+    const record = await appendOutboxRecord(workspaceRoot, sidecar.runId, {
+      role: sidecar.role,
+      provider: sidecar.provider,
+      messageType: request.messageType,
+      correlationId: request.correlationId ?? `outbox:${sidecar.runId}:${request.id}`,
+      createdAt: request.createdAt ?? now,
+      payload: request.payload
+    });
+
+    const next = await transitionRunSidecar(workspaceRoot, sidecar.runId, (current) => {
+      if ((current.outboxRequestIds ?? []).includes(request.id)) {
+        return current;
+      }
+      return {
+        ...current,
+        status: current.status === "running" ? "awaiting-input" : current.status,
+        updatedAt: now,
+        awaitingInputSince: current.awaitingInputSince ?? now,
+        outboxRequestIds: [...(current.outboxRequestIds ?? []), request.id],
+        pendingOutboxRequest: {
+          id: request.id,
+          sequence: record.sequence,
+          messageType: record.messageType,
+          correlationId: record.correlationId,
+          createdAt: record.createdAt,
+          payload: record.payload
+        }
+      };
+    });
+
+    await appendEventRecord(workspaceRoot, sidecar.runId, {
+      role: next.role,
+      provider: next.provider,
+      messageType: "awaiting_input_requested",
+      correlationId: record.correlationId,
+      createdAt: now,
+      payload: {
+        outboxRequestId: request.id,
+        outboxSequence: record.sequence,
+        messageType: record.messageType
+      }
+    });
+
+    return next;
+  }
+
+  private async resumeAwaitingInputRun(
+    workspaceRoot: string,
+    sidecar: RunSidecar,
+    record: MailboxRecord
+  ): Promise<RunSidecar> {
+    const next = await transitionRunSidecar(workspaceRoot, sidecar.runId, (current) => {
+      const {
+        awaitingInputSince: _awaitingInputSince,
+        pendingOutboxRequest: _pendingOutboxRequest,
+        ...rest
+      } = current;
+      return {
+        ...rest,
+        status: "running",
+        updatedAt: this.now().toISOString()
+      };
+    });
+
+    await appendEventRecord(workspaceRoot, sidecar.runId, {
+      role: next.role,
+      provider: next.provider,
+      messageType: "awaiting_input_replied",
+      correlationId: record.correlationId,
+      createdAt: this.now().toISOString(),
+      payload: {
+        inboxSequence: record.sequence,
+        outboxRequestId: sidecar.pendingOutboxRequest?.id
+      }
+    });
+
+    return next;
   }
 
   private async appendUserInboxMessage(input: {

@@ -157,6 +157,15 @@ export interface AgentReplyResult extends AgentStartResult {
   readonly providerSessionId: string;
 }
 
+export interface AgentOutboxRequestEvidence {
+  readonly id: string;
+  readonly sequence: number;
+  readonly messageType: string;
+  readonly correlationId: string;
+  readonly createdAt: string;
+  readonly payload: unknown;
+}
+
 export interface ParsedVerdict {
   readonly status: VerdictStatus;
   readonly summary: string;
@@ -206,6 +215,9 @@ export interface RunSidecar {
   readonly cleanup?: "complete" | "partial" | "not-needed";
   readonly inputClosed?: boolean;
   readonly windDownRequestedAt?: string;
+  readonly awaitingInputSince?: string;
+  readonly pendingOutboxRequest?: AgentOutboxRequestEvidence;
+  readonly outboxRequestIds?: readonly string[];
   readonly detached?: boolean;
   readonly warnings?: readonly string[];
   readonly recentActivities?: readonly ProviderSessionActivity[];

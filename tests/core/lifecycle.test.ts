@@ -551,6 +551,105 @@ describe("AgentLifecycleManager", () => {
     );
   });
 
+  it("persists provider outbox requests and transitions active runs to awaiting input", async () => {
+    const done = deferred<ProviderSessionDoneStatus>();
+    const handle = fakeHandle(done.promise);
+    const manager = new AgentLifecycleManager({
+      createRunId: () => "run_awaiting_input",
+      now: () => new Date("2026-05-11T00:02:00.000Z"),
+      startSession: () => handle
+    });
+    await manager.startRun({ role: "planner", task: "Review", cwd: workspace });
+    handle.snapshotValue = {
+      ...handle.snapshotValue,
+      pendingOutboxRequests: [
+        {
+          id: "ask_1",
+          messageType: "clarification_request",
+          correlationId: "corr_ask_1",
+          createdAt: "2026-05-11T00:01:59.000Z",
+          payload: { question: "Which failing test should I inspect first?" }
+        }
+      ]
+    };
+
+    const firstStatus = await manager.getStatus(workspace, "run_awaiting_input");
+    const secondStatus = await manager.getStatus(workspace, "run_awaiting_input");
+    const outbox = await readMailboxRecords(workspace, "run_awaiting_input", "outbox");
+
+    expect(firstStatus).toMatchObject({
+      status: "awaiting-input",
+      awaitingInputSince: "2026-05-11T00:02:00.000Z",
+      pendingOutboxRequest: {
+        id: "ask_1",
+        sequence: 1,
+        messageType: "clarification_request",
+        correlationId: "corr_ask_1",
+        payload: { question: "Which failing test should I inspect first?" }
+      }
+    });
+    expect(secondStatus.status).toBe("awaiting-input");
+    expect(outbox).toHaveLength(1);
+    expect(outbox[0]).toMatchObject({
+      sequence: 1,
+      messageType: "clarification_request",
+      correlationId: "corr_ask_1",
+      payload: { question: "Which failing test should I inspect first?" }
+    });
+  });
+
+  it("records replies to awaiting-input runs and resumes running status", async () => {
+    const done = deferred<ProviderSessionDoneStatus>();
+    const handle = fakeHandle(done.promise);
+    const manager = new AgentLifecycleManager({
+      createRunId: () => "run_awaiting_reply",
+      now: () => new Date("2026-05-11T00:02:30.000Z"),
+      startSession: () => handle
+    });
+    await manager.startRun({ role: "planner", task: "Review", cwd: workspace });
+    handle.snapshotValue = {
+      ...handle.snapshotValue,
+      pendingOutboxRequests: [
+        {
+          id: "ask_reply_1",
+          messageType: "approval_request",
+          correlationId: "corr_reply_1",
+          payload: { question: "May I inspect CI logs?" }
+        }
+      ]
+    };
+    await manager.getStatus(workspace, "run_awaiting_reply");
+
+    const result = await manager.messageRun({
+      runId: "run_awaiting_reply",
+      cwd: workspace,
+      message: "Yes, inspect the failing CI logs.",
+      correlationId: "msg_reply_1"
+    });
+    const sidecar = await readRunSidecar(workspace, "run_awaiting_reply");
+
+    expect(result.status).toBe("delivered_live");
+    expect(sidecar).toMatchObject({
+      status: "running",
+      outboxRequestIds: ["ask_reply_1"]
+    });
+    expect(sidecar.pendingOutboxRequest).toBeUndefined();
+    expect(sidecar.awaitingInputSince).toBeUndefined();
+    await expect(readMailboxRecords(workspace, "run_awaiting_reply", "inbox")).resolves.toMatchObject([
+      {
+        sequence: 1,
+        messageType: "user_message",
+        correlationId: "msg_reply_1",
+        payload: { message: "Yes, inspect the failing CI logs." }
+      }
+    ]);
+    await expect(readMailboxRecords(workspace, "run_awaiting_reply", "events")).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ messageType: "awaiting_input_replied" })
+      ])
+    );
+  });
+
   it("starts a child reply run by resuming the parent provider session", async () => {
     const parent: RunSidecar = {
       runId: "run_parent_reply",
