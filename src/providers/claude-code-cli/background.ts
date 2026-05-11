@@ -96,6 +96,7 @@ export function startClaudeBackgroundSession(
     outputFormat: "stream-json",
     inputFormat: "stream-json",
     permissionMode: "default",
+    excludeDynamicSystemPromptSections: true,
     ...(input.sessionId === undefined ? {} : { sessionId: input.sessionId })
   });
   const spawnImpl = deps.spawn ?? defaultSpawn;

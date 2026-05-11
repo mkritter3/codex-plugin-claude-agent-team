@@ -25,6 +25,9 @@ export function buildClaudeCommand(input: ClaudeCommandInput): ClaudeCommand {
   if (input.permissionMode !== undefined) {
     args.push("--permission-mode", input.permissionMode);
   }
+  if (input.excludeDynamicSystemPromptSections === true) {
+    args.push("--exclude-dynamic-system-prompt-sections");
+  }
   pushCsvFlag(args, "--allowedTools", input.allowedTools);
   pushCsvFlag(args, "--disallowedTools", input.disallowedTools);
   if (input.bare === true) {

@@ -20,6 +20,7 @@ export interface ClaudeCommandInput {
   readonly verbose?: boolean;
   readonly bare?: boolean;
   readonly allowBareMode?: boolean;
+  readonly excludeDynamicSystemPromptSections?: boolean;
 }
 
 export interface ClaudeCommand {

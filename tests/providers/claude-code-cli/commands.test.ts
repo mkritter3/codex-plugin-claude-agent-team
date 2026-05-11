@@ -38,6 +38,25 @@ describe("buildClaudeCommand", () => {
     expect(command.args).toContain("--verbose");
   });
 
+  it("adds the dynamic system prompt exclusion flag only when requested", () => {
+    const command = buildClaudeCommand({
+      prompt: "Continue",
+      outputFormat: "stream-json",
+      excludeDynamicSystemPromptSections: true,
+      cwd: "/repo"
+    });
+
+    expect(command.args).toContain("--exclude-dynamic-system-prompt-sections");
+
+    const defaultCommand = buildClaudeCommand({
+      prompt: "Continue",
+      outputFormat: "stream-json",
+      cwd: "/repo"
+    });
+
+    expect(defaultCommand.args).not.toContain("--exclude-dynamic-system-prompt-sections");
+  });
+
   it("rejects bare mode unless explicitly enabled", () => {
     expect(() =>
       buildClaudeCommand({

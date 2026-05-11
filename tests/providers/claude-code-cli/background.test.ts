@@ -74,6 +74,43 @@ describe("Claude background session runner", () => {
     expect(calls[0]?.args).not.toContain("--bare");
     expect(calls[0]?.args).not.toContain("acceptEdits");
     expect(calls[0]?.args).not.toContain("bypassPermissions");
+    expect(calls[0]?.args).toContain("--exclude-dynamic-system-prompt-sections");
+  });
+
+  it("resumes an existing Claude Code session id without bare mode", () => {
+    const child = new FakeChildProcess();
+    const calls: Array<{ command: string; args: readonly string[]; cwd: string }> = [];
+
+    startClaudeBackgroundSession(
+      {
+        prompt: "Continue the investigation",
+        cwd: workspace,
+        workspaceRoot: workspace,
+        runId: "run_bg_resume",
+        sessionId: "session_abc",
+        env: {}
+      },
+      {
+        spawn: (command, args, options) => {
+          calls.push({ command, args, cwd: options.cwd });
+          return child;
+        }
+      }
+    );
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.args).toEqual(
+      expect.arrayContaining([
+        "--resume",
+        "session_abc",
+        "--exclude-dynamic-system-prompt-sections",
+        "--input-format",
+        "stream-json",
+        "--output-format",
+        "stream-json"
+      ])
+    );
+    expect(calls[0]?.args).not.toContain("--bare");
   });
 
   it("captures stdout transcript, parsed text, activities, and bounded stderr", async () => {
