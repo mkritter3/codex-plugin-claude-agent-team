@@ -15,6 +15,14 @@ export function runSidecarPath(workspaceRoot: string, runId: string): string {
   return join(runsDir(workspaceRoot), `${runId}.json`);
 }
 
+export function logsDir(workspaceRoot: string): string {
+  return join(stateRoot(workspaceRoot), "logs");
+}
+
+export function runLogPath(workspaceRoot: string, runId: string): string {
+  return join(logsDir(workspaceRoot), `${runId}.log`);
+}
+
 export function mailboxesDir(workspaceRoot: string): string {
   return join(stateRoot(workspaceRoot), "mailboxes");
 }

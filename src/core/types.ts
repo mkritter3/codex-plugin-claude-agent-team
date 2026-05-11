@@ -54,6 +54,24 @@ export interface ProviderSelectionRequest {
   readonly extraCapabilities?: readonly ProviderCapability[];
 }
 
+export interface AgentDispatchRequest {
+  readonly role: RoleId;
+  readonly task: string;
+  readonly cwd: string;
+  readonly provider?: string;
+  readonly timeoutMs?: number;
+}
+
+export interface AgentDispatchResult {
+  readonly runId: string;
+  readonly status: RunStatus;
+  readonly provider: string;
+  readonly role: RoleId;
+  readonly verdict: ParsedVerdict;
+  readonly sidecarPath: string;
+  readonly logPath: string;
+}
+
 export interface ParsedVerdict {
   readonly status: VerdictStatus;
   readonly summary: string;
