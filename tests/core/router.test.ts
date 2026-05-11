@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ProviderCapabilityError } from "../../src/core/errors.js";
 import { selectProvider } from "../../src/core/router.js";
 import type { AgentProviderDescriptor } from "../../src/core/types.js";
+import { listProviders } from "../../src/providers/index.js";
 
 const readonlyProvider: AgentProviderDescriptor = {
   id: "readonly-provider",
@@ -53,5 +54,38 @@ describe("selectProvider", () => {
     });
 
     expect(selected.id).toBe("tool-provider");
+  });
+
+  it("does not advertise implementation capabilities by default", () => {
+    const [provider] = listProviders();
+
+    expect(provider?.capabilities).toContain("sessionResume");
+    expect(provider?.capabilities).not.toContain("edits");
+    expect(provider?.capabilities).not.toContain("workspaceIsolation");
+    expect(() =>
+      selectProvider({
+        roleId: "slice-implementer",
+        providers: listProviders()
+      })
+    ).toThrow(ProviderCapabilityError);
+  });
+
+  it("advertises implementation capabilities only when isolated write mode is enabled", () => {
+    const providers = listProviders({
+      config: {
+        writeMode: { enabled: true, requireIsolatedWorktree: true },
+        auth: { allowApiKeyFallback: false }
+      }
+    });
+    const [provider] = providers;
+
+    expect(provider?.capabilities).toContain("edits");
+    expect(provider?.capabilities).toContain("workspaceIsolation");
+    expect(
+      selectProvider({
+        roleId: "slice-implementer",
+        providers
+      }).id
+    ).toBe("claude-code-cli");
   });
 });

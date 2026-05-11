@@ -49,6 +49,16 @@ export interface AgentProviderDescriptor {
   readonly warnings?: readonly string[];
 }
 
+export interface AgentTeamConfig {
+  readonly writeMode: {
+    readonly enabled: boolean;
+    readonly requireIsolatedWorktree: boolean;
+  };
+  readonly auth: {
+    readonly allowApiKeyFallback: boolean;
+  };
+}
+
 export interface ProviderSelectionRequest {
   readonly roleId: RoleId;
   readonly providers: readonly AgentProviderDescriptor[];
