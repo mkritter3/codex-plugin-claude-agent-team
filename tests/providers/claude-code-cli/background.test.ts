@@ -236,7 +236,7 @@ describe("Claude background session runner", () => {
     );
   });
 
-  it("surfaces explicit outbox requests through live snapshots", () => {
+  it("surfaces explicit outbox requests through live snapshots", async () => {
     const child = new FakeChildProcess();
     const handle = startClaudeBackgroundSession(
       {
@@ -269,9 +269,11 @@ describe("Claude background session runner", () => {
         payload: { question: "May I inspect the failing CI logs?" }
       }
     ]);
+    child.emit("close", 0, null);
+    await expect(handle.done).resolves.toBe("completed");
   });
 
-  it("does not surface free-form questions as outbox requests", () => {
+  it("does not surface free-form questions as outbox requests", async () => {
     const child = new FakeChildProcess();
     const handle = startClaudeBackgroundSession(
       {
@@ -294,6 +296,8 @@ describe("Claude background session runner", () => {
     );
 
     expect(handle.snapshot().pendingOutboxRequests).toEqual([]);
+    child.emit("close", 0, null);
+    await expect(handle.done).resolves.toBe("completed");
   });
 
   it("supports soft and force kill with distinct signals", () => {
