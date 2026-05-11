@@ -47,6 +47,9 @@ describe("package runtime contract", () => {
       'assertToolRequires(tools.tools, "agent_team_dispatch", ["role", "task"])'
     );
     expect(smokeScript).toContain(
+      'assertToolRequires(tools.tools, "agent_team_start_parallel", ["runs"])'
+    );
+    expect(smokeScript).toContain(
       'assertToolRequires(tools.tools, "agent_team_message", ["runId", "message"])'
     );
     expect(smokeScript).not.toContain("tsx");
