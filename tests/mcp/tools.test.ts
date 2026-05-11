@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { StateCorruptionError } from "../../src/core/errors.js";
+import { mailboxPath, runSidecarPath } from "../../src/core/state/paths.js";
 import { writeRunSidecar } from "../../src/core/state/run-store.js";
 import { createToolHandlers, handleToolCall, listToolNames } from "../../src/mcp/tools.js";
 
@@ -329,6 +331,31 @@ describe("MCP tool handlers", () => {
     expect(result.structuredContent?.run?.status).toBe("completed");
   });
 
+  it("archives corrupt sidecars and returns a recovery result from status", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-corrupt-status-"));
+    const corruptPath = runSidecarPath(workspace, "run_corrupt_status");
+    await mkdir(join(workspace, ".agent-team", "runs"), { recursive: true });
+    await writeFile(corruptPath, "{ nope", "utf8");
+    const handlers = createToolHandlers({ cwd: () => workspace });
+
+    const result = await handlers.handleToolCall("agent_team_status", {
+      runId: "run_corrupt_status"
+    });
+
+    expect(result.structuredContent).toMatchObject({
+      status: "state_corrupt",
+      runId: "run_corrupt_status",
+      operation: "agent_team_status",
+      kind: "json",
+      originalPath: corruptPath,
+      recovery: "archived",
+      interventionRequired: true
+    });
+    const archivePath = result.structuredContent?.archivePath as string;
+    expect(archivePath).toContain(join(".agent-team", "archive"));
+    await expect(readFile(archivePath, "utf8")).resolves.toBe("{ nope");
+  });
+
   it("uses default lifecycle status reconciliation for running sidecars", async () => {
     const workspace = await import("node:fs/promises").then((fs) =>
       fs.mkdtemp("/tmp/agent-team-status-")
@@ -513,6 +540,74 @@ describe("MCP tool handlers", () => {
         payload: { message: "Use the CI logs first." }
       }
     });
+  });
+
+  it("archives corrupt mailboxes and returns a recovery result from reply", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-corrupt-reply-"));
+    await writeRunSidecar(workspace, {
+      runId: "run_corrupt_reply",
+      role: "planner",
+      provider: "claude-code-cli",
+      status: "awaiting-input",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:01:00.000Z",
+      capabilitiesUsed: ["structuredOutput", "sessionResume"],
+      evidencePaths: [],
+      providerSessionId: "session_parent"
+    });
+    const inboxPath = mailboxPath(workspace, "run_corrupt_reply", "inbox");
+    await mkdir(join(workspace, ".agent-team", "mailboxes", "run_corrupt_reply"), {
+      recursive: true
+    });
+    await writeFile(inboxPath, "{\"bad\"\n", "utf8");
+    const handlers = createToolHandlers({ cwd: () => workspace });
+
+    const result = await handlers.handleToolCall("agent_team_reply", {
+      runId: "run_corrupt_reply"
+    });
+
+    expect(result.structuredContent).toMatchObject({
+      status: "state_corrupt",
+      runId: "run_corrupt_reply",
+      operation: "agent_team_reply",
+      kind: "jsonl",
+      originalPath: inboxPath,
+      recovery: "archived",
+      interventionRequired: true
+    });
+    const archivePath = result.structuredContent?.archivePath as string;
+    expect(archivePath).toContain(join(".agent-team", "archive"));
+    await expect(readFile(archivePath, "utf8")).resolves.toBe("{\"bad\"\n");
+  });
+
+  it("lets non-state-corruption lifecycle errors propagate", async () => {
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      lifecycle: {
+        async startRun() {
+          throw new Error("should not start");
+        },
+        async getStatus() {
+          throw new Error("boom");
+        },
+        async messageRun() {
+          throw new Error("should not message");
+        },
+        async replyRun() {
+          throw new StateCorruptionError("Synthetic corruption without metadata.");
+        },
+        async cancelRun() {
+          throw new Error("should not cancel");
+        },
+        async windDownRun() {
+          throw new Error("should not wind down");
+        }
+      }
+    });
+
+    await expect(
+      handlers.handleToolCall("agent_team_status", { runId: "run_boom" })
+    ).rejects.toThrow("boom");
   });
 
   it("delegates start, status, message, reply, cancel, and wind-down to injected lifecycle", async () => {

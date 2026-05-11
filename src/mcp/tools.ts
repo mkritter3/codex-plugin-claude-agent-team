@@ -1,11 +1,13 @@
 import { runDoctor } from "../doctor.js";
 import { loadAgentTeamConfig } from "../core/config.js";
 import { dispatchReadOnlyAgent } from "../core/dispatch.js";
+import { StateCorruptionError } from "../core/errors.js";
 import {
   createDefaultLifecycleRegistry,
   LifecycleRegistry
 } from "../core/lifecycle-registry.js";
 import { listRoles } from "../core/roles.js";
+import { recoverStateCorruption } from "../core/state/recovery.js";
 import type {
   AgentCleanupRequest,
   AgentCleanupResult,
@@ -69,6 +71,29 @@ export function listToolNames(): readonly ToolName[] {
 
 function validationError(message: string): JsonToolResult {
   return jsonToolResult({ status: "validation_error", message });
+}
+
+async function recoverableLifecycleTool(input: {
+  readonly workspaceRoot: string;
+  readonly runId?: string;
+  readonly operation: ToolName;
+  readonly action: () => Promise<JsonToolResult>;
+}): Promise<JsonToolResult> {
+  try {
+    return await input.action();
+  } catch (error) {
+    if (error instanceof StateCorruptionError) {
+      return jsonToolResult(
+        await recoverStateCorruption({
+          workspaceRoot: input.workspaceRoot,
+          ...(input.runId === undefined ? {} : { runId: input.runId }),
+          operation: input.operation,
+          error
+        })
+      );
+    }
+    throw error;
+  }
 }
 
 function parseDispatchArgs(
@@ -258,7 +283,12 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
         if ("content" in parsed) {
           return parsed;
         }
-        return jsonToolResult({ ...(await (await lifecycleFor(parsed.cwd)).startRun(parsed)) });
+        return recoverableLifecycleTool({
+          workspaceRoot: parsed.cwd,
+          operation: name,
+          action: async () =>
+            jsonToolResult({ ...(await (await lifecycleFor(parsed.cwd)).startRun(parsed)) })
+        });
       }
 
       if (name === "agent_team_message") {
@@ -266,7 +296,13 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
         if ("content" in parsed) {
           return parsed;
         }
-        return jsonToolResult({ ...(await (await lifecycleFor(parsed.cwd)).messageRun(parsed)) });
+        return recoverableLifecycleTool({
+          workspaceRoot: parsed.cwd,
+          runId: parsed.runId,
+          operation: name,
+          action: async () =>
+            jsonToolResult({ ...(await (await lifecycleFor(parsed.cwd)).messageRun(parsed)) })
+        });
       }
 
       if (name === "agent_team_reply") {
@@ -274,7 +310,13 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
         if ("content" in parsed) {
           return parsed;
         }
-        return jsonToolResult({ ...(await (await lifecycleFor(parsed.cwd)).replyRun(parsed)) });
+        return recoverableLifecycleTool({
+          workspaceRoot: parsed.cwd,
+          runId: parsed.runId,
+          operation: name,
+          action: async () =>
+            jsonToolResult({ ...(await (await lifecycleFor(parsed.cwd)).replyRun(parsed)) })
+        });
       }
 
       if (name === "agent_team_status") {
@@ -284,9 +326,19 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
         if (args.cwd !== undefined && typeof args.cwd !== "string") {
           return validationError("agent_team_status cwd must be a string.");
         }
+        const runId = args.runId;
         const workspaceRoot = args.cwd ?? cwd();
-        return jsonToolResult({
-          run: await (await lifecycleFor(workspaceRoot)).getStatus(workspaceRoot, args.runId)
+        return recoverableLifecycleTool({
+          workspaceRoot,
+          runId,
+          operation: name,
+          action: async () =>
+            jsonToolResult({
+              run: await (await lifecycleFor(workspaceRoot)).getStatus(
+                workspaceRoot,
+                runId
+              )
+            })
         });
       }
 
@@ -297,13 +349,21 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
         if (args.cwd !== undefined && typeof args.cwd !== "string") {
           return validationError(`${name} cwd must be a string.`);
         }
+        const runId = args.runId;
         const workspaceRoot = args.cwd ?? cwd();
-        const lifecycle = await lifecycleFor(workspaceRoot);
-        const result =
-          name === "agent_team_cancel"
-            ? await lifecycle.cancelRun(workspaceRoot, args.runId)
-            : await lifecycle.windDownRun(workspaceRoot, args.runId);
-        return jsonToolResult({ ...result });
+        return recoverableLifecycleTool({
+          workspaceRoot,
+          runId,
+          operation: name,
+          action: async () => {
+            const lifecycle = await lifecycleFor(workspaceRoot);
+            const result =
+              name === "agent_team_cancel"
+                ? await lifecycle.cancelRun(workspaceRoot, runId)
+                : await lifecycle.windDownRun(workspaceRoot, runId);
+            return jsonToolResult({ ...result });
+          }
+        });
       }
 
       if (name === "agent_team_cleanup") {
@@ -311,11 +371,18 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
         if ("content" in parsed) {
           return parsed;
         }
-        const lifecycle = await lifecycleFor(parsed.cwd);
-        if (lifecycle.cleanupRunWorkspace === undefined) {
-          throw new Error("Lifecycle does not support workspace cleanup.");
-        }
-        return jsonToolResult({ ...(await lifecycle.cleanupRunWorkspace(parsed)) });
+        return recoverableLifecycleTool({
+          workspaceRoot: parsed.cwd,
+          runId: parsed.runId,
+          operation: name,
+          action: async () => {
+            const lifecycle = await lifecycleFor(parsed.cwd);
+            if (lifecycle.cleanupRunWorkspace === undefined) {
+              throw new Error("Lifecycle does not support workspace cleanup.");
+            }
+            return jsonToolResult({ ...(await lifecycle.cleanupRunWorkspace(parsed)) });
+          }
+        });
       }
 
       return jsonToolResult({
