@@ -42,7 +42,7 @@
 - Add: `src/core/run-pipeline.ts`
 - Add: `tests/core/run-pipeline.test.ts`
 
-- [ ] **Step 1: Write failing shared pipeline tests**
+- [x] **Step 1: Write failing shared pipeline tests**
 
 Add tests proving:
 
@@ -59,7 +59,7 @@ npm test -- tests/core/run-pipeline.test.ts
 
 Expected: FAIL because the shared pipeline module does not exist yet.
 
-- [ ] **Step 2: Implement shared pipeline helpers**
+- [x] **Step 2: Implement shared pipeline helpers**
 
 In `src/core/run-pipeline.ts`, export:
 
@@ -82,7 +82,7 @@ finalizeRunSidecar(input)
 - append one matching mailbox event after the sidecar transition
 - remain provider-neutral and independent of provider runtime APIs
 
-- [ ] **Step 3: Run focused shared pipeline tests**
+- [x] **Step 3: Run focused shared pipeline tests**
 
 Run:
 
@@ -93,7 +93,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/run-pipeline.ts tests/core/run-pipeline.test.ts
@@ -106,7 +106,7 @@ git commit -m "feat: add shared run pipeline finalization"
 - Modify: `src/core/dispatch.ts`
 - Modify: `tests/core/dispatch.test.ts`
 
-- [ ] **Step 1: Write failing dispatch pipeline tests**
+- [x] **Step 1: Write failing dispatch pipeline tests**
 
 Add or tighten tests proving:
 
@@ -122,7 +122,7 @@ npm test -- tests/core/dispatch.test.ts
 
 Expected: FAIL because dispatch still owns a local terminalization path that does not set shared cleanup semantics.
 
-- [ ] **Step 2: Replace local dispatch helpers**
+- [x] **Step 2: Replace local dispatch helpers**
 
 In `src/core/dispatch.ts`:
 
@@ -132,7 +132,7 @@ In `src/core/dispatch.ts`:
 - use `finalizeRunSidecar` for successful provider results, failed provider results, unsupported-role failures, and auth-precedence failures
 - keep MCP response shape unchanged
 
-- [ ] **Step 3: Run focused dispatch tests**
+- [x] **Step 3: Run focused dispatch tests**
 
 Run:
 
@@ -143,7 +143,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/dispatch.ts tests/core/dispatch.test.ts
@@ -156,7 +156,7 @@ git commit -m "feat: route dispatch through shared run pipeline"
 - Modify: `src/core/lifecycle.ts`
 - Modify: `tests/core/lifecycle.test.ts`
 
-- [ ] **Step 1: Write failing lifecycle pipeline tests**
+- [x] **Step 1: Write failing lifecycle pipeline tests**
 
 Add or tighten tests proving:
 
@@ -172,7 +172,7 @@ npm test -- tests/core/lifecycle.test.ts
 
 Expected: FAIL because lifecycle still owns duplicate terminal transitions.
 
-- [ ] **Step 2: Replace local lifecycle completion helpers**
+- [x] **Step 2: Replace local lifecycle completion helpers**
 
 In `src/core/lifecycle.ts`:
 
@@ -181,7 +181,7 @@ In `src/core/lifecycle.ts`:
 - use shared finalization inside `completeRun` for `completed`, `expired`, and other non-completed terminal outcomes
 - keep detached reconciliation, cancel, wind-down, reply, and cleanup semantics unchanged
 
-- [ ] **Step 3: Run focused lifecycle tests**
+- [x] **Step 3: Run focused lifecycle tests**
 
 Run:
 
@@ -192,7 +192,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/lifecycle.ts tests/core/lifecycle.test.ts
@@ -204,7 +204,7 @@ git commit -m "feat: route lifecycle completion through shared run pipeline"
 **Files:**
 - Modify only if verification finds issues.
 
-- [ ] **Step 1: Run focused milestone tests**
+- [x] **Step 1: Run focused milestone tests**
 
 Run:
 
@@ -214,7 +214,7 @@ npm test -- tests/core/run-pipeline.test.ts tests/core/dispatch.test.ts tests/co
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -228,7 +228,7 @@ npm run ci
 
 Expected: PASS.
 
-- [ ] **Step 3: Review boundary and safety invariants**
+- [x] **Step 3: Review boundary and safety invariants**
 
 Run:
 
@@ -239,7 +239,7 @@ rg "allowApiKeyFallback|benchmark|embedding|mock LLM|bypassPermissions|process.k
 
 Expected: run finalization is shared, provider-neutral, and does not introduce non-Claude runtimes, API fallback, benchmark, embedding, mock LLM, bypass-permission, or process-kill paths.
 
-- [ ] **Step 4: Commit final plan checkbox update**
+- [x] **Step 4: Commit final plan checkbox update**
 
 Mark completed checklist items in this file and commit the update.
 
