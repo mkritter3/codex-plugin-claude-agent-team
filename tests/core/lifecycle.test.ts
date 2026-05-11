@@ -23,7 +23,13 @@ function deferred<T>(): {
   return { promise, resolve };
 }
 
-function fakeHandle(done: Promise<ProviderSessionDoneStatus>): ProviderSessionHandle & {
+function fakeHandle(
+  done: Promise<ProviderSessionDoneStatus>,
+  options: {
+    readonly supportsStdin?: boolean;
+    readonly writeSucceeds?: boolean;
+  } = {}
+): ProviderSessionHandle & {
   killed: boolean;
   forceKilled: boolean;
   stdin: string[];
@@ -55,7 +61,7 @@ function fakeHandle(done: Promise<ProviderSessionDoneStatus>): ProviderSessionHa
     killed: false,
     forceKilled: false,
     stdin: [] as string[],
-    supportsStdin: true,
+    supportsStdin: options.supportsStdin ?? true,
     snapshotValue,
     done,
     get providerSessionId() {
@@ -84,7 +90,7 @@ function fakeHandle(done: Promise<ProviderSessionDoneStatus>): ProviderSessionHa
     },
     writeStdin(data: string) {
       handle.stdin.push(data);
-      return true;
+      return options.writeSucceeds ?? true;
     },
     snapshot() {
       return handle.snapshotValue;
@@ -327,6 +333,85 @@ describe("AgentLifecycleManager", () => {
       status: "completed",
       providerSessionId: "session_parent"
     });
+  });
+
+  it("delivers messages to active stdin-capable runs after inbox append", async () => {
+    const done = deferred<ProviderSessionDoneStatus>();
+    const handle = fakeHandle(done.promise);
+    const manager = new AgentLifecycleManager({
+      createRunId: () => "run_live_message",
+      now: () => new Date("2026-05-11T00:01:00.000Z"),
+      startSession: () => handle
+    });
+    await manager.startRun({ role: "planner", task: "Review", cwd: workspace });
+
+    const result = await manager.messageRun({
+      runId: "run_live_message",
+      cwd: workspace,
+      message: "Please incorporate the new evidence.",
+      messageType: "new_evidence",
+      correlationId: "msg_live"
+    });
+
+    expect(result).toMatchObject({
+      runId: "run_live_message",
+      status: "delivered_live",
+      message: expect.stringContaining("delivered")
+    });
+    const inbox = await readMailboxRecords(workspace, "run_live_message", "inbox");
+    expect(inbox).toHaveLength(1);
+    expect(inbox[0]).toMatchObject({
+      sequence: 1,
+      messageType: "new_evidence",
+      correlationId: "msg_live",
+      payload: { message: "Please incorporate the new evidence." }
+    });
+    expect(handle.stdin).toHaveLength(1);
+    expect(JSON.parse(handle.stdin[0]!)).toMatchObject({
+      type: "agent_team_message",
+      runId: "run_live_message",
+      record: {
+        sequence: 1,
+        messageType: "new_evidence",
+        payload: { message: "Please incorporate the new evidence." }
+      }
+    });
+    await expect(readMailboxRecords(workspace, "run_live_message", "events")).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ messageType: "message_delivered_live" })
+      ])
+    );
+  });
+
+  it("records active messages for resume when live stdin is unsupported", async () => {
+    const done = deferred<ProviderSessionDoneStatus>();
+    const handle = fakeHandle(done.promise, {
+      supportsStdin: false,
+      writeSucceeds: false
+    });
+    const manager = new AgentLifecycleManager({
+      createRunId: () => "run_recorded_message",
+      startSession: () => handle
+    });
+    await manager.startRun({ role: "planner", task: "Review", cwd: workspace });
+
+    const result = await manager.messageRun({
+      runId: "run_recorded_message",
+      cwd: workspace,
+      message: "Save for resume."
+    });
+
+    expect(result).toMatchObject({
+      status: "recorded_for_resume",
+      message: expect.stringContaining("recorded")
+    });
+    expect(handle.stdin).toEqual([]);
+    await expect(readMailboxRecords(workspace, "run_recorded_message", "inbox")).resolves.toHaveLength(1);
+    await expect(readMailboxRecords(workspace, "run_recorded_message", "events")).resolves.not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ messageType: "message_delivered_live" })
+      ])
+    );
   });
 
   it("starts a child reply run by resuming the parent provider session", async () => {

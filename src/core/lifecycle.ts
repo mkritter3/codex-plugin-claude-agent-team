@@ -324,6 +324,36 @@ export class AgentLifecycleManager {
         ? {}
         : { correlationId: request.correlationId })
     });
+    const active = this.activeRuns.get(activeKey(request.cwd, request.runId));
+    if (
+      active?.handle.supportsStdin === true &&
+      active.handle.writeStdin?.(
+        `${JSON.stringify({
+          type: "agent_team_message",
+          runId: request.runId,
+          record
+        })}\n`
+      ) === true
+    ) {
+      await appendEventRecord(request.cwd, request.runId, {
+        role: sidecar.role,
+        provider: sidecar.provider,
+        messageType: "message_delivered_live",
+        correlationId: record.correlationId,
+        createdAt: this.now().toISOString(),
+        payload: {
+          inboxSequence: record.sequence,
+          messageType: record.messageType
+        }
+      });
+
+      return {
+        runId: request.runId,
+        status: "delivered_live",
+        record,
+        message: "Message delivered live."
+      };
+    }
 
     return {
       runId: request.runId,

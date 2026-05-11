@@ -304,7 +304,7 @@ describe("MCP tool handlers", () => {
           calls.push(`message:${request.cwd}:${request.runId}:${request.message}`);
           return {
             runId: request.runId,
-            status: "recorded_for_resume",
+            status: "delivered_live",
             record: {
               sequence: 1,
               runId: request.runId,
@@ -316,7 +316,7 @@ describe("MCP tool handlers", () => {
               contentHash: "hash",
               payload: { message: request.message }
             },
-            message: "Message recorded for resume."
+            message: "Message delivered live."
           };
         },
         async replyRun(request) {
@@ -388,7 +388,7 @@ describe("MCP tool handlers", () => {
         message: "Please keep going."
       })
     ).resolves.toMatchObject({
-      structuredContent: { status: "recorded_for_resume", runId: "run_lifecycle" }
+      structuredContent: { status: "delivered_live", runId: "run_lifecycle" }
     });
     await expect(
       handlers.handleToolCall("agent_team_reply", {

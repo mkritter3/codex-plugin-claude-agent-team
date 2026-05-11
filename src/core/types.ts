@@ -136,7 +136,7 @@ export interface AgentMessageRequest {
 
 export interface AgentMessageResult {
   readonly runId: string;
-  readonly status: "recorded_for_resume";
+  readonly status: "recorded_for_resume" | "delivered_live";
   readonly record: MailboxRecord;
   readonly message: string;
 }
