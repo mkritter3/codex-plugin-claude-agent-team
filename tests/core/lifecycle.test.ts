@@ -284,4 +284,138 @@ describe("AgentLifecycleManager", () => {
       { messageType: "wind_down_requested" }
     ]);
   });
+
+  it("records messages durably without mutating the parent run status", async () => {
+    const sidecar: RunSidecar = {
+      runId: "run_parent_message",
+      role: "planner",
+      provider: "claude-code-cli",
+      status: "completed",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:00:00.000Z",
+      capabilitiesUsed: ["structuredOutput", "sessionResume"],
+      evidencePaths: [],
+      providerSessionId: "session_parent"
+    };
+    await writeRunSidecar(workspace, sidecar);
+
+    const result = await new AgentLifecycleManager({
+      now: () => new Date("2026-05-11T00:01:00.000Z")
+    }).messageRun({
+      runId: "run_parent_message",
+      cwd: workspace,
+      message: "Please account for the new constraint.",
+      correlationId: "msg_1"
+    });
+
+    expect(result).toMatchObject({
+      runId: "run_parent_message",
+      status: "recorded_for_resume",
+      message: expect.stringContaining("recorded")
+    });
+    await expect(readMailboxRecords(workspace, "run_parent_message", "inbox")).resolves.toMatchObject([
+      {
+        sequence: 1,
+        messageType: "user_message",
+        correlationId: "msg_1",
+        payload: { message: "Please account for the new constraint." }
+      }
+    ]);
+    await expect(readRunSidecar(workspace, "run_parent_message")).resolves.toMatchObject({
+      status: "completed",
+      providerSessionId: "session_parent"
+    });
+  });
+
+  it("starts a child reply run by resuming the parent provider session", async () => {
+    const parent: RunSidecar = {
+      runId: "run_parent_reply",
+      role: "planner",
+      provider: "claude-code-cli",
+      status: "completed",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:00:00.000Z",
+      capabilitiesUsed: ["structuredOutput", "sessionResume"],
+      evidencePaths: [],
+      providerSessionId: "session_parent_reply"
+    };
+    await writeRunSidecar(workspace, parent);
+    const done = deferred<ProviderSessionDoneStatus>();
+    const handle = fakeHandle(done.promise);
+    const starts: Array<{
+      prompt: string;
+      runId: string;
+      sessionId?: string;
+    }> = [];
+    const manager = new AgentLifecycleManager({
+      createRunId: () => "run_reply_child",
+      now: () => new Date("2026-05-11T00:02:00.000Z"),
+      startSession: (input) => {
+        starts.push({
+          prompt: input.prompt,
+          runId: input.runId,
+          ...(input.sessionId === undefined ? {} : { sessionId: input.sessionId })
+        });
+        return handle;
+      }
+    });
+
+    const result = await manager.replyRun({
+      runId: "run_parent_reply",
+      cwd: workspace,
+      message: "Re-check this with the new evidence.",
+      correlationId: "reply_1"
+    });
+
+    expect(result).toMatchObject({
+      runId: "run_reply_child",
+      parentRunId: "run_parent_reply",
+      resumedFromRunId: "run_parent_reply",
+      providerSessionId: "session_parent_reply",
+      status: "running"
+    });
+    expect(starts).toHaveLength(1);
+    expect(starts[0]).toMatchObject({
+      runId: "run_reply_child",
+      sessionId: "session_parent_reply"
+    });
+    expect(starts[0]?.prompt).toContain("resumed continuation");
+    expect(starts[0]?.prompt).toContain("Re-check this with the new evidence.");
+    await expect(readRunSidecar(workspace, "run_reply_child")).resolves.toMatchObject({
+      runId: "run_reply_child",
+      parentRunId: "run_parent_reply",
+      resumedFromRunId: "run_parent_reply",
+      resumeSequence: 1,
+      providerSessionId: "session_parent_reply",
+      status: "running"
+    });
+    await expect(readMailboxRecords(workspace, "run_parent_reply", "inbox")).resolves.toMatchObject([
+      { sequence: 1, messageType: "user_message", correlationId: "reply_1" }
+    ]);
+    await expect(readRunSidecar(workspace, "run_parent_reply")).resolves.toMatchObject({
+      status: "completed"
+    });
+  });
+
+  it("rejects reply runs when no provider session id is available", async () => {
+    const parent: RunSidecar = {
+      runId: "run_no_session",
+      role: "planner",
+      provider: "claude-code-cli",
+      status: "completed",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:00:00.000Z",
+      capabilitiesUsed: ["structuredOutput"],
+      evidencePaths: []
+    };
+    await writeRunSidecar(workspace, parent);
+
+    await expect(
+      new AgentLifecycleManager().replyRun({
+        runId: "run_no_session",
+        cwd: workspace,
+        message: "Continue"
+      })
+    ).rejects.toThrow("provider session id");
+  });
 });

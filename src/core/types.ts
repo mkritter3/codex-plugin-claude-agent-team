@@ -114,7 +114,12 @@ export interface AgentMessageResult {
   readonly message: string;
 }
 
-export interface AgentReplyRequest extends AgentMessageRequest {
+export interface AgentReplyRequest {
+  readonly runId: string;
+  readonly cwd: string;
+  readonly message?: string;
+  readonly messageType?: string;
+  readonly correlationId?: string;
   readonly provider?: string;
   readonly timeoutMs?: number;
 }

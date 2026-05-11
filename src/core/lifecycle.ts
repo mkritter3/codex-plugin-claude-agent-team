@@ -6,13 +6,15 @@ import type {
   ProviderSessionHandle,
   ProviderSessionSnapshot
 } from "../providers/types.js";
-import { buildRolePrompt } from "./prompts.js";
+import { buildReplyPrompt, buildRolePrompt } from "./prompts.js";
 import { getRole } from "./roles.js";
 import { selectProvider } from "./router.js";
 import { createRunId as defaultCreateRunId, hashPrompt } from "./run-ids.js";
 import {
   appendControlRecord,
-  appendEventRecord
+  appendEventRecord,
+  appendInboxRecord,
+  readMailboxRecords
 } from "./state/mailbox-store.js";
 import { mailboxPath, runLogPath, runSidecarPath } from "./state/paths.js";
 import {
@@ -26,8 +28,13 @@ import { parseVerdict } from "./verdict.js";
 import type {
   AgentControlResult,
   AgentDispatchRequest,
+  AgentMessageRequest,
+  AgentMessageResult,
   AgentProviderDescriptor,
+  AgentReplyRequest,
+  AgentReplyResult,
   AgentStartResult,
+  MailboxRecord,
   ParsedVerdict,
   RunSidecar
 } from "./types.js";
@@ -38,6 +45,7 @@ export type StartProviderSession = (input: {
   readonly workspaceRoot: string;
   readonly runId: string;
   readonly env?: NodeJS.ProcessEnv;
+  readonly sessionId?: string;
 }) => ProviderSessionHandle;
 
 export interface AgentLifecycleDependencies {
@@ -238,6 +246,167 @@ export class AgentLifecycleManager {
     return sidecar;
   }
 
+  async messageRun(request: AgentMessageRequest): Promise<AgentMessageResult> {
+    const sidecar = await readRunSidecar(request.cwd, request.runId);
+    const record = await this.appendUserInboxMessage({
+      workspaceRoot: request.cwd,
+      sidecar,
+      message: request.message,
+      ...(request.messageType === undefined ? {} : { messageType: request.messageType }),
+      ...(request.correlationId === undefined
+        ? {}
+        : { correlationId: request.correlationId })
+    });
+
+    return {
+      runId: request.runId,
+      status: "recorded_for_resume",
+      record,
+      message: "Message recorded for resume."
+    };
+  }
+
+  async replyRun(request: AgentReplyRequest): Promise<AgentReplyResult> {
+    const parent = await readRunSidecar(request.cwd, request.runId);
+    if (parent.providerSessionId === undefined || parent.providerSessionId.length === 0) {
+      throw new Error(`Run ${request.runId} has no provider session id to resume.`);
+    }
+
+    let resumeMessage = request.message?.trim() ?? "";
+    let resumeSequence: number | undefined;
+    if (resumeMessage.length > 0) {
+      const record = await this.appendUserInboxMessage({
+        workspaceRoot: request.cwd,
+        sidecar: parent,
+        message: request.message ?? "",
+        ...(request.messageType === undefined ? {} : { messageType: request.messageType }),
+        ...(request.correlationId === undefined
+          ? {}
+          : { correlationId: request.correlationId })
+      });
+      resumeSequence = record.sequence;
+    } else {
+      const latest = await this.latestInboxMessage(request.cwd, parent.runId);
+      if (latest === undefined) {
+        throw new Error(
+          `Run ${request.runId} has no recorded inbox message to resume.`
+        );
+      }
+      resumeMessage = latest.message;
+      resumeSequence = latest.sequence;
+    }
+
+    const role = getRole(parent.role);
+    if (!role.defaultReadOnly) {
+      throw new Error(`Role ${role.id} is not supported by background read-only runs.`);
+    }
+
+    const provider = selectProvider({
+      roleId: parent.role,
+      providers: this.providers ?? listProviders(),
+      requestedProviderId: request.provider ?? parent.provider,
+      extraCapabilities: ["sessionResume"]
+    });
+    const runId = this.createRunId();
+    const createdAt = this.now().toISOString();
+    const prompt = buildReplyPrompt({
+      role,
+      cwd: request.cwd,
+      parentRunId: parent.runId,
+      providerSessionId: parent.providerSessionId,
+      message: resumeMessage
+    });
+    const promptDigest = hashPrompt(prompt);
+    const logPath = runLogPath(request.cwd, runId);
+    const sidecar: RunSidecar = {
+      runId,
+      role: parent.role,
+      provider: provider.id,
+      status: "running",
+      createdAt,
+      updatedAt: createdAt,
+      capabilitiesUsed: provider.capabilities,
+      evidencePaths: [logPath],
+      authMode: provider.authMode,
+      promptHash: promptDigest,
+      logPath,
+      providerSessionId: parent.providerSessionId,
+      parentRunId: parent.runId,
+      resumedFromRunId: parent.runId,
+      ...(resumeSequence === undefined ? {} : { resumeSequence })
+    };
+
+    await writeRunSidecar(request.cwd, sidecar);
+    await appendEventRecord(request.cwd, runId, {
+      role: parent.role,
+      provider: provider.id,
+      messageType: "running",
+      correlationId: runId,
+      createdAt,
+      payload: {
+        parentRunId: parent.runId,
+        resumedFromRunId: parent.runId,
+        providerSessionId: parent.providerSessionId,
+        resumeSequence
+      }
+    });
+
+    let handle: ProviderSessionHandle;
+    try {
+      handle = this.startSession({
+        prompt,
+        cwd: request.cwd,
+        workspaceRoot: request.cwd,
+        runId,
+        sessionId: parent.providerSessionId,
+        ...(this.env === undefined ? {} : { env: this.env })
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const verdict = blockedVerdict(`Provider session failed to start: ${message}`);
+      await transitionRunSidecar(request.cwd, runId, (current) => ({
+        ...current,
+        status: "failed",
+        updatedAt: this.now().toISOString(),
+        outputSummary: verdict.summary,
+        cleanup: "partial",
+        verdict
+      }));
+      await appendEventRecord(request.cwd, runId, {
+        role: parent.role,
+        provider: provider.id,
+        messageType: "failed",
+        correlationId: runId,
+        createdAt: this.now().toISOString(),
+        payload: { reason: "provider_start_failed", message }
+      });
+      throw error;
+    }
+
+    this.activeRuns.set(activeKey(request.cwd, runId), {
+      handle,
+      role: parent.role,
+      provider
+    });
+    this.observeCompletion(request.cwd, runId, handle, provider);
+
+    return {
+      runId,
+      status: "running",
+      provider: provider.id,
+      role: parent.role,
+      sidecarPath: runSidecarPath(request.cwd, runId),
+      logPath,
+      ...(handle.transcriptPath === undefined
+        ? {}
+        : { transcriptPath: handle.transcriptPath }),
+      mailboxPaths: mailboxPaths(request.cwd, runId),
+      parentRunId: parent.runId,
+      resumedFromRunId: parent.runId,
+      providerSessionId: parent.providerSessionId
+    };
+  }
+
   async cancelRun(
     workspaceRoot: string,
     runId: string
@@ -316,6 +485,46 @@ export class AgentLifecycleManager {
         ? "Wind-down intent recorded; no active process handle is attached."
         : "Wind-down requested."
     );
+  }
+
+  private async appendUserInboxMessage(input: {
+    readonly workspaceRoot: string;
+    readonly sidecar: RunSidecar;
+    readonly message: string;
+    readonly messageType?: string;
+    readonly correlationId?: string;
+  }): Promise<MailboxRecord> {
+    return appendInboxRecord(input.workspaceRoot, input.sidecar.runId, {
+      role: input.sidecar.role,
+      provider: input.sidecar.provider,
+      messageType: input.messageType ?? "user_message",
+      correlationId:
+        input.correlationId ?? `message:${input.sidecar.runId}:${this.now().toISOString()}`,
+      createdAt: this.now().toISOString(),
+      payload: { message: input.message }
+    });
+  }
+
+  private async latestInboxMessage(
+    workspaceRoot: string,
+    runId: string
+  ): Promise<{ readonly message: string; readonly sequence: number } | undefined> {
+    const records = await readMailboxRecords(workspaceRoot, runId, "inbox");
+    for (const record of [...records].reverse()) {
+      if (
+        typeof record.payload === "object" &&
+        record.payload !== null &&
+        "message" in record.payload &&
+        typeof record.payload.message === "string" &&
+        record.payload.message.trim().length > 0
+      ) {
+        return {
+          message: record.payload.message,
+          sequence: record.sequence
+        };
+      }
+    }
+    return undefined;
   }
 
   private observeCompletion(
