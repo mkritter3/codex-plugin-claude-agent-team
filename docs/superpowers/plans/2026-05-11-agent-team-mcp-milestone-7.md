@@ -1,6 +1,6 @@
 # Agent Team MCP Milestone 7 Runtime And Doctor Readiness Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Make the packaged MCP runtime launchable from its declared entrypoint and make `agent_team_doctor` a truthful workspace preflight for subscription-backed Claude Code CLI runs, explicit write-mode readiness, provider routing, and build-gated local CI.
 
@@ -53,7 +53,7 @@
 - Modify: `.mcp.json`
 - Create: `tests/package-runtime.test.ts`
 
-- [ ] **Step 1: Write failing runtime contract tests**
+- [x] **Step 1: Write failing runtime contract tests**
 
 Create tests proving:
 
@@ -70,7 +70,7 @@ npm test -- tests/package-runtime.test.ts
 
 Expected: FAIL because `tsconfig.build.json` does not exist and current build emits `dist/src/index.js`.
 
-- [ ] **Step 2: Implement runtime build config**
+- [x] **Step 2: Implement runtime build config**
 
 Create `tsconfig.build.json` that extends `tsconfig.json` and overrides:
 
@@ -88,7 +88,7 @@ Create `tsconfig.build.json` that extends `tsconfig.json` and overrides:
 
 Change package scripts so `build` uses `tsc -p tsconfig.build.json`.
 
-- [ ] **Step 3: Run focused tests and build**
+- [x] **Step 3: Run focused tests and build**
 
 Run:
 
@@ -102,7 +102,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add tsconfig.build.json package.json .mcp.json tests/package-runtime.test.ts
@@ -115,7 +115,7 @@ git commit -m "fix: align packaged MCP runtime entrypoint"
 - Modify: `src/doctor.ts`
 - Test: `tests/doctor.test.ts`
 
-- [ ] **Step 1: Write failing doctor config/auth tests**
+- [x] **Step 1: Write failing doctor config/auth tests**
 
 Add tests proving:
 
@@ -132,7 +132,7 @@ npm test -- tests/doctor.test.ts
 
 Expected: FAIL because `runDoctor` does not load workspace config or enforce auth policy.
 
-- [ ] **Step 2: Implement config/auth aggregation**
+- [x] **Step 2: Implement config/auth aggregation**
 
 Extend `DoctorInput`:
 
@@ -151,7 +151,7 @@ Behavior:
   - `fail` when `config.auth.allowApiKeyFallback` is false.
   - `warn` when `config.auth.allowApiKeyFallback` is true.
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -162,7 +162,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/doctor.ts tests/doctor.test.ts
@@ -177,7 +177,7 @@ git commit -m "feat: make doctor config and auth aware"
 - Test: `tests/core/workspaces.test.ts`
 - Test: `tests/doctor.test.ts`
 
-- [ ] **Step 1: Write failing workspace readiness tests**
+- [x] **Step 1: Write failing workspace readiness tests**
 
 Add tests proving:
 
@@ -195,7 +195,7 @@ npm test -- tests/core/workspaces.test.ts tests/doctor.test.ts
 
 Expected: FAIL because no reusable readiness inspector or writable-state check exists.
 
-- [ ] **Step 2: Implement workspace readiness**
+- [x] **Step 2: Implement workspace readiness**
 
 Add to `src/core/workspaces.ts`:
 
@@ -227,7 +227,7 @@ readonly inspectGitWorktreeSupport?: typeof inspectGitWorktreeSupport;
 
 Default `ensureWritableState` should create `.agent-team/`, write a small probe file, and remove it.
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -238,7 +238,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/workspaces.ts src/doctor.ts tests/core/workspaces.test.ts tests/doctor.test.ts
@@ -253,7 +253,7 @@ git commit -m "feat: add workspace doctor preflight checks"
 - Test: `tests/doctor.test.ts`
 - Test: `tests/mcp/tools.test.ts`
 
-- [ ] **Step 1: Write failing routing and MCP tests**
+- [x] **Step 1: Write failing routing and MCP tests**
 
 Add tests proving:
 
@@ -271,7 +271,7 @@ npm test -- tests/doctor.test.ts tests/mcp/tools.test.ts
 
 Expected: FAIL because doctor does not validate role routing and MCP doctor ignores cwd.
 
-- [ ] **Step 2: Implement routing readiness and MCP plumbing**
+- [x] **Step 2: Implement routing readiness and MCP plumbing**
 
 In `runDoctor`, build providers with `listProviders({ config })` and iterate `listRoles()`.
 
@@ -286,7 +286,7 @@ In `src/mcp/tools.ts`:
 - Add optional dependency `doctor?: typeof runDoctor`.
 - For `agent_team_doctor`, validate optional `cwd` string and call `doctor({ workspaceRoot })`.
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -297,7 +297,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/doctor.ts src/mcp/tools.ts tests/doctor.test.ts tests/mcp/tools.test.ts
@@ -310,7 +310,7 @@ git commit -m "feat: report provider routing readiness"
 - Modify: `package.json`
 - Create: `tests/package-scripts.test.ts`
 
-- [ ] **Step 1: Write failing package script test**
+- [x] **Step 1: Write failing package script test**
 
 Create a test proving `scripts.ci` includes all three commands in order:
 
@@ -328,7 +328,7 @@ npm test -- tests/package-scripts.test.ts
 
 Expected: FAIL because `npm run ci` currently omits build.
 
-- [ ] **Step 2: Update `npm run ci`**
+- [x] **Step 2: Update `npm run ci`**
 
 Change:
 
@@ -342,7 +342,7 @@ to:
 "ci": "npm run typecheck && npm test && npm run build"
 ```
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -353,7 +353,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add package.json tests/package-scripts.test.ts
@@ -365,7 +365,7 @@ git commit -m "test: align local ci script with build gate"
 **Files:**
 - Modify only if verification finds issues.
 
-- [ ] **Step 1: Run focused Milestone 7 tests**
+- [x] **Step 1: Run focused Milestone 7 tests**
 
 Run:
 
@@ -375,7 +375,7 @@ npm test -- tests/package-runtime.test.ts tests/doctor.test.ts tests/core/worksp
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -387,7 +387,7 @@ npm run build
 
 Expected: PASS.
 
-- [ ] **Step 3: Review diff**
+- [x] **Step 3: Review diff**
 
 Run:
 
@@ -398,6 +398,25 @@ git diff --stat main..HEAD
 
 Expected: only planned files changed.
 
-- [ ] **Step 4: Merge and push**
+- [x] **Step 4: Merge and push**
 
 Fast-forward merge the verified worktree branch into `main`, push, and remove the temporary implementation worktree.
+
+## Completed Implementation Evidence
+
+- Planned on `main` in `c422057`.
+- Refined in isolated worktree `.worktrees/milestone-7-doctor-readiness` after the runtime entrypoint gap was confirmed.
+- Implemented on branch `codex/milestone-7-doctor-readiness`.
+- Implementation commits:
+  - `1b217d1 docs: refine runtime readiness milestone`
+  - `dda2e2a fix: align packaged MCP runtime entrypoint`
+  - `3cf9b28 feat: make doctor config and auth aware`
+  - `63731ee feat: add workspace doctor preflight checks`
+  - `0332080 feat: report provider routing readiness`
+  - `3a9c976 test: align local ci script with build gate`
+- Focused verification:
+  - `npm test -- tests/package-runtime.test.ts tests/doctor.test.ts tests/core/workspaces.test.ts tests/mcp/tools.test.ts tests/package-scripts.test.ts`
+  - Result: 5 test files passed, 42 tests passed.
+- Full verification:
+  - `rm -rf dist && npm run typecheck && npm test && npm run build && test -f dist/index.js && test ! -e dist/src/index.js`
+  - Result: typecheck passed, 21 test files passed, 118 tests passed, build passed, packaged entrypoint exists at `dist/index.js`.
