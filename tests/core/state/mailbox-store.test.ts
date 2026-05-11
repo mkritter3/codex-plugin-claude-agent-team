@@ -6,6 +6,7 @@ import { StateCorruptionError } from "../../../src/core/errors.js";
 import {
   appendControlRecord,
   appendEventRecord,
+  appendInboxRecord,
   appendMailboxRecord,
   readMailboxRecords
 } from "../../../src/core/state/mailbox-store.js";
@@ -107,5 +108,26 @@ describe("mailbox-store", () => {
     expect(stored.map((record) => record.sequence)).toEqual(
       Array.from({ length: 20 }, (_, index) => index + 1)
     );
+  });
+
+  it("appends typed inbox records for durable messages", async () => {
+    const record = await appendInboxRecord(workspace, "run_5", {
+      role: "planner",
+      provider: "claude-code-cli",
+      messageType: "user_message",
+      correlationId: "msg_1",
+      payload: { message: "Here is more evidence." }
+    });
+
+    const records = await readMailboxRecords(workspace, "run_5", "inbox");
+
+    expect(record).toMatchObject({
+      sequence: 1,
+      runId: "run_5",
+      messageType: "user_message",
+      correlationId: "msg_1",
+      payload: { message: "Here is more evidence." }
+    });
+    expect(records).toEqual([record]);
   });
 });

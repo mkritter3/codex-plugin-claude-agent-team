@@ -129,3 +129,11 @@ export async function appendEventRecord(
 ): Promise<MailboxRecord> {
   return appendMailboxRecord(workspaceRoot, runId, "events", input);
 }
+
+export async function appendInboxRecord(
+  workspaceRoot: string,
+  runId: string,
+  input: AppendMailboxInput
+): Promise<MailboxRecord> {
+  return appendMailboxRecord(workspaceRoot, runId, "inbox", input);
+}

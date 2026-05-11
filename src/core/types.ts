@@ -99,6 +99,32 @@ export interface AgentControlResult {
   readonly message: string;
 }
 
+export interface AgentMessageRequest {
+  readonly runId: string;
+  readonly cwd: string;
+  readonly message: string;
+  readonly messageType?: string;
+  readonly correlationId?: string;
+}
+
+export interface AgentMessageResult {
+  readonly runId: string;
+  readonly status: "recorded_for_resume";
+  readonly record: MailboxRecord;
+  readonly message: string;
+}
+
+export interface AgentReplyRequest extends AgentMessageRequest {
+  readonly provider?: string;
+  readonly timeoutMs?: number;
+}
+
+export interface AgentReplyResult extends AgentStartResult {
+  readonly parentRunId: string;
+  readonly resumedFromRunId: string;
+  readonly providerSessionId: string;
+}
+
 export interface ParsedVerdict {
   readonly status: VerdictStatus;
   readonly summary: string;
@@ -131,6 +157,9 @@ export interface RunSidecar {
   readonly capabilitiesUsed: readonly ProviderCapability[];
   readonly evidencePaths: readonly string[];
   readonly providerSessionId?: string;
+  readonly parentRunId?: string;
+  readonly resumedFromRunId?: string;
+  readonly resumeSequence?: number;
   readonly model?: string;
   readonly authMode?: ProviderAuthMode;
   readonly promptHash?: string;
