@@ -37,7 +37,7 @@
 - Create: `src/core/lifecycle-registry.ts`
 - Test: `tests/core/lifecycle-registry.test.ts`
 
-- [ ] **Step 1: Write failing registry tests**
+- [x] **Step 1: Write failing registry tests**
 
 Add tests proving:
 
@@ -53,7 +53,7 @@ npm test -- tests/core/lifecycle-registry.test.ts
 
 Expected: FAIL because no lifecycle registry module exists.
 
-- [ ] **Step 2: Implement the registry**
+- [x] **Step 2: Implement the registry**
 
 Create `LifecycleRegistry` with:
 
@@ -63,7 +63,7 @@ Create `LifecycleRegistry` with:
 
 Keep the file focused on registry ownership only. It should not load config, touch MCP, or inspect provider state.
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -74,7 +74,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/core/lifecycle-registry.ts tests/core/lifecycle-registry.test.ts
@@ -87,7 +87,7 @@ git commit -m "feat: add lifecycle registry"
 - Modify: `src/mcp/tools.ts`
 - Modify: `tests/mcp/tools.test.ts`
 
-- [ ] **Step 1: Write failing tool continuity tests**
+- [x] **Step 1: Write failing tool continuity tests**
 
 Add tests proving:
 
@@ -104,7 +104,7 @@ npm test -- tests/mcp/tools.test.ts
 
 Expected: FAIL because default lifecycle resolution creates a fresh manager per call.
 
-- [ ] **Step 2: Implement registry-backed resolution**
+- [x] **Step 2: Implement registry-backed resolution**
 
 Update `createToolHandlers` dependencies to accept:
 
@@ -120,7 +120,7 @@ In `lifecycleFor(workspaceRoot)`:
 
 Preserve existing validation, dispatch, doctor, list roles, and list providers behavior.
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -131,7 +131,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/mcp/tools.ts tests/mcp/tools.test.ts
@@ -144,7 +144,7 @@ git commit -m "feat: reuse lifecycle managers across mcp tool calls"
 - Modify: `src/mcp/server.ts`
 - Test: `tests/mcp/server.test.ts`
 
-- [ ] **Step 1: Write failing server wiring test**
+- [x] **Step 1: Write failing server wiring test**
 
 Add a test with a fake server registration surface proving all registered tool callbacks close over one `createToolHandlers()` result rather than calling stateless `handleToolCall()` on every invocation.
 
@@ -156,7 +156,7 @@ npm test -- tests/mcp/server.test.ts
 
 Expected: FAIL because server currently imports and calls the stateless helper in each registered callback.
 
-- [ ] **Step 2: Implement single handler set wiring**
+- [x] **Step 2: Implement single handler set wiring**
 
 Update `createAgentTeamServer` to:
 
@@ -166,7 +166,7 @@ Update `createAgentTeamServer` to:
 
 Keep `handleToolCall` exported for lightweight tests and direct local use, backed by the same module-local registry semantics from Task 2.
 
-- [ ] **Step 3: Run focused tests**
+- [x] **Step 3: Run focused tests**
 
 Run:
 
@@ -177,7 +177,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/mcp/server.ts tests/mcp/server.test.ts
@@ -189,7 +189,7 @@ git commit -m "fix: keep mcp server lifecycle handlers live"
 **Files:**
 - Modify only if verification finds issues.
 
-- [ ] **Step 1: Run focused milestone tests**
+- [x] **Step 1: Run focused milestone tests**
 
 Run:
 
@@ -199,7 +199,7 @@ npm test -- tests/core/lifecycle-registry.test.ts tests/mcp/tools.test.ts tests/
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -211,7 +211,7 @@ npm run build
 
 Expected: PASS.
 
-- [ ] **Step 3: Review registry scope**
+- [x] **Step 3: Review registry scope**
 
 Run:
 
@@ -221,7 +221,7 @@ rg "new AgentLifecycleManager" src/mcp src/core/lifecycle-registry.ts
 
 Expected: only registry-owned creation remains in the MCP default path.
 
-- [ ] **Step 4: Commit final plan checkbox update**
+- [x] **Step 4: Commit final plan checkbox update**
 
 Mark completed checklist items in this file and commit the update.
 
