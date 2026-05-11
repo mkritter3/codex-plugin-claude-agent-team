@@ -6,6 +6,7 @@ import { AgentLifecycleManager } from "../../src/core/lifecycle.js";
 import { readMailboxRecords } from "../../src/core/state/mailbox-store.js";
 import { readRunSidecar, writeRunSidecar } from "../../src/core/state/run-store.js";
 import type { RunSidecar } from "../../src/core/types.js";
+import type { AgentProviderRuntime } from "../../src/providers/index.js";
 import type {
   ProviderSessionDoneStatus,
   ProviderSessionHandle,
@@ -130,6 +131,52 @@ afterEach(async () => {
 });
 
 describe("AgentLifecycleManager", () => {
+  it("starts a background run through the selected provider runtime", async () => {
+    const done = deferred<ProviderSessionDoneStatus>();
+    const handle = fakeHandle(done.promise);
+    const starts: string[] = [];
+    const runtime: AgentProviderRuntime = {
+      id: "fake-runtime",
+      descriptor: () => ({
+        id: "fake-runtime",
+        displayName: "Fake Runtime",
+        authMode: "subscription-oauth",
+        capabilities: ["structuredOutput", "tools", "sessionResume", "cancellation"],
+        available: true
+      }),
+      inspectEnvironment: () => ({ warnings: [] }),
+      async runPrint() {
+        throw new Error("should not run print");
+      },
+      startSession(input) {
+        starts.push(`${input.runId}:${input.cwd}`);
+        return handle;
+      },
+      async healthCheck() {
+        return [];
+      }
+    };
+    const manager = new AgentLifecycleManager({
+      providers: [runtime.descriptor()],
+      runtimes: [runtime],
+      createRunId: () => "run_runtime_start"
+    });
+
+    const result = await manager.startRun({
+      role: "planner",
+      task: "Review this plan",
+      cwd: workspace,
+      provider: "fake-runtime"
+    });
+
+    expect(result).toMatchObject({
+      runId: "run_runtime_start",
+      provider: "fake-runtime",
+      status: "running"
+    });
+    expect(starts).toEqual([`run_runtime_start:${workspace}`]);
+  });
+
   it("starts a background run and records running status", async () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);

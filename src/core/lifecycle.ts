@@ -1,12 +1,16 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { startClaudeBackgroundSession } from "../providers/claude-code-cli/background.js";
-import { listProviders } from "../providers/index.js";
+import {
+  listProviders,
+  requireProviderRuntime,
+  type AgentProviderRuntime
+} from "../providers/index.js";
 import type {
   ProviderSessionDoneStatus,
   ProviderSessionHandle,
   ProviderSessionPermissionMode,
+  ProviderStartSessionInput,
   ProviderSessionSnapshot
 } from "../providers/types.js";
 import { DEFAULT_AGENT_TEAM_CONFIG } from "./config.js";
@@ -58,15 +62,9 @@ import type {
   WorkspaceLease
 } from "./types.js";
 
-export type StartProviderSession = (input: {
-  readonly prompt: string;
-  readonly cwd: string;
-  readonly workspaceRoot: string;
-  readonly runId: string;
-  readonly env?: NodeJS.ProcessEnv;
-  readonly sessionId?: string;
-  readonly permissionMode?: ProviderSessionPermissionMode;
-}) => ProviderSessionHandle;
+export type StartProviderSession = (
+  input: ProviderStartSessionInput
+) => ProviderSessionHandle;
 
 type AllocateWorkspace = typeof allocateIsolatedWorktree;
 type InspectWorkspace = typeof inspectImplementationWorkspace;
@@ -76,6 +74,7 @@ export interface AgentLifecycleDependencies {
   readonly now?: () => Date;
   readonly createRunId?: () => string;
   readonly startSession?: StartProviderSession;
+  readonly runtimes?: readonly AgentProviderRuntime[];
   readonly config?: AgentTeamConfig;
   readonly allocateWorkspace?: AllocateWorkspace;
   readonly inspectWorkspace?: InspectWorkspace;
@@ -155,7 +154,8 @@ export class AgentLifecycleManager {
   private readonly providers: readonly AgentProviderDescriptor[] | undefined;
   private readonly now: () => Date;
   private readonly createRunId: () => string;
-  private readonly startSession: StartProviderSession;
+  private readonly startSession: StartProviderSession | undefined;
+  private readonly runtimes: readonly AgentProviderRuntime[] | undefined;
   private readonly config: AgentTeamConfig;
   private readonly allocateWorkspace: AllocateWorkspace;
   private readonly inspectWorkspace: InspectWorkspace;
@@ -171,13 +171,8 @@ export class AgentLifecycleManager {
     this.config = deps.config ?? DEFAULT_AGENT_TEAM_CONFIG;
     this.allocateWorkspace = deps.allocateWorkspace ?? allocateIsolatedWorktree;
     this.inspectWorkspace = deps.inspectWorkspace ?? inspectImplementationWorkspace;
-    this.startSession =
-      deps.startSession ??
-      ((input) =>
-        startClaudeBackgroundSession({
-          ...input,
-          ...(this.env === undefined ? {} : { env: this.env })
-        }));
+    this.startSession = deps.startSession;
+    this.runtimes = deps.runtimes;
     this.env = deps.env;
     this.cancelGraceMs = deps.cancelGraceMs ?? 250;
     this.windDownGraceMs = deps.windDownGraceMs ?? 250;
@@ -245,7 +240,7 @@ export class AgentLifecycleManager {
 
     let handle: ProviderSessionHandle;
     try {
-      handle = this.startSession({
+      handle = this.startProviderSession(provider, {
         prompt,
         cwd: executionCwd,
         workspaceRoot: request.cwd,
@@ -456,7 +451,7 @@ export class AgentLifecycleManager {
 
     let handle: ProviderSessionHandle;
     try {
-      handle = this.startSession({
+      handle = this.startProviderSession(provider, {
         prompt,
         cwd: request.cwd,
         workspaceRoot: request.cwd,
@@ -792,6 +787,21 @@ export class AgentLifecycleManager {
       .finally(() => {
         this.activeRuns.delete(activeKey(workspaceRoot, runId));
       });
+  }
+
+  private startProviderSession(
+    provider: AgentProviderDescriptor,
+    input: ProviderStartSessionInput
+  ): ProviderSessionHandle {
+    if (this.startSession !== undefined) {
+      return this.startSession(input);
+    }
+
+    const runtime = requireProviderRuntime(
+      provider.id,
+      this.runtimes === undefined ? {} : { runtimes: this.runtimes }
+    );
+    return runtime.startSession(input);
   }
 
   private async completeRun(
