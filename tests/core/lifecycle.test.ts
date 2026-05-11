@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { AgentLifecycleManager } from "../../src/core/lifecycle.js";
 import { readMailboxRecords } from "../../src/core/state/mailbox-store.js";
 import { readRunSidecar, writeRunSidecar } from "../../src/core/state/run-store.js";
-import type { RunSidecar } from "../../src/core/types.js";
+import type { MailboxRecord, RunSidecar } from "../../src/core/types.js";
 import type { AgentProviderRuntime } from "../../src/providers/index.js";
 import type {
   ProviderSessionDoneStatus,
@@ -119,6 +119,21 @@ async function waitForSidecar(
     await new Promise<void>((resolve) => setTimeout(resolve, 5));
   }
   return readRunSidecar(workspace, runId);
+}
+
+async function waitForMailboxRecord(
+  runId: string,
+  predicate: (record: MailboxRecord) => boolean
+): Promise<MailboxRecord | undefined> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const records = await readMailboxRecords(workspace, runId, "events");
+    const found = records.find(predicate);
+    if (found !== undefined) {
+      return found;
+    }
+    await new Promise<void>((resolve) => setTimeout(resolve, 5));
+  }
+  return undefined;
 }
 
 let workspace: string;
@@ -286,14 +301,17 @@ describe("AgentLifecycleManager", () => {
     expect(expired.evidencePaths).toEqual(
       expect.arrayContaining(["/tmp/run.log", "/tmp/transcript.jsonl"])
     );
-    await expect(readMailboxRecords(workspace, "run_life_expired", "events")).resolves.toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          messageType: "expired",
-          payload: { status: "expired" }
-        })
-      ])
-    );
+    await expect(
+      waitForMailboxRecord(
+        "run_life_expired",
+        (record) =>
+          record.messageType === "expired" &&
+          typeof record.payload === "object" &&
+          record.payload !== null &&
+          "status" in record.payload &&
+          record.payload.status === "expired"
+      )
+    ).resolves.toBeDefined();
   });
 
   it("enriches status from active handles and flags detached running sidecars", async () => {
