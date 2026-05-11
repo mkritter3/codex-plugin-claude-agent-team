@@ -18,6 +18,11 @@ import {
   listProviders,
   type AgentProviderRuntime
 } from "./providers/index.js";
+import type {
+  ProviderCommandOptions,
+  ProviderCommandResult,
+  ProviderCommandRunner
+} from "./providers/types.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -41,6 +46,7 @@ export interface DoctorInput {
   readonly env?: NodeJS.ProcessEnv;
   readonly findExecutable?: (name: string) => Promise<string | undefined>;
   readonly getVersion?: (path: string) => Promise<string | undefined>;
+  readonly runProviderCommand?: ProviderCommandRunner;
   readonly nodeVersion?: string;
   readonly checkMcpServerLoadable?: () => Promise<void>;
   readonly loadConfig?: typeof loadAgentTeamConfig;
@@ -72,6 +78,49 @@ async function defaultGetVersion(path: string): Promise<string | undefined> {
   }
 }
 
+function text(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+  if (value === undefined || value === null) {
+    return "";
+  }
+  return String(value);
+}
+
+async function defaultRunProviderCommand(
+  path: string,
+  args: readonly string[],
+  options: ProviderCommandOptions = {}
+): Promise<ProviderCommandResult> {
+  try {
+    const { stdout, stderr } = await execFileAsync(path, [...args], {
+      ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
+      ...(options.env === undefined ? {} : { env: options.env }),
+      ...(options.timeoutMs === undefined ? {} : { timeout: options.timeoutMs }),
+      encoding: "utf8"
+    });
+    return {
+      ok: true,
+      stdout: text(stdout),
+      stderr: text(stderr),
+      exitCode: 0
+    };
+  } catch (error) {
+    const commandError = error as {
+      readonly stdout?: unknown;
+      readonly stderr?: unknown;
+      readonly code?: unknown;
+    };
+    return {
+      ok: false,
+      stdout: text(commandError.stdout),
+      stderr: text(commandError.stderr),
+      exitCode: typeof commandError.code === "number" ? commandError.code : null
+    };
+  }
+}
+
 async function defaultEnsureWritableState(workspaceRoot: string): Promise<void> {
   const stateDir = join(workspaceRoot, STATE_DIR);
   await mkdir(stateDir, { recursive: true });
@@ -97,6 +146,7 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
   const env = input.env ?? process.env;
   const findExecutable = input.findExecutable ?? defaultFindExecutable;
   const getVersion = input.getVersion ?? defaultGetVersion;
+  const runProviderCommand = input.runProviderCommand ?? defaultRunProviderCommand;
   const nodeVersion = input.nodeVersion ?? process.versions.node;
   const checkMcpServerLoadable =
     input.checkMcpServerLoadable ?? defaultCheckMcpServerLoadable;
@@ -248,7 +298,8 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
       ...(await runtime.healthCheck({
         env,
         findExecutable,
-        getVersion
+        getVersion,
+        runCommand: runProviderCommand
       }))
     );
     environmentWarnings.push(

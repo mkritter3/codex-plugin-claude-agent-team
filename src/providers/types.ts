@@ -54,10 +54,30 @@ export interface ProviderEnvironmentInspection {
   readonly warnings: readonly string[];
 }
 
+export interface ProviderCommandOptions {
+  readonly cwd?: string;
+  readonly env?: NodeJS.ProcessEnv;
+  readonly timeoutMs?: number;
+}
+
+export interface ProviderCommandResult {
+  readonly ok: boolean;
+  readonly stdout: string;
+  readonly stderr: string;
+  readonly exitCode: number | null;
+}
+
+export type ProviderCommandRunner = (
+  path: string,
+  args: readonly string[],
+  options?: ProviderCommandOptions
+) => Promise<ProviderCommandResult>;
+
 export interface ProviderHealthCheckInput {
   readonly env: NodeJS.ProcessEnv;
   readonly findExecutable: (name: string) => Promise<string | undefined>;
   readonly getVersion: (path: string) => Promise<string | undefined>;
+  readonly runCommand: ProviderCommandRunner;
 }
 
 export type ProviderHealthCheckStatus = "pass" | "warn" | "fail";

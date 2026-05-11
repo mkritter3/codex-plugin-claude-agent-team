@@ -5,10 +5,16 @@ import { describe, expect, it } from "vitest";
 import { runDoctor, type DoctorInput } from "../src/doctor.js";
 import type { AgentProviderRuntime } from "../src/providers/index.js";
 
-function cliFound(): Pick<DoctorInput, "findExecutable" | "getVersion"> {
+function cliFound(): Pick<DoctorInput, "findExecutable" | "getVersion" | "runProviderCommand"> {
   return {
     findExecutable: async () => "/usr/local/bin/claude",
-    getVersion: async () => "1.0.0"
+    getVersion: async () => "1.0.0",
+    runProviderCommand: async () => ({
+      ok: true,
+      stdout: "authenticated",
+      stderr: "",
+      exitCode: 0
+    })
   };
 }
 
@@ -91,6 +97,7 @@ describe("runDoctor", () => {
 
   it("reports provider runtime health checks", async () => {
     const workspace = await tempWorkspace();
+    const commandResults: boolean[] = [];
     const runtime: AgentProviderRuntime = {
       id: "fake-runtime",
       descriptor: () => ({
@@ -107,7 +114,9 @@ describe("runDoctor", () => {
       startSession() {
         throw new Error("should not start");
       },
-      async healthCheck() {
+      async healthCheck(input) {
+        const result = await input.runCommand("/bin/echo", ["ok"]);
+        commandResults.push(result.ok);
         return [
           {
             id: "fake-runtime-health",
@@ -129,6 +138,7 @@ describe("runDoctor", () => {
       status: "pass",
       message: "Fake runtime ready."
     });
+    expect(commandResults).toEqual([true]);
   });
 
   it("fails closed when a configured provider has no runtime", async () => {
