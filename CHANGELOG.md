@@ -10,6 +10,7 @@ All notable changes to this private local plugin are recorded here.
 - Added durable background runs, status, message, reply, cancel, wind-down, cleanup, timeout expiry, detached reconciliation, and retained isolated implementation worktrees.
 - Added bounded team tools for start, status, message, summary, cancel, and wind-down.
 - Added a provider runtime conformance harness for future adapters.
+- Added an explicitly configured OpenAI-compatible provider foundation for synchronous read-only dispatch with provider-scoped auth env checks and fail-closed lifecycle routing.
 - Added the Claude team session runbook and packaging hardening docs.
 
 ## Versioning Policy

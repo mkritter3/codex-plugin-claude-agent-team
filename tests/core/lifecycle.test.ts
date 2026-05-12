@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { DEFAULT_AGENT_TEAM_CONFIG } from "../../src/core/config.js";
 import { AgentLifecycleManager } from "../../src/core/lifecycle.js";
 import { readMailboxRecords } from "../../src/core/state/mailbox-store.js";
 import { readRunSidecar, writeRunSidecar } from "../../src/core/state/run-store.js";
@@ -202,6 +203,34 @@ describe("AgentLifecycleManager", () => {
       status: "running"
     });
     expect(starts).toEqual([`run_runtime_start:${workspace}:planner:read-only:1234`]);
+  });
+
+  it("rejects stateless providers for background lifecycle starts", async () => {
+    const manager = new AgentLifecycleManager({
+      providers: [
+        {
+          id: "openai-compatible",
+          displayName: "OpenAI-Compatible Provider",
+          authMode: "api-key",
+          capabilities: ["structuredOutput"],
+          available: true
+        }
+      ],
+      startSession: () => {
+        throw new Error("should not start stateless provider");
+      }
+    });
+
+    await expect(
+      manager.startRun({
+        role: "planner",
+        task: "Review this plan",
+        cwd: workspace,
+        provider: "openai-compatible"
+      })
+    ).rejects.toThrow(
+      "Provider openai-compatible satisfies role planner; missing capabilities: sessionResume, cancellation"
+    );
   });
 
   it("starts a background run and records running status", async () => {
@@ -1024,7 +1053,8 @@ describe("AgentLifecycleManager", () => {
     const manager = new AgentLifecycleManager({
       config: {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
-        auth: { allowApiKeyFallback: false }
+        auth: { allowApiKeyFallback: false },
+        providers: DEFAULT_AGENT_TEAM_CONFIG.providers
       },
       createRunId: () => "run_slice_1",
       now: () => new Date("2026-05-11T00:03:00.000Z"),
@@ -1090,7 +1120,8 @@ describe("AgentLifecycleManager", () => {
     const manager = new AgentLifecycleManager({
       config: {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
-        auth: { allowApiKeyFallback: false }
+        auth: { allowApiKeyFallback: false },
+        providers: DEFAULT_AGENT_TEAM_CONFIG.providers
       },
       createRunId: () => "run_slice_failed",
       now: () => new Date("2026-05-11T00:04:00.000Z"),
@@ -1131,7 +1162,8 @@ describe("AgentLifecycleManager", () => {
     const manager = new AgentLifecycleManager({
       config: {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
-        auth: { allowApiKeyFallback: false }
+        auth: { allowApiKeyFallback: false },
+        providers: DEFAULT_AGENT_TEAM_CONFIG.providers
       },
       createRunId: () => "run_slice_completed",
       now: () => new Date("2026-05-11T00:05:00.000Z"),
@@ -1195,7 +1227,8 @@ describe("AgentLifecycleManager", () => {
     const manager = new AgentLifecycleManager({
       config: {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
-        auth: { allowApiKeyFallback: false }
+        auth: { allowApiKeyFallback: false },
+        providers: DEFAULT_AGENT_TEAM_CONFIG.providers
       },
       createRunId: () => "run_slice_clean",
       allocateWorkspace: async () => ({
@@ -1260,7 +1293,8 @@ describe("AgentLifecycleManager", () => {
     const manager = new AgentLifecycleManager({
       config: {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
-        auth: { allowApiKeyFallback: false }
+        auth: { allowApiKeyFallback: false },
+        providers: DEFAULT_AGENT_TEAM_CONFIG.providers
       },
       createRunId: () => "run_slice_provider_failed",
       allocateWorkspace: async () => ({
@@ -1313,7 +1347,8 @@ describe("AgentLifecycleManager", () => {
     const manager = new AgentLifecycleManager({
       config: {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
-        auth: { allowApiKeyFallback: false }
+        auth: { allowApiKeyFallback: false },
+        providers: DEFAULT_AGENT_TEAM_CONFIG.providers
       },
       createRunId: () => "run_slice_cancelled",
       cancelGraceMs: 0,
@@ -1357,7 +1392,8 @@ describe("AgentLifecycleManager", () => {
     const manager = new AgentLifecycleManager({
       config: {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
-        auth: { allowApiKeyFallback: false }
+        auth: { allowApiKeyFallback: false },
+        providers: DEFAULT_AGENT_TEAM_CONFIG.providers
       },
       createRunId: () => "run_slice_cancel_inspect_failed",
       cancelGraceMs: 0,

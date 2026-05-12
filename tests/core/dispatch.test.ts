@@ -7,7 +7,13 @@ import { readMailboxRecords } from "../../src/core/state/mailbox-store.js";
 import { runLogPath } from "../../src/core/state/paths.js";
 import { readRunSidecar } from "../../src/core/state/run-store.js";
 import { dispatchReadOnlyAgent } from "../../src/core/dispatch.js";
+import { DEFAULT_AGENT_TEAM_CONFIG } from "../../src/core/config.js";
+import type { AgentTeamConfig } from "../../src/core/types.js";
 import type { AgentProviderRuntime } from "../../src/providers/index.js";
+import {
+  createOpenAICompatibleRuntime,
+  openAICompatibleProvider
+} from "../../src/providers/openai-compatible/runtime.js";
 
 let workspace: string;
 
@@ -30,6 +36,26 @@ evidence:
 risks:
 - none
 <<<END_VERDICT>>>`;
+
+function openAIConfig(): AgentTeamConfig {
+  return {
+    ...DEFAULT_AGENT_TEAM_CONFIG,
+    providers: {
+      openaiCompatible: {
+        enabled: true,
+        baseUrl: "https://api.example/v1",
+        model: "review-model",
+        apiKeyEnv: "REVIEW_MODEL_API_KEY",
+        displayName: "Review Model",
+        capabilities: {
+          structuredOutput: true,
+          longContext: false,
+          reasoning: false
+        }
+      }
+    }
+  };
+}
 
 function claudeRuntime(
   runPrint: AgentProviderRuntime["runPrint"],
@@ -116,6 +142,80 @@ describe("dispatchReadOnlyAgent", () => {
     });
     await expect(readFile(runLogPath(workspace, "run_fake_runtime"), "utf8")).resolves.toContain(
       "fake stdout"
+    );
+  });
+
+  it("dispatches through explicitly configured OpenAI-compatible runtime", async () => {
+    const config = openAIConfig();
+    const runtime = createOpenAICompatibleRuntime({
+      fetch: async () =>
+        new Response(
+          JSON.stringify({
+            id: "chatcmpl_dispatch",
+            choices: [{ message: { content: shipText } }]
+          }),
+          { status: 200 }
+        )
+    });
+    const provider = openAICompatibleProvider(config);
+
+    const result = await dispatchReadOnlyAgent(
+      {
+        role: "planner",
+        task: "Review plan",
+        cwd: workspace,
+        provider: "openai-compatible"
+      },
+      {
+        config,
+        providers: provider === undefined ? [] : [provider],
+        runtimes: [runtime],
+        createRunId: () => "run_openai_dispatch",
+        env: { REVIEW_MODEL_API_KEY: "secret-token" }
+      }
+    );
+
+    expect(result).toMatchObject({
+      status: "completed",
+      provider: "openai-compatible",
+      verdict: { status: "SHIP" }
+    });
+    await expect(readRunSidecar(workspace, "run_openai_dispatch")).resolves.toMatchObject({
+      provider: "openai-compatible",
+      providerSessionId: "chatcmpl_dispatch"
+    });
+  });
+
+  it("records OpenAI-compatible dispatch failures as sidecar evidence", async () => {
+    const config = openAIConfig();
+    const runtime = createOpenAICompatibleRuntime({
+      fetch: async () => new Response(JSON.stringify({ choices: [] }), { status: 200 })
+    });
+    const provider = openAICompatibleProvider(config);
+
+    const result = await dispatchReadOnlyAgent(
+      {
+        role: "planner",
+        task: "Review plan",
+        cwd: workspace,
+        provider: "openai-compatible"
+      },
+      {
+        config,
+        providers: provider === undefined ? [] : [provider],
+        runtimes: [runtime],
+        createRunId: () => "run_openai_failed",
+        env: { REVIEW_MODEL_API_KEY: "secret-token" }
+      }
+    );
+
+    expect(result).toMatchObject({
+      status: "failed",
+      provider: "openai-compatible",
+      verdict: { status: "BLOCKED" }
+    });
+    await expect(readFile(runLogPath(workspace, "run_openai_failed"), "utf8")).resolves.toContain(
+      "OpenAI-compatible response did not contain assistant text."
     );
   });
 

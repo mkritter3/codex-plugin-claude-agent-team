@@ -16,6 +16,9 @@ function configIdentity(config: AgentTeamConfig): string {
     writeMode: {
       enabled: config.writeMode.enabled,
       requireIsolatedWorktree: config.writeMode.requireIsolatedWorktree
+    },
+    providers: {
+      openaiCompatible: config.providers.openaiCompatible
     }
   });
 }

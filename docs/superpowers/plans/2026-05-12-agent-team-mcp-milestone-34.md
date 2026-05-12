@@ -1,6 +1,6 @@
 # Agent Team MCP Milestone 34 OpenAI-Compatible Adapter Foundation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add a generic OpenAI-compatible provider foundation that can be explicitly configured for read-only, capability-supported roles without becoming a fallback path from Claude Code CLI subscription OAuth.
 
@@ -51,13 +51,13 @@
 
 ## L11 Quality Gates
 
-- [ ] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
-- [ ] TDD red proof is captured for new behavior.
-- [ ] Focused milestone tests are listed with expected red and green outcomes.
-- [ ] Full verification commands are listed.
-- [ ] Required edge cases from the matrix are explicitly selected.
-- [ ] Invariant scans are listed.
-- [ ] Live provider smoke is marked required or not required with rationale.
+- [x] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
+- [x] TDD red proof is captured for new behavior.
+- [x] Focused milestone tests are listed with expected red and green outcomes.
+- [x] Full verification commands are listed.
+- [x] Required edge cases from the matrix are explicitly selected.
+- [x] Invariant scans are listed.
+- [x] Live provider smoke is marked required or not required with rationale.
 
 Selected quality-gate rows:
 
@@ -97,7 +97,7 @@ Live provider smoke is not required for M34 because CI uses injected transports 
 - Modify: `tests/core/lifecycle-registry.test.ts`
 - Modify: `tests/providers/runtime.test.ts`
 
-- [ ] **Step 1: Write failing config tests**
+- [x] **Step 1: Write failing config tests**
 
 Cover:
 
@@ -115,7 +115,7 @@ npm test -- tests/core/config.test.ts tests/core/lifecycle-registry.test.ts test
 
 Expected red: provider config fields and OpenAI-compatible runtime do not exist yet.
 
-- [ ] **Step 2: Write failing routing/lifecycle tests**
+- [x] **Step 2: Write failing routing/lifecycle tests**
 
 Cover:
 
@@ -147,7 +147,7 @@ Expected red: lifecycle start does not yet require session/cancellation capabili
 - Modify: `src/doctor.ts`
 - Modify: `tests/doctor.test.ts`
 
-- [ ] **Step 1: Add provider config types and parser**
+- [x] **Step 1: Add provider config types and parser**
 
 Add an explicit OpenAI-compatible config shape with:
 
@@ -162,7 +162,7 @@ Add an explicit OpenAI-compatible config shape with:
 
 Keep all defaults disabled/empty, validate unsupported capabilities fail closed, and never read env values during config parsing.
 
-- [ ] **Step 2: Add descriptor and runtime registry wiring**
+- [x] **Step 2: Add descriptor and runtime registry wiring**
 
 Register the runtime while keeping `listProviders` descriptor output config-dependent:
 
@@ -172,7 +172,7 @@ Register the runtime while keeping `listProviders` descriptor output config-depe
 - descriptor capabilities include only explicitly declared foundation-supported capabilities
 - descriptor warnings identify unsupported configuration without leaking secrets
 
-- [ ] **Step 3: Add doctor checks**
+- [x] **Step 3: Add doctor checks**
 
 Pass config into runtime health checks and report:
 
@@ -197,7 +197,7 @@ npm test -- tests/core/config.test.ts tests/providers/runtime.test.ts tests/doct
 - Create: `tests/providers/openai-compatible/runtime.test.ts`
 - Modify: `tests/core/dispatch.test.ts`
 
-- [ ] **Step 1: Write failing runtime transport tests**
+- [x] **Step 1: Write failing runtime transport tests**
 
 Cover:
 
@@ -215,11 +215,11 @@ Run:
 npm test -- tests/providers/openai-compatible/runtime.test.ts
 ```
 
-- [ ] **Step 2: Implement `runPrint` with injected transport**
+- [x] **Step 2: Implement `runPrint` with injected transport**
 
 Use global `fetch` by default and an injected transport for tests. Do not add provider-specific public schemas or live CI calls.
 
-- [ ] **Step 3: Thread config through dispatch**
+- [x] **Step 3: Thread config through dispatch**
 
 Dispatch must load or receive config, select providers from that config, pass config to runtimes, and preserve sidecar/log evidence for partial failures.
 
@@ -236,11 +236,11 @@ npm test -- tests/providers/openai-compatible/runtime.test.ts tests/core/dispatc
 - Modify: `src/core/lifecycle.ts`
 - Modify: `tests/core/lifecycle.test.ts`
 
-- [ ] **Step 1: Require session capabilities for background starts**
+- [x] **Step 1: Require session capabilities for background starts**
 
 For `AgentLifecycleManager.startRun`, include `sessionResume` and `cancellation` as lifecycle-only extra capabilities before selecting a provider. This preserves Claude behavior and blocks stateless read-only providers from long-running lifecycle tools.
 
-- [ ] **Step 2: Keep reply routing config-aware**
+- [x] **Step 2: Keep reply routing config-aware**
 
 Ensure `replyRun` uses the manager config when listing providers and still requires `sessionResume`.
 
@@ -260,11 +260,11 @@ npm test -- tests/core/lifecycle.test.ts
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-long-term-roadmap.md`
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-milestone-34.md`
 
-- [ ] **Step 1: Add conformance coverage**
+- [x] **Step 1: Add conformance coverage**
 
 Run the existing provider runtime conformance helper against an explicitly configured OpenAI-compatible fixture/runtime with injected transport and only supported read-only capabilities.
 
-- [ ] **Step 2: Update docs**
+- [x] **Step 2: Update docs**
 
 Document:
 
@@ -274,7 +274,7 @@ Document:
 - M34 foundation supports synchronous read-only dispatch only
 - live provider smoke remains opt-in until concrete profiles are added
 
-- [ ] **Step 3: Run focused milestone tests**
+- [x] **Step 3: Run focused milestone tests**
 
 Run:
 
@@ -282,7 +282,7 @@ Run:
 npm test -- tests/core/config.test.ts tests/core/router.test.ts tests/core/lifecycle-registry.test.ts tests/core/lifecycle.test.ts tests/core/dispatch.test.ts tests/providers/runtime.test.ts tests/providers/openai-compatible/runtime.test.ts tests/doctor.test.ts
 ```
 
-- [ ] **Step 4: Run full verification**
+- [x] **Step 4: Run full verification**
 
 Run:
 
@@ -294,7 +294,7 @@ npm run smoke:mcp-stdio
 npm run ci
 ```
 
-- [ ] **Step 5: Run invariant scans**
+- [x] **Step 5: Run invariant scans**
 
 Run:
 
@@ -306,15 +306,17 @@ rg "internal prompt|hidden instruction|generated agent definition|provider-speci
 rg "baseUrl|apiKey|apiKeyEnv|Authorization|Bearer" src tests docs README.md CHANGELOG.md
 ```
 
-- [ ] **Step 6: Mark plan complete and commit**
+- [x] **Step 6: Mark plan complete and commit**
 
 After all proof is captured, mark the L11 gates and task checkboxes complete in this plan, then commit the implementation branch.
 
 ## Verification Evidence
 
-- Baseline before implementation: pending.
-- Red proof: pending.
-- Focused milestone proof: pending.
-- Full proof: pending.
-- Packaged stdio smoke: pending.
-- Invariant scans: pending.
+- Baseline before implementation: `npm test` passed with 41 files and 274 tests.
+- Red proof: `npm test -- tests/core/config.test.ts tests/core/router.test.ts tests/core/lifecycle-registry.test.ts tests/providers/runtime.test.ts tests/providers/openai-compatible/runtime.test.ts` failed on missing OpenAI-compatible config parsing, descriptor listing, runtime registration, and runtime module.
+- Focused milestone proof: `npm test -- tests/core/config.test.ts tests/core/router.test.ts tests/core/lifecycle-registry.test.ts tests/core/lifecycle.test.ts tests/core/dispatch.test.ts tests/providers/runtime.test.ts tests/providers/openai-compatible/runtime.test.ts tests/doctor.test.ts` passed with 8 files and 101 tests.
+- Docs and MCP proof: `npm test -- tests/docs/packaging.test.ts tests/docs/runbook.test.ts tests/mcp/tools.test.ts` passed with 3 files and 56 tests.
+- Full proof: `npm run typecheck`, `npm test`, and `npm run build` passed. Full tests passed with 42 files and 295 tests.
+- Packaged stdio smoke: `npm run smoke:mcp-stdio` passed.
+- Release gate: `npm run ci` passed after typecheck, full tests, build, and packaged stdio smoke.
+- Invariant scans completed for auth posture/OpenAI-compatible boundaries, permission/bypass boundaries, benchmark/model-quality claims, prompt/provider-specific schema leakage, provider endpoint/auth secret handling, and cleanup/process-kill shortcuts. Matches were expected guardrails, provider-local implementation/tests/docs, or pre-existing Claude lifecycle behavior; no public provider-specific MCP schema, silent API fallback, model-quality claim, or hidden prompt leakage was introduced.

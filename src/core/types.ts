@@ -52,6 +52,25 @@ export interface AgentProviderDescriptor {
   readonly warnings?: readonly string[];
 }
 
+export interface OpenAICompatibleProviderCapabilitiesConfig {
+  readonly structuredOutput: boolean;
+  readonly longContext: boolean;
+  readonly reasoning: boolean;
+}
+
+export interface OpenAICompatibleProviderConfig {
+  readonly enabled: boolean;
+  readonly baseUrl?: string;
+  readonly model?: string;
+  readonly apiKeyEnv?: string;
+  readonly displayName?: string;
+  readonly capabilities: OpenAICompatibleProviderCapabilitiesConfig;
+}
+
+export interface AgentTeamProviderConfig {
+  readonly openaiCompatible: OpenAICompatibleProviderConfig;
+}
+
 export interface AgentTeamConfig {
   readonly writeMode: {
     readonly enabled: boolean;
@@ -60,6 +79,7 @@ export interface AgentTeamConfig {
   readonly auth: {
     readonly allowApiKeyFallback: boolean;
   };
+  readonly providers: AgentTeamProviderConfig;
 }
 
 export interface WorkspaceLease {

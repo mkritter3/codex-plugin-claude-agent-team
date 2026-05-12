@@ -17,11 +17,29 @@ export const DEFAULT_AGENT_TEAM_CONFIG: AgentTeamConfig = {
   },
   auth: {
     allowApiKeyFallback: false
+  },
+  providers: {
+    openaiCompatible: {
+      enabled: false,
+      capabilities: {
+        structuredOutput: false,
+        longContext: false,
+        reasoning: false
+      }
+    }
   }
 };
 
 function readBoolean(input: unknown, fallback: boolean): boolean {
   return typeof input === "boolean" ? input : fallback;
+}
+
+function readString(input: unknown): string | undefined {
+  if (typeof input !== "string") {
+    return undefined;
+  }
+  const trimmed = input.trim();
+  return trimmed.length === 0 ? undefined : trimmed;
 }
 
 function objectField(input: unknown, key: string): Record<string, unknown> {
@@ -32,6 +50,59 @@ function objectField(input: unknown, key: string): Record<string, unknown> {
   return typeof value === "object" && value !== null
     ? (value as Record<string, unknown>)
     : {};
+}
+
+function parseOpenAICompatibleProviderConfig(
+  providers: Record<string, unknown>
+): AgentTeamConfig["providers"]["openaiCompatible"] {
+  const openaiCompatible = objectField(providers, "openaiCompatible");
+  const capabilities = objectField(openaiCompatible, "capabilities");
+  const baseUrl = readString(openaiCompatible.baseUrl);
+  const model = readString(openaiCompatible.model);
+  const apiKeyEnv = readString(openaiCompatible.apiKeyEnv);
+  const displayName = readString(openaiCompatible.displayName);
+  const unsupportedCapabilities = [
+    "tools",
+    "edits",
+    "sessionResume",
+    "cancellation",
+    "workspaceIsolation",
+    "parallelDispatch"
+  ];
+
+  for (const capability of unsupportedCapabilities) {
+    if (capabilities[capability] === true) {
+      throw new AgentTeamConfigError(
+        `OpenAI-compatible provider does not support capability ${capability}.`
+      );
+    }
+  }
+
+  return {
+    enabled: readBoolean(
+      openaiCompatible.enabled,
+      DEFAULT_AGENT_TEAM_CONFIG.providers.openaiCompatible.enabled
+    ),
+    ...(baseUrl === undefined ? {} : { baseUrl }),
+    ...(model === undefined ? {} : { model }),
+    ...(apiKeyEnv === undefined ? {} : { apiKeyEnv }),
+    ...(displayName === undefined ? {} : { displayName }),
+    capabilities: {
+      structuredOutput: readBoolean(
+        capabilities.structuredOutput,
+        DEFAULT_AGENT_TEAM_CONFIG.providers.openaiCompatible.capabilities
+          .structuredOutput
+      ),
+      longContext: readBoolean(
+        capabilities.longContext,
+        DEFAULT_AGENT_TEAM_CONFIG.providers.openaiCompatible.capabilities.longContext
+      ),
+      reasoning: readBoolean(
+        capabilities.reasoning,
+        DEFAULT_AGENT_TEAM_CONFIG.providers.openaiCompatible.capabilities.reasoning
+      )
+    }
+  };
 }
 
 export async function loadAgentTeamConfig(
@@ -51,6 +122,7 @@ export async function loadAgentTeamConfig(
 
   const writeMode = objectField(parsed, "writeMode");
   const auth = objectField(parsed, "auth");
+  const providers = objectField(parsed, "providers");
   const config: AgentTeamConfig = {
     writeMode: {
       enabled: readBoolean(
@@ -67,6 +139,9 @@ export async function loadAgentTeamConfig(
         auth.allowApiKeyFallback,
         DEFAULT_AGENT_TEAM_CONFIG.auth.allowApiKeyFallback
       )
+    },
+    providers: {
+      openaiCompatible: parseOpenAICompatibleProviderConfig(providers)
     }
   };
 

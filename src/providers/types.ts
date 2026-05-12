@@ -1,4 +1,4 @@
-import type { AgentExecutionPolicy, RoleId } from "../core/types.js";
+import type { AgentExecutionPolicy, AgentTeamConfig, RoleId } from "../core/types.js";
 
 export interface ProviderSessionActivity {
   readonly type: "tool_start" | "text" | "result" | "error";
@@ -28,6 +28,7 @@ export interface ProviderPrintInput {
   readonly executionPolicy?: AgentExecutionPolicy;
   readonly timeoutMs?: number;
   readonly env?: NodeJS.ProcessEnv;
+  readonly config?: AgentTeamConfig;
 }
 
 export interface ProviderPrintResult {
@@ -47,6 +48,7 @@ export interface ProviderStartSessionInput {
   readonly roleId?: RoleId;
   readonly executionPolicy?: AgentExecutionPolicy;
   readonly env?: NodeJS.ProcessEnv;
+  readonly config?: AgentTeamConfig;
   readonly sessionId?: string;
   readonly permissionMode?: ProviderSessionPermissionMode;
   readonly timeoutMs?: number;
@@ -55,6 +57,7 @@ export interface ProviderStartSessionInput {
 export interface ProviderEnvironmentInspectionInput {
   readonly authMode: "subscription-oauth" | "api-key" | "oauth" | "none";
   readonly env: NodeJS.ProcessEnv;
+  readonly config?: AgentTeamConfig;
 }
 
 export interface ProviderEnvironmentInspection {
@@ -83,6 +86,7 @@ export type ProviderCommandRunner = (
 export interface ProviderHealthCheckInput {
   readonly workspaceRoot: string;
   readonly env: NodeJS.ProcessEnv;
+  readonly config?: AgentTeamConfig;
   readonly findExecutable: (name: string) => Promise<string | undefined>;
   readonly getVersion: (path: string) => Promise<string | undefined>;
   readonly runCommand: ProviderCommandRunner;

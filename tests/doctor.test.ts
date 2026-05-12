@@ -272,8 +272,96 @@ describe("runDoctor", () => {
       status: "pass",
       details: {
         writeMode: { enabled: false, requireIsolatedWorktree: true },
-        auth: { allowApiKeyFallback: false }
+        auth: { allowApiKeyFallback: false },
+        providers: {
+          openaiCompatible: {
+            enabled: false,
+            hasBaseUrl: false,
+            hasModel: false,
+            capabilities: {
+              structuredOutput: false,
+              longContext: false,
+              reasoning: false
+            }
+          }
+        }
       }
+    });
+    expect(report.checks.some((check) => check.id.startsWith("openai-compatible"))).toBe(
+      false
+    );
+  });
+
+  it("reports explicit OpenAI-compatible config and missing provider auth env", async () => {
+    const workspace = await tempWorkspace();
+    await writeConfig(workspace, {
+      providers: {
+        openaiCompatible: {
+          enabled: true,
+          baseUrl: "https://api.example/v1",
+          model: "review-model",
+          apiKeyEnv: "REVIEW_MODEL_API_KEY",
+          capabilities: { structuredOutput: true }
+        }
+      }
+    });
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: {},
+      ...cliFound()
+    });
+
+    expect(report.ok).toBe(false);
+    expect(report.checks.find((check) => check.id === "openai-compatible-config")).toMatchObject({
+      status: "pass",
+      details: {
+        hasBaseUrl: true,
+        hasModel: true,
+        hasApiKeyEnv: true
+      }
+    });
+    expect(
+      report.checks.find((check) => check.id === "openai-compatible-auth-env")
+    ).toMatchObject({
+      status: "fail",
+      message: "OpenAI-compatible provider auth env REVIEW_MODEL_API_KEY is missing.",
+      details: { env: "REVIEW_MODEL_API_KEY", present: false }
+    });
+    expect(report.checks.find((check) => check.id === "auth-precedence")).toMatchObject({
+      status: "pass"
+    });
+  });
+
+  it("does not treat provider-scoped OpenAI-compatible API keys as Claude fallback", async () => {
+    const workspace = await tempWorkspace();
+    await writeConfig(workspace, {
+      providers: {
+        openaiCompatible: {
+          enabled: true,
+          baseUrl: "https://api.example/v1",
+          model: "review-model",
+          apiKeyEnv: "REVIEW_MODEL_API_KEY",
+          capabilities: { structuredOutput: true }
+        }
+      }
+    });
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: { REVIEW_MODEL_API_KEY: "secret-token" },
+      ...cliFound()
+    });
+
+    expect(report.ok).toBe(true);
+    expect(
+      report.checks.find((check) => check.id === "openai-compatible-auth-env")
+    ).toMatchObject({
+      status: "pass",
+      details: { env: "REVIEW_MODEL_API_KEY", present: true }
+    });
+    expect(report.checks.find((check) => check.id === "auth-precedence")).toMatchObject({
+      status: "pass"
     });
   });
 

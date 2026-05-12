@@ -68,6 +68,29 @@ The default posture is read-only. Isolated implementation runs require explicit 
 
 Keep `requireIsolatedWorktree` enabled for write-capable roles. Retained implementation worktrees are review evidence until explicit cleanup.
 
+OpenAI-compatible providers are disabled by default and never inferred from environment variables. To use the foundation adapter for synchronous read-only dispatch, opt in explicitly with provider-scoped endpoint/model/auth-env config and only the capabilities the endpoint can actually satisfy:
+
+```json
+{
+  "providers": {
+    "openaiCompatible": {
+      "enabled": true,
+      "baseUrl": "https://provider.example/v1",
+      "model": "review-model",
+      "apiKeyEnv": "PROVIDER_API_KEY",
+      "displayName": "Review Model",
+      "capabilities": {
+        "structuredOutput": true,
+        "longContext": false,
+        "reasoning": false
+      }
+    }
+  }
+}
+```
+
+The foundation adapter does not support background sessions, live stdin, resume, cancellation, edits, tools, or workspace isolation.
+
 ## Auth And Doctor
 
 Before starting live runs, call `agent_team_doctor` for the target workspace. Doctor checks host readiness, package/runtime shape, writable state, git/worktree readiness when needed, provider health, auth posture, and role routing.
@@ -113,6 +136,8 @@ Treat these as first-class records:
 ## Provider Adapter Development
 
 Before adding a new provider adapter, add a fixture-backed suite with `describeProviderRuntimeConformance` from `tests/providers/conformance/runtime-conformance.ts`. The harness proves provider runtime mechanics, routing capability gates, health shape, session handles, resume metadata, cancellation hooks, and structured result boundaries without live-provider calls or quality claims.
+
+The OpenAI-compatible foundation adapter is the generic base for future explicit profiles such as Ollama Cloud, Gemini-compatible gateways, or other OpenAI-compatible endpoints. Profiles should be added without changing the public MCP schema and without claiming edit/session/long-context behavior until a provider-specific milestone proves it.
 
 ## Release Gate
 

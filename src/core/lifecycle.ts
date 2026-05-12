@@ -161,6 +161,7 @@ export class AgentLifecycleManager {
     const provider = selectProvider({
       roleId: request.role,
       providers,
+      extraCapabilities: ["sessionResume", "cancellation"],
       ...(request.provider === undefined ? {} : { requestedProviderId: request.provider })
     });
     const runId = this.createRunId();
@@ -214,6 +215,7 @@ export class AgentLifecycleManager {
         runId,
         roleId: request.role,
         executionPolicy: role.executionPolicy,
+        config: this.config,
         ...(role.defaultReadOnly ? {} : { permissionMode: "acceptEdits" }),
         ...(request.timeoutMs === undefined ? {} : { timeoutMs: request.timeoutMs }),
         ...(this.env === undefined ? {} : { env: this.env })
@@ -370,7 +372,7 @@ export class AgentLifecycleManager {
 
     const provider = selectProvider({
       roleId: parent.role,
-      providers: this.providers ?? listProviders(),
+      providers: this.providers ?? listProviders({ config: this.config }),
       requestedProviderId: request.provider ?? parent.provider,
       extraCapabilities: ["sessionResume"]
     });
@@ -425,6 +427,7 @@ export class AgentLifecycleManager {
         runId,
         roleId: parent.role,
         executionPolicy: role.executionPolicy,
+        config: this.config,
         sessionId: parent.providerSessionId,
         ...(request.timeoutMs === undefined ? {} : { timeoutMs: request.timeoutMs }),
         ...(this.env === undefined ? {} : { env: this.env })

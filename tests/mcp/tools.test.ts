@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { StateCorruptionError } from "../../src/core/errors.js";
+import { DEFAULT_AGENT_TEAM_CONFIG } from "../../src/core/config.js";
 import {
   appendMailboxRecord,
   readMailboxRecords
@@ -31,7 +32,8 @@ describe("MCP tool handlers", () => {
       cwd: () => "/repo",
       config: {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
-        auth: { allowApiKeyFallback: false }
+        auth: { allowApiKeyFallback: false },
+        providers: DEFAULT_AGENT_TEAM_CONFIG.providers
       }
     });
 

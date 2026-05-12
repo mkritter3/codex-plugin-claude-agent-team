@@ -6,6 +6,8 @@ function config(input: {
   readonly writeEnabled?: boolean;
   readonly requireWorktree?: boolean;
   readonly allowApiKeyFallback?: boolean;
+  readonly openAIEnabled?: boolean;
+  readonly openAIModel?: string;
 } = {}): AgentTeamConfig {
   return {
     writeMode: {
@@ -14,6 +16,17 @@ function config(input: {
     },
     auth: {
       allowApiKeyFallback: input.allowApiKeyFallback ?? false
+    },
+    providers: {
+      openaiCompatible: {
+        enabled: input.openAIEnabled ?? false,
+        ...(input.openAIModel === undefined ? {} : { model: input.openAIModel }),
+        capabilities: {
+          structuredOutput: input.openAIEnabled ?? false,
+          longContext: false,
+          reasoning: false
+        }
+      }
     }
   };
 }
@@ -52,5 +65,9 @@ describe("LifecycleRegistry", () => {
     expect(registry.get("/repo", config({ writeEnabled: true }))).not.toBe(baseline);
     expect(registry.get("/repo", config({ requireWorktree: false }))).not.toBe(baseline);
     expect(registry.get("/repo", config({ allowApiKeyFallback: true }))).not.toBe(baseline);
+    expect(registry.get("/repo", config({ openAIEnabled: true }))).not.toBe(baseline);
+    expect(
+      registry.get("/repo", config({ openAIEnabled: true, openAIModel: "model-b" }))
+    ).not.toBe(registry.get("/repo", config({ openAIEnabled: true, openAIModel: "model-a" })));
   });
 });

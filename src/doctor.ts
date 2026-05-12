@@ -207,7 +207,16 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
       details: {
         workspaceRoot,
         writeMode: config.writeMode,
-        auth: config.auth
+        auth: config.auth,
+        providers: {
+          openaiCompatible: {
+            enabled: config.providers.openaiCompatible.enabled,
+            hasBaseUrl: config.providers.openaiCompatible.baseUrl !== undefined,
+            hasModel: config.providers.openaiCompatible.model !== undefined,
+            apiKeyEnv: config.providers.openaiCompatible.apiKeyEnv,
+            capabilities: config.providers.openaiCompatible.capabilities
+          }
+        }
       }
     });
   } catch (error) {
@@ -298,6 +307,7 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
       ...(await runtime.healthCheck({
         workspaceRoot,
         env,
+        config,
         findExecutable,
         getVersion,
         runCommand: runProviderCommand
@@ -306,7 +316,8 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
     environmentWarnings.push(
       ...runtime.inspectEnvironment({
         authMode: provider.authMode,
-        env
+        env,
+        config
       }).warnings
     );
   }

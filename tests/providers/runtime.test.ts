@@ -9,7 +9,8 @@ import { describeProviderRuntimeConformance } from "./conformance/runtime-confor
 describe("provider runtime registry", () => {
   it("lists the bundled Claude Code CLI runtime", () => {
     expect(listProviderRuntimes().map((runtime) => runtime.id)).toEqual([
-      "claude-code-cli"
+      "claude-code-cli",
+      "openai-compatible"
     ]);
   });
 
@@ -18,6 +19,13 @@ describe("provider runtime registry", () => {
 
     expect(runtime?.descriptor().authMode).toBe("subscription-oauth");
     expect(runtime?.descriptor().available).toBe(true);
+  });
+
+  it("resolves the OpenAI-compatible runtime as disabled by default", () => {
+    const runtime = getProviderRuntime("openai-compatible");
+
+    expect(runtime?.descriptor().authMode).toBe("api-key");
+    expect(runtime?.descriptor().available).toBe(false);
   });
 
   it("fails closed when a selected provider has no runtime", () => {

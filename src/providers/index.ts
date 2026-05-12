@@ -1,5 +1,6 @@
 import { DEFAULT_AGENT_TEAM_CONFIG } from "../core/config.js";
 import type { AgentProviderDescriptor, AgentTeamConfig } from "../core/types.js";
+import { openAICompatibleProvider } from "./openai-compatible/config.js";
 
 const BASE_CLAUDE_CAPABILITIES = [
   "structuredOutput",
@@ -33,7 +34,13 @@ export const CLAUDE_CODE_CLI_PROVIDER: AgentProviderDescriptor = claudeCodeCliPr
 export function listProviders(
   input: { readonly config?: AgentTeamConfig } = {}
 ): readonly AgentProviderDescriptor[] {
-  return [claudeCodeCliProvider(input.config)];
+  const config = input.config ?? DEFAULT_AGENT_TEAM_CONFIG;
+  const providers: AgentProviderDescriptor[] = [claudeCodeCliProvider(config)];
+  const openAIProvider = openAICompatibleProvider(config);
+  if (openAIProvider !== undefined) {
+    providers.push(openAIProvider);
+  }
+  return providers;
 }
 
 export {

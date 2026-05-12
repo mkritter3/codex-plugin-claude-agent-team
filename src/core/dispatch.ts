@@ -3,6 +3,10 @@ import {
   requireProviderRuntime,
   type AgentProviderRuntime
 } from "../providers/index.js";
+import {
+  DEFAULT_AGENT_TEAM_CONFIG,
+  loadAgentTeamConfig
+} from "./config.js";
 import { selectProvider } from "./router.js";
 import { getRole } from "./roles.js";
 import { buildRolePrompt } from "./prompts.js";
@@ -21,6 +25,7 @@ import type {
   AgentDispatchRequest,
   AgentDispatchResult,
   AgentProviderDescriptor,
+  AgentTeamConfig,
   ParsedVerdict,
   RunStatus
 } from "./types.js";
@@ -31,6 +36,8 @@ export interface DispatchDependencies {
   readonly now?: () => Date;
   readonly createRunId?: () => string;
   readonly env?: NodeJS.ProcessEnv;
+  readonly config?: AgentTeamConfig;
+  readonly loadConfig?: typeof loadAgentTeamConfig;
 }
 
 async function writeDispatchSidecar(input: {
@@ -64,7 +71,12 @@ export async function dispatchReadOnlyAgent(
   const now = deps.now ?? (() => new Date());
   const createdAt = now().toISOString();
   const role = getRole(request.role);
-  const providers = deps.providers ?? listProviders();
+  const config =
+    deps.config ??
+    (deps.providers === undefined
+      ? await (deps.loadConfig ?? loadAgentTeamConfig)(request.cwd)
+      : DEFAULT_AGENT_TEAM_CONFIG);
+  const providers = deps.providers ?? listProviders({ config });
   const provider = role.defaultReadOnly
     ? selectProvider({
         roleId: request.role,
@@ -138,7 +150,8 @@ export async function dispatchReadOnlyAgent(
 
   const envInspection = runtime.inspectEnvironment({
     authMode: provider.authMode,
-    env: deps.env ?? process.env
+    env: deps.env ?? process.env,
+    config
   });
   if (envInspection.warnings.length > 0) {
     const verdict = blockedVerdict(envInspection.warnings.join(" "));
@@ -203,6 +216,7 @@ export async function dispatchReadOnlyAgent(
     cwd: request.cwd,
     roleId: request.role,
     executionPolicy: role.executionPolicy,
+    config,
     ...(request.timeoutMs === undefined ? {} : { timeoutMs: request.timeoutMs }),
     ...(deps.env === undefined ? {} : { env: deps.env })
   });

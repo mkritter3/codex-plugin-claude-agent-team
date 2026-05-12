@@ -74,7 +74,17 @@ describe("selectProvider", () => {
     const providers = listProviders({
       config: {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
-        auth: { allowApiKeyFallback: false }
+        auth: { allowApiKeyFallback: false },
+        providers: {
+          openaiCompatible: {
+            enabled: false,
+            capabilities: {
+              structuredOutput: false,
+              longContext: false,
+              reasoning: false
+            }
+          }
+        }
       }
     });
     const [provider] = providers;
@@ -87,5 +97,56 @@ describe("selectProvider", () => {
         providers
       }).id
     ).toBe("claude-code-cli");
+  });
+
+  it("omits the OpenAI-compatible provider unless explicitly configured", () => {
+    expect(listProviders().map((provider) => provider.id)).toEqual([
+      "claude-code-cli"
+    ]);
+  });
+
+  it("routes read-only roles to explicitly configured OpenAI-compatible capabilities", () => {
+    const providers = listProviders({
+      config: {
+        writeMode: { enabled: false, requireIsolatedWorktree: true },
+        auth: { allowApiKeyFallback: false },
+        providers: {
+          openaiCompatible: {
+            enabled: true,
+            baseUrl: "https://api.example/v1",
+            model: "review-model",
+            apiKeyEnv: "OPENAI_COMPATIBLE_API_KEY",
+            displayName: "Review Model",
+            capabilities: {
+              structuredOutput: true,
+              longContext: false,
+              reasoning: false
+            }
+          }
+        }
+      }
+    });
+
+    expect(
+      selectProvider({
+        roleId: "planner",
+        providers,
+        requestedProviderId: "openai-compatible"
+      }).id
+    ).toBe("openai-compatible");
+    expect(() =>
+      selectProvider({
+        roleId: "architect",
+        providers,
+        requestedProviderId: "openai-compatible"
+      })
+    ).toThrow(ProviderCapabilityError);
+    expect(() =>
+      selectProvider({
+        roleId: "slice-implementer",
+        providers,
+        requestedProviderId: "openai-compatible"
+      })
+    ).toThrow(ProviderCapabilityError);
   });
 });
