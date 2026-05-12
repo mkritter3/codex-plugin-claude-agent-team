@@ -1,6 +1,6 @@
 # Agent Team MCP Milestone 35 Ollama Cloud Profiles Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox syntax for tracking.
 
 **Goal:** Add explicit Ollama Cloud model profiles, backed by the OpenAI-compatible foundation, so Codex can route read-only review, planning, debugging, and second-opinion roles to configured Kimi/GLM-style endpoints without changing public MCP schemas.
 
@@ -51,13 +51,13 @@
 
 ## L11 Quality Gates
 
-- [ ] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
-- [ ] TDD red proof is captured for new behavior.
-- [ ] Focused milestone tests are listed with expected red and green outcomes.
-- [ ] Full verification commands are listed.
-- [ ] Required edge cases from the matrix are explicitly selected.
-- [ ] Invariant scans are listed.
-- [ ] Live provider smoke is marked required or not required with rationale.
+- [x] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
+- [x] TDD red proof is captured for new behavior.
+- [x] Focused milestone tests are listed with expected red and green outcomes.
+- [x] Full verification commands are listed.
+- [x] Required edge cases from the matrix are explicitly selected.
+- [x] Invariant scans are listed.
+- [x] Live provider smoke is marked required or not required with rationale.
 
 Selected quality-gate rows:
 
@@ -97,7 +97,7 @@ Live provider smoke is not required for M35 because this milestone proves profil
 - Create: `tests/providers/ollama-cloud/config.test.ts`
 - Modify: `tests/providers/runtime.test.ts`
 
-- [ ] **Step 1: Write failing config/profile tests**
+- [x] **Step 1: Write failing config/profile tests**
 
 Cover:
 
@@ -118,7 +118,7 @@ npm test -- tests/core/config.test.ts tests/core/lifecycle-registry.test.ts test
 
 Expected red: Ollama Cloud config and provider profile modules do not exist yet.
 
-- [ ] **Step 2: Write failing router tests**
+- [x] **Step 2: Write failing router tests**
 
 Cover:
 
@@ -149,7 +149,7 @@ Expected red: provider descriptors do not exist yet.
 - Modify: `src/doctor.ts`
 - Modify: `tests/doctor.test.ts`
 
-- [ ] **Step 1: Add provider-neutral profile config types**
+- [x] **Step 1: Add provider-neutral profile config types**
 
 Add `providers.ollamaCloud` with:
 
@@ -164,15 +164,15 @@ Add `providers.ollamaCloud` with:
 - `capabilities.longContext`
 - `capabilities.reasoning`
 
-- [ ] **Step 2: Add profile parser and descriptor builder**
+- [x] **Step 2: Add profile parser and descriptor builder**
 
 Create `src/providers/ollama-cloud/config.ts` for descriptor/profile helpers. Keep ids stable, reject duplicate profile ids, validate unsupported capabilities fail closed, and sanitize descriptor warnings so no secrets or prompt internals are exposed.
 
-- [ ] **Step 3: Add runtime registry aliasing**
+- [x] **Step 3: Add runtime registry aliasing**
 
 Allow dynamic `ollama-cloud:<profile-id>` provider ids to resolve to the OpenAI-compatible runtime while preserving the bundled runtime list.
 
-- [ ] **Step 4: Add doctor profile health**
+- [x] **Step 4: Add doctor profile health**
 
 Pass selected provider ids into runtime health checks. Doctor must report missing profile endpoint/model/auth env clearly and must not treat `OLLAMA_CLOUD_API_KEY`, `KIMI_API_KEY`, or `GLM_API_KEY` as Claude subscription fallback.
 
@@ -195,7 +195,7 @@ npm test -- tests/core/config.test.ts tests/core/lifecycle-registry.test.ts test
 - Modify: `tests/core/dispatch.test.ts`
 - Modify: `tests/core/lifecycle.test.ts`
 
-- [ ] **Step 1: Write failing runtime/dispatch tests**
+- [x] **Step 1: Write failing runtime/dispatch tests**
 
 Cover:
 
@@ -212,7 +212,7 @@ Run:
 npm test -- tests/providers/openai-compatible/runtime.test.ts tests/core/dispatch.test.ts tests/core/lifecycle.test.ts
 ```
 
-- [ ] **Step 2: Implement profile resolution in the OpenAI-compatible runtime**
+- [x] **Step 2: Implement profile resolution in the OpenAI-compatible runtime**
 
 Resolve the selected endpoint from `input.providerId`:
 
@@ -220,7 +220,7 @@ Resolve the selected endpoint from `input.providerId`:
 - `ollama-cloud:<profile-id>` uses the matching `providers.ollamaCloud.profiles[]`
 - unknown provider ids fail closed
 
-- [ ] **Step 3: Pass provider ids through dispatch and lifecycle**
+- [x] **Step 3: Pass provider ids through dispatch and lifecycle**
 
 Dispatch and lifecycle runtime calls must include the selected provider id so runtime methods and health checks can resolve the correct profile without new public MCP fields.
 
@@ -239,7 +239,7 @@ npm test -- tests/providers/openai-compatible/runtime.test.ts tests/core/dispatc
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-long-term-roadmap.md`
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-milestone-35.md`
 
-- [ ] **Step 1: Update user-facing docs**
+- [x] **Step 1: Update user-facing docs**
 
 Document:
 
@@ -250,11 +250,11 @@ Document:
 - no edit/session/tool support is claimed
 - live provider smoke is opt-in before any real-model readiness claim
 
-- [ ] **Step 2: Update roadmap and changelog**
+- [x] **Step 2: Update roadmap and changelog**
 
 Mark M35 complete only after proof is captured and move near-term recommendation to M36/M37/M38.
 
-- [ ] **Step 3: Run focused milestone tests**
+- [x] **Step 3: Run focused milestone tests**
 
 Run:
 
@@ -262,7 +262,7 @@ Run:
 npm test -- tests/core/config.test.ts tests/core/router.test.ts tests/core/lifecycle-registry.test.ts tests/core/lifecycle.test.ts tests/core/dispatch.test.ts tests/providers/runtime.test.ts tests/providers/ollama-cloud/config.test.ts tests/providers/openai-compatible/runtime.test.ts tests/doctor.test.ts tests/docs/packaging.test.ts tests/docs/runbook.test.ts tests/mcp/tools.test.ts
 ```
 
-- [ ] **Step 4: Run full verification**
+- [x] **Step 4: Run full verification**
 
 Run:
 
@@ -274,7 +274,7 @@ npm run smoke:mcp-stdio
 npm run ci
 ```
 
-- [ ] **Step 5: Run invariant scans**
+- [x] **Step 5: Run invariant scans**
 
 Run:
 
@@ -287,15 +287,18 @@ rg "baseUrl|apiKey|apiKeyEnv|Authorization|Bearer|OLLAMA|KIMI|GLM" src tests doc
 rg "process.kill|SIGKILL|automatic cleanup|workspace_cleanup_removed|cleanupRunWorkspace" src tests docs README.md CHANGELOG.md
 ```
 
-- [ ] **Step 6: Mark plan complete and commit**
+- [x] **Step 6: Mark plan complete and commit**
 
 After all proof is captured, mark the L11 gates and task checkboxes complete in this plan, then commit the implementation branch.
 
 ## Verification Evidence
 
-- Baseline before implementation: pending.
-- Red proof: pending.
-- Focused milestone proof: pending.
-- Full proof: pending.
-- Packaged stdio smoke: pending.
-- Invariant scans: pending.
+- Baseline before implementation: `npm test` passed on `main` with 42 files and 295 tests before adding M35 behavior.
+- Red proof: focused red runs failed on missing `src/providers/ollama-cloud/config.js`, absent `ollamaCloud` config parsing, absent dynamic provider descriptors, absent runtime aliasing, absent provider-id runtime resolution, absent doctor checks, absent lifecycle-registry config identity, and a disabled-profile runtime bypass regression before implementation.
+- Focused milestone proof: `npm test -- tests/core/config.test.ts tests/core/router.test.ts tests/core/lifecycle-registry.test.ts tests/core/lifecycle.test.ts tests/core/dispatch.test.ts tests/providers/runtime.test.ts tests/providers/ollama-cloud/config.test.ts tests/providers/openai-compatible/runtime.test.ts tests/doctor.test.ts tests/docs/packaging.test.ts tests/docs/runbook.test.ts tests/mcp/tools.test.ts` passed with 12 files and 170 tests.
+- Typecheck proof: `npm run typecheck` passed.
+- Full proof: `npm test` passed with 43 files and 309 tests.
+- Build proof: `npm run build` passed.
+- Packaged stdio smoke: `npm run smoke:mcp-stdio` passed with `MCP stdio smoke passed.`
+- CI proof: `npm run ci` passed, including typecheck, full tests, build, and packaged stdio smoke.
+- Invariant scans: auth/fallback, permission/bypass, benchmark/model-quality, prompt/schema leakage, endpoint/auth-secret, and cleanup/process-kill scans were run. Matches were expected guardrails, provider-local config/runtime/tests/docs, placeholder endpoint/env examples, or pre-existing Claude/lifecycle cleanup behavior; no public provider-specific MCP schema, Claude API-key fallback, benchmark/model-quality claim, hidden prompt leakage, secret value, or new cleanup/process-kill shortcut was introduced.

@@ -83,6 +83,10 @@ describe("selectProvider", () => {
               longContext: false,
               reasoning: false
             }
+          },
+          ollamaCloud: {
+            enabled: false,
+            profiles: []
           }
         }
       }
@@ -122,6 +126,10 @@ describe("selectProvider", () => {
               longContext: false,
               reasoning: false
             }
+          },
+          ollamaCloud: {
+            enabled: false,
+            profiles: []
           }
         }
       }
@@ -146,6 +154,81 @@ describe("selectProvider", () => {
         roleId: "slice-implementer",
         providers,
         requestedProviderId: "openai-compatible"
+      })
+    ).toThrow(ProviderCapabilityError);
+  });
+
+  it("routes requested Ollama Cloud profiles only through declared capabilities", () => {
+    const providers = listProviders({
+      config: {
+        writeMode: { enabled: false, requireIsolatedWorktree: true },
+        auth: { allowApiKeyFallback: false },
+        providers: {
+          openaiCompatible: {
+            enabled: false,
+            capabilities: {
+              structuredOutput: false,
+              longContext: false,
+              reasoning: false
+            }
+          },
+          ollamaCloud: {
+            enabled: true,
+            profiles: [
+              {
+                id: "kimi-k2.6",
+                baseUrl: "https://ollama.example/v1",
+                model: "kimi-k2.6",
+                apiKeyEnv: "KIMI_API_KEY",
+                capabilities: {
+                  structuredOutput: true,
+                  longContext: true,
+                  reasoning: false
+                }
+              },
+              {
+                id: "glm-5.1",
+                baseUrl: "https://ollama.example/v1",
+                model: "glm-5.1",
+                apiKeyEnv: "GLM_API_KEY",
+                capabilities: {
+                  structuredOutput: true,
+                  longContext: false,
+                  reasoning: false
+                }
+              }
+            ]
+          }
+        }
+      }
+    });
+
+    expect(
+      selectProvider({
+        roleId: "planner",
+        providers,
+        requestedProviderId: "ollama-cloud:glm-5.1"
+      }).id
+    ).toBe("ollama-cloud:glm-5.1");
+    expect(
+      selectProvider({
+        roleId: "architect",
+        providers,
+        requestedProviderId: "ollama-cloud:kimi-k2.6"
+      }).id
+    ).toBe("ollama-cloud:kimi-k2.6");
+    expect(() =>
+      selectProvider({
+        roleId: "architect",
+        providers,
+        requestedProviderId: "ollama-cloud:glm-5.1"
+      })
+    ).toThrow(ProviderCapabilityError);
+    expect(() =>
+      selectProvider({
+        roleId: "slice-implementer",
+        providers,
+        requestedProviderId: "ollama-cloud:kimi-k2.6"
       })
     ).toThrow(ProviderCapabilityError);
   });

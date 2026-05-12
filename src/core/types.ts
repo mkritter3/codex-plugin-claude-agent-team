@@ -67,8 +67,23 @@ export interface OpenAICompatibleProviderConfig {
   readonly capabilities: OpenAICompatibleProviderCapabilitiesConfig;
 }
 
+export interface OllamaCloudProfileConfig {
+  readonly id: string;
+  readonly baseUrl?: string;
+  readonly model?: string;
+  readonly apiKeyEnv?: string;
+  readonly displayName?: string;
+  readonly capabilities: OpenAICompatibleProviderCapabilitiesConfig;
+}
+
+export interface OllamaCloudProviderConfig {
+  readonly enabled: boolean;
+  readonly profiles: readonly OllamaCloudProfileConfig[];
+}
+
 export interface AgentTeamProviderConfig {
   readonly openaiCompatible: OpenAICompatibleProviderConfig;
+  readonly ollamaCloud: OllamaCloudProviderConfig;
 }
 
 export interface AgentTeamConfig {

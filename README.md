@@ -91,6 +91,46 @@ OpenAI-compatible providers are disabled by default and never inferred from envi
 
 The foundation adapter does not support background sessions, live stdin, resume, cancellation, edits, tools, or workspace isolation.
 
+Ollama Cloud profiles are an explicit OpenAI-compatible profile layer. They are also disabled by default and can represent Kimi/GLM-style read-only review models without adding provider-specific MCP tools:
+
+```json
+{
+  "providers": {
+    "ollamaCloud": {
+      "enabled": true,
+      "profiles": [
+        {
+          "id": "kimi-k2.6",
+          "baseUrl": "https://ollama.example/v1",
+          "model": "kimi-k2.6",
+          "apiKeyEnv": "KIMI_API_KEY",
+          "displayName": "Kimi K2.6",
+          "capabilities": {
+            "structuredOutput": true,
+            "longContext": true,
+            "reasoning": false
+          }
+        },
+        {
+          "id": "glm-5.1",
+          "baseUrl": "https://ollama.example/v1",
+          "model": "glm-5.1",
+          "apiKeyEnv": "GLM_API_KEY",
+          "displayName": "GLM 5.1",
+          "capabilities": {
+            "structuredOutput": true,
+            "longContext": false,
+            "reasoning": false
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+Profile provider ids use `ollama-cloud:<profile-id>`, for example `ollama-cloud:kimi-k2.6`. Profiles support synchronous read-only dispatch only; run live smoke separately before making any real-provider readiness, model-quality, or long-context claims.
+
 ## Auth And Doctor
 
 Before starting live runs, call `agent_team_doctor` for the target workspace. Doctor checks host readiness, package/runtime shape, writable state, git/worktree readiness when needed, provider health, auth posture, and role routing.

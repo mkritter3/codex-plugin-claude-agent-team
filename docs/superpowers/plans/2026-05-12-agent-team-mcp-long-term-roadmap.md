@@ -27,7 +27,7 @@ Codex should be able to stand up and manage an external AI agent team from insid
 
 ## Current Baseline
 
-Completed through Milestone 34:
+Completed through Milestone 35:
 
 - package scaffold, MCP server, CI, stdio smoke, and schema coverage
 - provider-neutral roles, capabilities, router, config, and doctor
@@ -44,6 +44,7 @@ Completed through Milestone 34:
 - `agent_team_summary`
 - provider runtime conformance harness for future adapters
 - explicitly configured OpenAI-compatible provider foundation for synchronous read-only dispatch
+- explicit Ollama Cloud profiles backed by the OpenAI-compatible runtime
 - end-to-end Claude team session runbook
 - README, changelog/versioning policy, license, and package/plugin metadata alignment
 
@@ -185,6 +186,8 @@ That gate requires:
 - Doctor reports missing endpoint/auth/model config clearly.
 - Live smoke is opt-in.
 
+**Status:** Complete. Ollama Cloud profiles are explicit config only, expose conservative read-only capabilities, route through dynamic `ollama-cloud:<profile-id>` provider ids, and reuse the OpenAI-compatible runtime without public MCP schema changes.
+
 ### Milestone 36: Gemini Adapter
 
 **Goal:** Add a Gemini adapter or profile for large-context review and analysis roles.
@@ -283,8 +286,8 @@ V1.5 is complete when at least one non-Claude provider can be configured explici
 
 Implement the next milestones in this order:
 
-1. Milestone 35: Ollama Cloud Profiles
-2. Milestone 36: Gemini Adapter
-3. Milestone 37: Grok Adapter
+1. Milestone 36: Gemini Adapter
+2. Milestone 37: Grok Adapter
+3. Milestone 38: Provider Selection Policy
 
 This order finishes the V1 control plane before adding provider breadth.

@@ -18,6 +18,7 @@ function config(input: {
   return {
     ...DEFAULT_AGENT_TEAM_CONFIG,
     providers: {
+      ...DEFAULT_AGENT_TEAM_CONFIG.providers,
       openaiCompatible: {
         enabled: input.enabled ?? true,
         ...(input.baseUrl === undefined ? {} : { baseUrl: input.baseUrl }),
@@ -32,6 +33,32 @@ function config(input: {
       }
     }
   };
+}
+
+function ollamaConfig(input: { readonly enabled?: boolean } = {}): AgentTeamConfig {
+  return {
+    ...DEFAULT_AGENT_TEAM_CONFIG,
+    providers: {
+      ...DEFAULT_AGENT_TEAM_CONFIG.providers,
+      ollamaCloud: {
+        enabled: input.enabled ?? true,
+        profiles: [
+          {
+            id: "kimi-k2.6",
+            baseUrl: "https://ollama.example/v1",
+            model: "kimi-k2.6",
+            apiKeyEnv: "KIMI_API_KEY",
+            displayName: "Kimi K2.6",
+            capabilities: {
+              structuredOutput: true,
+              longContext: true,
+              reasoning: false
+            }
+          }
+        ]
+      }
+    }
+  } as AgentTeamConfig;
 }
 
 function response(body: unknown, init: { readonly status?: number } = {}): Response {
@@ -158,6 +185,84 @@ describe("OpenAI-compatible runtime", () => {
       "OpenAI-compatible foundation does not support background sessions, resume, live stdin, cancellation, or edits."
     );
     expect(await handle.done).toBe("failed");
+  });
+
+  it("resolves Ollama Cloud profile endpoint, model, and auth env from provider id", async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const runtime = createOpenAICompatibleRuntime({
+      fetch: async (url, init) => {
+        calls.push({ url: String(url), init: init ?? {} });
+        return response({
+          id: "chatcmpl_kimi",
+          choices: [{ message: { content: "kimi fixture text" } }]
+        });
+      }
+    });
+
+    const result = await runtime.runPrint({
+      providerId: "ollama-cloud:kimi-k2.6",
+      prompt: "Review this plan.",
+      cwd: "/tmp/project",
+      roleId: "planner",
+      executionPolicy: "read-only",
+      config: ollamaConfig(),
+      env: { KIMI_API_KEY: "secret-token" }
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      sessionId: "chatcmpl_kimi",
+      text: "kimi fixture text"
+    });
+    expect(calls[0]?.url).toBe("https://ollama.example/v1/chat/completions");
+    expect(calls[0]?.init.headers).toMatchObject({
+      Authorization: "Bearer secret-token"
+    });
+    expect(JSON.parse(String(calls[0]?.init.body))).toMatchObject({
+      model: "kimi-k2.6"
+    });
+  });
+
+  it("fails closed when an Ollama Cloud provider id has no matching profile", async () => {
+    const runtime = createOpenAICompatibleRuntime({
+      fetch: async () => {
+        throw new Error("should not call network");
+      }
+    });
+
+    await expect(
+      runtime.runPrint({
+        providerId: "ollama-cloud:missing",
+        prompt: "Review",
+        cwd: "/tmp/project",
+        config: ollamaConfig(),
+        env: { KIMI_API_KEY: "secret-token" }
+      })
+    ).resolves.toMatchObject({
+      ok: false,
+      stderr: "Ollama Cloud profile not found for provider ollama-cloud:missing."
+    });
+  });
+
+  it("fails closed when an Ollama Cloud provider id is requested while profiles are disabled", async () => {
+    const runtime = createOpenAICompatibleRuntime({
+      fetch: async () => {
+        throw new Error("should not call network");
+      }
+    });
+
+    await expect(
+      runtime.runPrint({
+        providerId: "ollama-cloud:kimi-k2.6",
+        prompt: "Review",
+        cwd: "/tmp/project",
+        config: ollamaConfig({ enabled: false }),
+        env: { KIMI_API_KEY: "secret-token" }
+      })
+    ).resolves.toMatchObject({
+      ok: false,
+      stderr: "Ollama Cloud provider is disabled."
+    });
   });
 });
 

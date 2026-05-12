@@ -18,7 +18,8 @@ function configIdentity(config: AgentTeamConfig): string {
       requireIsolatedWorktree: config.writeMode.requireIsolatedWorktree
     },
     providers: {
-      openaiCompatible: config.providers.openaiCompatible
+      openaiCompatible: config.providers.openaiCompatible,
+      ollamaCloud: config.providers.ollamaCloud
     }
   });
 }

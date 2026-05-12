@@ -1,6 +1,7 @@
 import { DEFAULT_AGENT_TEAM_CONFIG } from "../core/config.js";
 import type { AgentProviderDescriptor, AgentTeamConfig } from "../core/types.js";
 import { openAICompatibleProvider } from "./openai-compatible/config.js";
+import { listOllamaCloudProviders } from "./ollama-cloud/config.js";
 
 const BASE_CLAUDE_CAPABILITIES = [
   "structuredOutput",
@@ -40,6 +41,7 @@ export function listProviders(
   if (openAIProvider !== undefined) {
     providers.push(openAIProvider);
   }
+  providers.push(...listOllamaCloudProviders(config));
   return providers;
 }
 

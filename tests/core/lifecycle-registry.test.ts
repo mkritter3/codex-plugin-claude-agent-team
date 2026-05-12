@@ -8,6 +8,8 @@ function config(input: {
   readonly allowApiKeyFallback?: boolean;
   readonly openAIEnabled?: boolean;
   readonly openAIModel?: string;
+  readonly ollamaEnabled?: boolean;
+  readonly ollamaModel?: string;
 } = {}): AgentTeamConfig {
   return {
     writeMode: {
@@ -26,6 +28,25 @@ function config(input: {
           longContext: false,
           reasoning: false
         }
+      },
+      ollamaCloud: {
+        enabled: input.ollamaEnabled ?? false,
+        profiles:
+          input.ollamaEnabled === true
+            ? [
+                {
+                  id: "kimi-k2.6",
+                  baseUrl: "https://ollama.example/v1",
+                  model: input.ollamaModel ?? "kimi-k2.6",
+                  apiKeyEnv: "KIMI_API_KEY",
+                  capabilities: {
+                    structuredOutput: true,
+                    longContext: true,
+                    reasoning: false
+                  }
+                }
+              ]
+            : []
       }
     }
   };
@@ -69,5 +90,11 @@ describe("LifecycleRegistry", () => {
     expect(
       registry.get("/repo", config({ openAIEnabled: true, openAIModel: "model-b" }))
     ).not.toBe(registry.get("/repo", config({ openAIEnabled: true, openAIModel: "model-a" })));
+    expect(registry.get("/repo", config({ ollamaEnabled: true }))).not.toBe(baseline);
+    expect(
+      registry.get("/repo", config({ ollamaEnabled: true, ollamaModel: "glm-5.1" }))
+    ).not.toBe(
+      registry.get("/repo", config({ ollamaEnabled: true, ollamaModel: "kimi-k2.6" }))
+    );
   });
 });

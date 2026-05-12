@@ -283,6 +283,10 @@ describe("runDoctor", () => {
               longContext: false,
               reasoning: false
             }
+          },
+          ollamaCloud: {
+            enabled: false,
+            profileCount: 0
           }
         }
       }
@@ -359,6 +363,90 @@ describe("runDoctor", () => {
     ).toMatchObject({
       status: "pass",
       details: { env: "REVIEW_MODEL_API_KEY", present: true }
+    });
+    expect(report.checks.find((check) => check.id === "auth-precedence")).toMatchObject({
+      status: "pass"
+    });
+  });
+
+  it("reports explicit Ollama Cloud profile config and missing provider auth env", async () => {
+    const workspace = await tempWorkspace();
+    await writeConfig(workspace, {
+      providers: {
+        ollamaCloud: {
+          enabled: true,
+          profiles: [
+            {
+              id: "kimi-k2.6",
+              baseUrl: "https://ollama.example/v1",
+              model: "kimi-k2.6",
+              apiKeyEnv: "KIMI_API_KEY",
+              capabilities: { structuredOutput: true, longContext: true }
+            }
+          ]
+        }
+      }
+    });
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: {},
+      ...cliFound()
+    });
+
+    expect(report.ok).toBe(false);
+    expect(report.checks.find((check) => check.id === "ollama-cloud:kimi-k2.6:config")).toMatchObject({
+      status: "pass",
+      details: {
+        providerId: "ollama-cloud:kimi-k2.6",
+        hasBaseUrl: true,
+        hasModel: true,
+        hasApiKeyEnv: true
+      }
+    });
+    expect(
+      report.checks.find((check) => check.id === "ollama-cloud:kimi-k2.6:auth-env")
+    ).toMatchObject({
+      status: "fail",
+      message: "Ollama Cloud profile kimi-k2.6 auth env KIMI_API_KEY is missing.",
+      details: { env: "KIMI_API_KEY", present: false }
+    });
+    expect(report.checks.find((check) => check.id === "auth-precedence")).toMatchObject({
+      status: "pass"
+    });
+  });
+
+  it("does not treat provider-scoped Ollama Cloud API keys as Claude fallback", async () => {
+    const workspace = await tempWorkspace();
+    await writeConfig(workspace, {
+      providers: {
+        ollamaCloud: {
+          enabled: true,
+          profiles: [
+            {
+              id: "glm-5.1",
+              baseUrl: "https://ollama.example/v1",
+              model: "glm-5.1",
+              apiKeyEnv: "GLM_API_KEY",
+              capabilities: { structuredOutput: true }
+            }
+          ]
+        }
+      }
+    });
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: { GLM_API_KEY: "secret-token" },
+      ...cliFound()
+    });
+
+    expect(report.ok).toBe(true);
+    expect(
+      report.checks.find((check) => check.id === "ollama-cloud:glm-5.1:auth-env")
+    ).toMatchObject({
+      status: "pass",
+      details: { env: "GLM_API_KEY", present: true }
     });
     expect(report.checks.find((check) => check.id === "auth-precedence")).toMatchObject({
       status: "pass"

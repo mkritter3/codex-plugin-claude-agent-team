@@ -22,6 +22,7 @@ export type ProviderSessionPermissionMode =
   | "plan";
 
 export interface ProviderPrintInput {
+  readonly providerId?: string;
   readonly prompt: string;
   readonly cwd: string;
   readonly roleId?: RoleId;
@@ -41,6 +42,7 @@ export interface ProviderPrintResult {
 }
 
 export interface ProviderStartSessionInput {
+  readonly providerId?: string;
   readonly prompt: string;
   readonly cwd: string;
   readonly workspaceRoot: string;
@@ -55,6 +57,7 @@ export interface ProviderStartSessionInput {
 }
 
 export interface ProviderEnvironmentInspectionInput {
+  readonly providerId?: string;
   readonly authMode: "subscription-oauth" | "api-key" | "oauth" | "none";
   readonly env: NodeJS.ProcessEnv;
   readonly config?: AgentTeamConfig;
@@ -84,6 +87,7 @@ export type ProviderCommandRunner = (
 ) => Promise<ProviderCommandResult>;
 
 export interface ProviderHealthCheckInput {
+  readonly providerId?: string;
   readonly workspaceRoot: string;
   readonly env: NodeJS.ProcessEnv;
   readonly config?: AgentTeamConfig;

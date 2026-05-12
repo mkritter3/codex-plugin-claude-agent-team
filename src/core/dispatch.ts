@@ -149,6 +149,7 @@ export async function dispatchReadOnlyAgent(
   );
 
   const envInspection = runtime.inspectEnvironment({
+    providerId: provider.id,
     authMode: provider.authMode,
     env: deps.env ?? process.env,
     config
@@ -213,6 +214,7 @@ export async function dispatchReadOnlyAgent(
 
   const providerResult = await runtime.runPrint({
     prompt,
+    providerId: provider.id,
     cwd: request.cwd,
     roleId: request.role,
     executionPolicy: role.executionPolicy,

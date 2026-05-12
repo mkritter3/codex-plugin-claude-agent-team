@@ -28,6 +28,12 @@ describe("provider runtime registry", () => {
     expect(runtime?.descriptor().available).toBe(false);
   });
 
+  it("aliases Ollama Cloud profile provider ids to the OpenAI-compatible runtime", () => {
+    const runtime = getProviderRuntime("ollama-cloud:kimi-k2.6");
+
+    expect(runtime?.id).toBe("openai-compatible");
+  });
+
   it("fails closed when a selected provider has no runtime", () => {
     expect(() => requireProviderRuntime("missing-provider")).toThrow(
       "No provider runtime registered for missing-provider."

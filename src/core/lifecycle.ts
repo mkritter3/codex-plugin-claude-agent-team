@@ -210,6 +210,7 @@ export class AgentLifecycleManager {
     try {
       handle = this.startProviderSession(provider, {
         prompt,
+        providerId: provider.id,
         cwd: executionCwd,
         workspaceRoot: request.cwd,
         runId,
@@ -422,6 +423,7 @@ export class AgentLifecycleManager {
     try {
       handle = this.startProviderSession(provider, {
         prompt,
+        providerId: provider.id,
         cwd: request.cwd,
         workspaceRoot: request.cwd,
         runId,

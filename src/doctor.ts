@@ -215,6 +215,10 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
             hasModel: config.providers.openaiCompatible.model !== undefined,
             apiKeyEnv: config.providers.openaiCompatible.apiKeyEnv,
             capabilities: config.providers.openaiCompatible.capabilities
+          },
+          ollamaCloud: {
+            enabled: config.providers.ollamaCloud.enabled,
+            profileCount: config.providers.ollamaCloud.profiles.length
           }
         }
       }
@@ -306,6 +310,7 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
     checks.push(
       ...(await runtime.healthCheck({
         workspaceRoot,
+        providerId: provider.id,
         env,
         config,
         findExecutable,
@@ -315,6 +320,7 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
     );
     environmentWarnings.push(
       ...runtime.inspectEnvironment({
+        providerId: provider.id,
         authMode: provider.authMode,
         env,
         config

@@ -12,6 +12,10 @@ import type {
 } from "../types.js";
 import type { AgentProviderRuntime } from "../runtime.js";
 import {
+  OLLAMA_CLOUD_PROVIDER_PREFIX,
+  resolveOllamaCloudProfile
+} from "../ollama-cloud/config.js";
+import {
   OPENAI_COMPATIBLE_PROVIDER_ID,
   openAICompatibleDescriptor,
   openAICompatibleProvider,
@@ -27,6 +31,16 @@ export interface OpenAICompatibleRuntimeOptions {
 
 export { openAICompatibleProvider };
 
+interface ResolvedEndpoint {
+  readonly kind: "openai-compatible" | "ollama-cloud";
+  readonly providerId: string;
+  readonly displayName: string;
+  readonly baseUrl?: string;
+  readonly model?: string;
+  readonly apiKeyEnv?: string;
+  readonly structuredOutput: boolean;
+}
+
 function fail(message: string): ProviderPrintResult {
   return {
     ok: false,
@@ -39,6 +53,51 @@ function fail(message: string): ProviderPrintResult {
 
 function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.replace(/\/+$/, "");
+}
+
+function resolveEndpoint(
+  config: AgentTeamConfig,
+  providerId: string | undefined
+): ResolvedEndpoint | string {
+  if (providerId?.startsWith(`${OLLAMA_CLOUD_PROVIDER_PREFIX}:`) === true) {
+    if (!config.providers.ollamaCloud.enabled) {
+      return "Ollama Cloud provider is disabled.";
+    }
+    const profile = resolveOllamaCloudProfile(config, providerId);
+    if (profile === undefined) {
+      return `Ollama Cloud profile not found for provider ${providerId}.`;
+    }
+    return {
+      kind: "ollama-cloud",
+      providerId,
+      displayName: profile.displayName ?? profile.id,
+      ...(profile.baseUrl === undefined ? {} : { baseUrl: profile.baseUrl }),
+      ...(profile.model === undefined ? {} : { model: profile.model }),
+      ...(profile.apiKeyEnv === undefined ? {} : { apiKeyEnv: profile.apiKeyEnv }),
+      structuredOutput: profile.capabilities.structuredOutput
+    };
+  }
+
+  if (providerId !== undefined && providerId !== OPENAI_COMPATIBLE_PROVIDER_ID) {
+    return `OpenAI-compatible runtime cannot resolve provider ${providerId}.`;
+  }
+
+  const providerConfig = config.providers.openaiCompatible;
+  return {
+    kind: "openai-compatible",
+    providerId: OPENAI_COMPATIBLE_PROVIDER_ID,
+    displayName: providerConfig.displayName ?? "OpenAI-Compatible Provider",
+    ...(providerConfig.baseUrl === undefined ? {} : { baseUrl: providerConfig.baseUrl }),
+    ...(providerConfig.model === undefined ? {} : { model: providerConfig.model }),
+    ...(providerConfig.apiKeyEnv === undefined ? {} : { apiKeyEnv: providerConfig.apiKeyEnv }),
+    structuredOutput: providerConfig.capabilities.structuredOutput
+  };
+}
+
+function endpointLabel(endpoint: ResolvedEndpoint): string {
+  return endpoint.kind === "ollama-cloud"
+    ? `Ollama Cloud profile ${endpoint.displayName}`
+    : "OpenAI-compatible provider";
 }
 
 function extractAssistantText(body: unknown): string | undefined {
@@ -143,35 +202,41 @@ export function createOpenAICompatibleRuntime(
     },
     async runPrint(input: ProviderPrintInput): Promise<ProviderPrintResult> {
       const config = resolveOpenAICompatibleConfig(input.config, options.config);
-      const providerConfig = config.providers.openaiCompatible;
-      if (!providerConfig.enabled) {
+      const endpoint = resolveEndpoint(config, input.providerId);
+      if (typeof endpoint === "string") {
+        return fail(endpoint);
+      }
+      if (
+        endpoint.kind === "openai-compatible" &&
+        !config.providers.openaiCompatible.enabled
+      ) {
         return fail("OpenAI-compatible provider is disabled.");
       }
-      if (!providerConfig.capabilities.structuredOutput) {
+      if (!endpoint.structuredOutput) {
         return fail(
-          "OpenAI-compatible provider requires structuredOutput capability for dispatch."
+          `${endpointLabel(endpoint)} requires structuredOutput capability for dispatch.`
         );
       }
-      if (providerConfig.baseUrl === undefined) {
-        return fail("OpenAI-compatible provider requires baseUrl.");
+      if (endpoint.baseUrl === undefined) {
+        return fail(`${endpointLabel(endpoint)} requires baseUrl.`);
       }
-      if (providerConfig.model === undefined) {
-        return fail("OpenAI-compatible provider requires model.");
+      if (endpoint.model === undefined) {
+        return fail(`${endpointLabel(endpoint)} requires model.`);
       }
-      if (providerConfig.apiKeyEnv === undefined) {
-        return fail("OpenAI-compatible provider requires apiKeyEnv.");
+      if (endpoint.apiKeyEnv === undefined) {
+        return fail(`${endpointLabel(endpoint)} requires apiKeyEnv.`);
       }
 
-      const token = (input.env ?? process.env)[providerConfig.apiKeyEnv];
+      const token = (input.env ?? process.env)[endpoint.apiKeyEnv];
       if (token === undefined || token.trim().length === 0) {
         return fail(
-          `OpenAI-compatible provider requires auth env ${providerConfig.apiKeyEnv}.`
+          `${endpointLabel(endpoint)} requires auth env ${endpoint.apiKeyEnv}.`
         );
       }
 
       try {
         const response = await fetchImpl(
-          `${normalizeBaseUrl(providerConfig.baseUrl)}/chat/completions`,
+          `${normalizeBaseUrl(endpoint.baseUrl)}/chat/completions`,
           {
             method: "POST",
             headers: {
@@ -179,7 +244,7 @@ export function createOpenAICompatibleRuntime(
               Authorization: `Bearer ${token}`
             },
             body: JSON.stringify({
-              model: providerConfig.model,
+              model: endpoint.model,
               messages: [{ role: "user", content: input.prompt }]
             })
           }
@@ -211,43 +276,55 @@ export function createOpenAICompatibleRuntime(
     },
     async healthCheck(input: ProviderHealthCheckInput): Promise<readonly ProviderHealthCheck[]> {
       const config = resolveOpenAICompatibleConfig(input.config, options.config);
-      const providerConfig = config.providers.openaiCompatible;
+      const endpoint = resolveEndpoint(config, input.providerId);
+      if (typeof endpoint === "string") {
+        return [
+          {
+            id: `${input.providerId ?? OPENAI_COMPATIBLE_PROVIDER_ID}:config`,
+            status: "fail",
+            message: endpoint
+          }
+        ];
+      }
       const checks: ProviderHealthCheck[] = [];
+      const configCheckId =
+        endpoint.kind === "ollama-cloud"
+          ? `${endpoint.providerId}:config`
+          : "openai-compatible-config";
+      const authCheckId =
+        endpoint.kind === "ollama-cloud"
+          ? `${endpoint.providerId}:auth-env`
+          : "openai-compatible-auth-env";
+      const configExplicit =
+        endpoint.baseUrl !== undefined &&
+        endpoint.model !== undefined &&
+        endpoint.apiKeyEnv !== undefined &&
+        (endpoint.kind === "ollama-cloud" || config.providers.openaiCompatible.enabled);
 
       checks.push({
-        id: "openai-compatible-config",
-        status:
-          providerConfig.enabled &&
-          providerConfig.baseUrl !== undefined &&
-          providerConfig.model !== undefined &&
-          providerConfig.apiKeyEnv !== undefined
-            ? "pass"
-            : "fail",
-        message:
-          providerConfig.enabled &&
-          providerConfig.baseUrl !== undefined &&
-          providerConfig.model !== undefined &&
-          providerConfig.apiKeyEnv !== undefined
-            ? "OpenAI-compatible provider config is explicit."
-            : "OpenAI-compatible provider config is incomplete.",
+        id: configCheckId,
+        status: configExplicit ? "pass" : "fail",
+        message: configExplicit
+          ? `${endpointLabel(endpoint)} config is explicit.`
+          : `${endpointLabel(endpoint)} config is incomplete.`,
         details: {
-          enabled: providerConfig.enabled,
-          hasBaseUrl: providerConfig.baseUrl !== undefined,
-          hasModel: providerConfig.model !== undefined,
-          hasApiKeyEnv: providerConfig.apiKeyEnv !== undefined
+          providerId: endpoint.providerId,
+          hasBaseUrl: endpoint.baseUrl !== undefined,
+          hasModel: endpoint.model !== undefined,
+          hasApiKeyEnv: endpoint.apiKeyEnv !== undefined
         }
       });
 
-      if (providerConfig.apiKeyEnv !== undefined) {
+      if (endpoint.apiKeyEnv !== undefined) {
         const present =
-          (input.env[providerConfig.apiKeyEnv]?.trim().length ?? 0) > 0;
+          (input.env[endpoint.apiKeyEnv]?.trim().length ?? 0) > 0;
         checks.push({
-          id: "openai-compatible-auth-env",
+          id: authCheckId,
           status: present ? "pass" : "fail",
           message: present
-            ? "OpenAI-compatible provider auth env is present."
-            : `OpenAI-compatible provider auth env ${providerConfig.apiKeyEnv} is missing.`,
-          details: { env: providerConfig.apiKeyEnv, present }
+            ? `${endpointLabel(endpoint)} auth env is present.`
+            : `${endpointLabel(endpoint)} auth env ${endpoint.apiKeyEnv} is missing.`,
+          details: { env: endpoint.apiKeyEnv, present }
         });
       }
 

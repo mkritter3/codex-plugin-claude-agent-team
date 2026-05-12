@@ -14,6 +14,7 @@ import {
   createOpenAICompatibleRuntime,
   openAICompatibleProvider
 } from "../../src/providers/openai-compatible/runtime.js";
+import { listOllamaCloudProviders } from "../../src/providers/ollama-cloud/config.js";
 
 let workspace: string;
 
@@ -41,6 +42,7 @@ function openAIConfig(): AgentTeamConfig {
   return {
     ...DEFAULT_AGENT_TEAM_CONFIG,
     providers: {
+      ...DEFAULT_AGENT_TEAM_CONFIG.providers,
       openaiCompatible: {
         enabled: true,
         baseUrl: "https://api.example/v1",
@@ -55,6 +57,32 @@ function openAIConfig(): AgentTeamConfig {
       }
     }
   };
+}
+
+function ollamaConfig(): AgentTeamConfig {
+  return {
+    ...DEFAULT_AGENT_TEAM_CONFIG,
+    providers: {
+      ...DEFAULT_AGENT_TEAM_CONFIG.providers,
+      ollamaCloud: {
+        enabled: true,
+        profiles: [
+          {
+            id: "kimi-k2.6",
+            baseUrl: "https://ollama.example/v1",
+            model: "kimi-k2.6",
+            apiKeyEnv: "KIMI_API_KEY",
+            displayName: "Kimi K2.6",
+            capabilities: {
+              structuredOutput: true,
+              longContext: true,
+              reasoning: false
+            }
+          }
+        ]
+      }
+    }
+  } as AgentTeamConfig;
 }
 
 function claudeRuntime(
@@ -217,6 +245,46 @@ describe("dispatchReadOnlyAgent", () => {
     await expect(readFile(runLogPath(workspace, "run_openai_failed"), "utf8")).resolves.toContain(
       "OpenAI-compatible response did not contain assistant text."
     );
+  });
+
+  it("dispatches through a selected Ollama Cloud profile provider id", async () => {
+    const config = ollamaConfig();
+    const runtime = createOpenAICompatibleRuntime({
+      fetch: async () =>
+        new Response(
+          JSON.stringify({
+            id: "chatcmpl_kimi_dispatch",
+            choices: [{ message: { content: shipText } }]
+          }),
+          { status: 200 }
+        )
+    });
+
+    const result = await dispatchReadOnlyAgent(
+      {
+        role: "planner",
+        task: "Review plan",
+        cwd: workspace,
+        provider: "ollama-cloud:kimi-k2.6"
+      },
+      {
+        config,
+        providers: listOllamaCloudProviders(config),
+        runtimes: [runtime],
+        createRunId: () => "run_ollama_kimi",
+        env: { KIMI_API_KEY: "secret-token" }
+      }
+    );
+
+    expect(result).toMatchObject({
+      status: "completed",
+      provider: "ollama-cloud:kimi-k2.6",
+      verdict: { status: "SHIP" }
+    });
+    await expect(readRunSidecar(workspace, "run_ollama_kimi")).resolves.toMatchObject({
+      provider: "ollama-cloud:kimi-k2.6",
+      providerSessionId: "chatcmpl_kimi_dispatch"
+    });
   });
 
   it("blocks dispatch when the selected runtime reports auth precedence warnings", async () => {
