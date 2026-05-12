@@ -12,7 +12,10 @@ export class AgentTeamConfigError extends Error {
   }
 }
 
+export const AGENT_TEAM_CONFIG_SCHEMA_VERSION = 1;
+
 export const DEFAULT_AGENT_TEAM_CONFIG: AgentTeamConfig = {
+  schemaVersion: AGENT_TEAM_CONFIG_SCHEMA_VERSION,
   writeMode: {
     enabled: false,
     requireIsolatedWorktree: true
@@ -80,6 +83,22 @@ function readStrictBoolean(input: unknown, fallback: boolean, context: string): 
     throw new AgentTeamConfigError(`${context} must be a boolean.`);
   }
   return input;
+}
+
+function parseConfigSchemaVersion(parsed: unknown): 1 {
+  if (typeof parsed !== "object" || parsed === null || !("schemaVersion" in parsed)) {
+    return AGENT_TEAM_CONFIG_SCHEMA_VERSION;
+  }
+  const version = (parsed as Record<string, unknown>).schemaVersion;
+  if (typeof version !== "number" || !Number.isInteger(version) || version <= 0) {
+    throw new AgentTeamConfigError("schemaVersion must be an integer greater than zero.");
+  }
+  if (version !== AGENT_TEAM_CONFIG_SCHEMA_VERSION) {
+    throw new AgentTeamConfigError(
+      `Unsupported config schemaVersion ${version}; supported version is ${AGENT_TEAM_CONFIG_SCHEMA_VERSION}.`
+    );
+  }
+  return AGENT_TEAM_CONFIG_SCHEMA_VERSION;
 }
 
 function objectField(input: unknown, key: string): Record<string, unknown> {
@@ -451,6 +470,7 @@ export async function loadAgentTeamConfig(
   const auth = objectField(parsed, "auth");
   const providers = objectField(parsed, "providers");
   const config: AgentTeamConfig = {
+    schemaVersion: parseConfigSchemaVersion(parsed),
     writeMode: {
       enabled: readBoolean(
         writeMode.enabled,

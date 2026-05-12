@@ -12,6 +12,15 @@
   "license": "MIT",
   "keywords": ["codex", "mcp", "agents", "claude-code"],
   "codexPlugin": ".codex-plugin/plugin.json",
+  "files": [
+    "dist",
+    ".codex-plugin",
+    ".mcp.json",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "docs/releases"
+  ],
   "bin": {
     "agent-team-mcp": "./dist/index.js"
   },
@@ -22,7 +31,8 @@
     "test:watch": "vitest",
     "start": "tsx src/index.ts",
     "smoke:mcp-stdio": "node scripts/smoke-mcp-stdio.mjs",
-    "ci": "npm run typecheck && npm test && npm run build && npm run smoke:mcp-stdio"
+    "smoke:package": "node scripts/smoke-package.mjs",
+    "ci": "npm run typecheck && npm test && npm run build && npm run smoke:mcp-stdio && npm run smoke:package"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",

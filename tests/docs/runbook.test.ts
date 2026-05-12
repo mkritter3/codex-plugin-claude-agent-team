@@ -32,6 +32,7 @@ describe("Claude team session runbook", () => {
       "agent_team_cleanup",
       "npm run build",
       "npm run smoke:mcp-stdio",
+      "npm run smoke:package",
       "npm run ci"
     ]) {
       expect(doc).toContain(text);
@@ -43,6 +44,8 @@ describe("Claude team session runbook", () => {
     expect(doc).toContain("auditEnabled");
     expect(doc).toContain("retained implementation worktree");
     expect(doc).toContain("state_corrupt");
+    expect(doc).toContain("state-layout.json");
+    expect(doc).toContain("schemaVersion");
     expect(doc).toContain("partial_failure");
     expect(doc).toContain("awaiting-input");
     expect(doc).toContain("cleanupBlocked");

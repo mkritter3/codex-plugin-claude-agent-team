@@ -18,6 +18,8 @@ All notable changes to this private local plugin are recorded here.
 - Added durable team record tools for grouping related run ids without replacing per-run sidecars or lifecycle tools.
 - Added `agent_team_dashboard` as a read-only dashboard and evidence report over saved teams or explicit run refs, including non-mutating corrupt-state reporting.
 - Added provider-neutral policy and audit controls for role/provider allowlists, write-mode policy, retained worktree roots, doctor posture, and sanitized `.agent-team/audit/events.jsonl` evidence.
+- Added config schema and state layout compatibility checks so unsupported future workspace shapes fail closed in doctor and config loading.
+- Added `npm run smoke:package` and included it in `npm run ci` to verify dry-run package contents and built MCP entrypoint wiring.
 - Added the Claude team session runbook and packaging hardening docs.
 
 ## Versioning Policy

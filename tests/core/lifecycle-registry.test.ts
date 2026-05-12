@@ -23,8 +23,9 @@ function config(input: {
   readonly liveSmokeEnabled?: boolean;
   readonly auditEnabled?: boolean;
 } = {}): AgentTeamConfig {
-  return {
-    writeMode: {
+	  return {
+	    schemaVersion: 1,
+	    writeMode: {
       enabled: input.writeEnabled ?? false,
       requireIsolatedWorktree: input.requireWorktree ?? true
     },

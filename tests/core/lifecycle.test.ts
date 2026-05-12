@@ -1422,8 +1422,9 @@ describe("AgentLifecycleManager", () => {
       permissionMode?: string;
     }> = [];
     const manager = new AgentLifecycleManager({
-      config: {
-        writeMode: { enabled: true, requireIsolatedWorktree: true },
+	      config: {
+	        schemaVersion: DEFAULT_AGENT_TEAM_CONFIG.schemaVersion,
+	        writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
         providers: DEFAULT_AGENT_TEAM_CONFIG.providers,
@@ -1491,8 +1492,9 @@ describe("AgentLifecycleManager", () => {
 
   it("preserves isolated worktree metadata when slice provider start fails", async () => {
     const manager = new AgentLifecycleManager({
-      config: {
-        writeMode: { enabled: true, requireIsolatedWorktree: true },
+	      config: {
+	        schemaVersion: DEFAULT_AGENT_TEAM_CONFIG.schemaVersion,
+	        writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
         providers: DEFAULT_AGENT_TEAM_CONFIG.providers,
@@ -1535,8 +1537,9 @@ describe("AgentLifecycleManager", () => {
     const handle = fakeHandle(done.promise);
     const inspected: string[] = [];
     const manager = new AgentLifecycleManager({
-      config: {
-        writeMode: { enabled: true, requireIsolatedWorktree: true },
+	      config: {
+	        schemaVersion: DEFAULT_AGENT_TEAM_CONFIG.schemaVersion,
+	        writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
         providers: DEFAULT_AGENT_TEAM_CONFIG.providers,
@@ -1602,8 +1605,9 @@ describe("AgentLifecycleManager", () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
     const manager = new AgentLifecycleManager({
-      config: {
-        writeMode: { enabled: true, requireIsolatedWorktree: true },
+	      config: {
+	        schemaVersion: DEFAULT_AGENT_TEAM_CONFIG.schemaVersion,
+	        writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
         providers: DEFAULT_AGENT_TEAM_CONFIG.providers,
@@ -1670,8 +1674,9 @@ describe("AgentLifecycleManager", () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
     const manager = new AgentLifecycleManager({
-      config: {
-        writeMode: { enabled: true, requireIsolatedWorktree: true },
+	      config: {
+	        schemaVersion: DEFAULT_AGENT_TEAM_CONFIG.schemaVersion,
+	        writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
         providers: DEFAULT_AGENT_TEAM_CONFIG.providers,
@@ -1726,8 +1731,9 @@ describe("AgentLifecycleManager", () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
     const manager = new AgentLifecycleManager({
-      config: {
-        writeMode: { enabled: true, requireIsolatedWorktree: true },
+	      config: {
+	        schemaVersion: DEFAULT_AGENT_TEAM_CONFIG.schemaVersion,
+	        writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
         providers: DEFAULT_AGENT_TEAM_CONFIG.providers,
@@ -1773,8 +1779,9 @@ describe("AgentLifecycleManager", () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
     const manager = new AgentLifecycleManager({
-      config: {
-        writeMode: { enabled: true, requireIsolatedWorktree: true },
+	      config: {
+	        schemaVersion: DEFAULT_AGENT_TEAM_CONFIG.schemaVersion,
+	        writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
         providers: DEFAULT_AGENT_TEAM_CONFIG.providers,

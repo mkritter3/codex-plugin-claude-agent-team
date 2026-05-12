@@ -282,6 +282,8 @@ That gate requires:
 - Release notes describe MCP tool changes and provider compatibility.
 - Smoke tests cover packaged installs, not only source-tree execution.
 
+**Status:** Complete. Config schema version `1` is parsed fail-closed, state layout version `1` is inspected read-only through doctor, future/corrupt layout markers fail doctor with actionable details, `npm run smoke:package` verifies dry-run package contents with an isolated npm cache, and `docs/releases/0.1.0.md` documents tool surface, provider compatibility, config schema, state layout, and migration posture.
+
 ## Definition Of Done For V1
 
 V1 is complete when Codex can reliably:
@@ -302,10 +304,4 @@ V1.5 is complete when at least one non-Claude provider can be configured explici
 
 ## Near-Term Recommendation
 
-Implement the next milestones in this order:
-
-1. Milestone 40: Team Dashboard Surface
-2. Milestone 41: Policy And Audit Controls
-3. Milestone 42: Release Channel And Upgrade Safety
-
-Milestones 40 and 41 are now complete, so the next implementation target is Milestone 42. That order moves from operator visibility into stronger audit controls and safer releases without weakening the V1 control plane.
+Milestones 40, 41, and 42 are complete. The current roadmap has reached the planned V2 product maturity baseline for durable team records, dashboard visibility, policy/audit controls, and release/upgrade safety. The next planning step should define post-M42 milestones only after choosing the next product direction, such as install UX, a real live-provider smoke harness, expanded provider capability proofs, or a local operator UI.

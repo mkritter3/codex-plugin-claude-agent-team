@@ -17,6 +17,10 @@ export function stateRoot(workspaceRoot: string): string {
   return join(workspaceRoot, STATE_DIR);
 }
 
+export function stateLayoutPath(workspaceRoot: string): string {
+  return join(stateRoot(workspaceRoot), "state-layout.json");
+}
+
 export function runsDir(workspaceRoot: string): string {
   return join(stateRoot(workspaceRoot), "runs");
 }

@@ -317,8 +317,9 @@ describe("selectProvider", () => {
 
   it("advertises implementation capabilities only when isolated write mode is enabled", () => {
     const providers = listProviders({
-      config: {
-        writeMode: { enabled: true, requireIsolatedWorktree: true },
+	      config: {
+	        schemaVersion: DEFAULT_AGENT_TEAM_CONFIG.schemaVersion,
+	        writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
         policy: DEFAULT_AGENT_TEAM_CONFIG.policy,
@@ -370,8 +371,9 @@ describe("selectProvider", () => {
 
   it("routes read-only roles to explicitly configured OpenAI-compatible capabilities", () => {
     const providers = listProviders({
-      config: {
-        writeMode: { enabled: false, requireIsolatedWorktree: true },
+	      config: {
+	        schemaVersion: DEFAULT_AGENT_TEAM_CONFIG.schemaVersion,
+	        writeMode: { enabled: false, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
         policy: DEFAULT_AGENT_TEAM_CONFIG.policy,
@@ -433,8 +435,9 @@ describe("selectProvider", () => {
 
   it("routes requested Ollama Cloud profiles only through declared capabilities", () => {
     const providers = listProviders({
-      config: {
-        writeMode: { enabled: false, requireIsolatedWorktree: true },
+	      config: {
+	        schemaVersion: DEFAULT_AGENT_TEAM_CONFIG.schemaVersion,
+	        writeMode: { enabled: false, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
         policy: DEFAULT_AGENT_TEAM_CONFIG.policy,
@@ -522,8 +525,9 @@ describe("selectProvider", () => {
 
   it("routes requested Gemini only through declared read-only capabilities", () => {
     const providers = listProviders({
-      config: {
-        writeMode: { enabled: false, requireIsolatedWorktree: true },
+	      config: {
+	        schemaVersion: DEFAULT_AGENT_TEAM_CONFIG.schemaVersion,
+	        writeMode: { enabled: false, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
         policy: DEFAULT_AGENT_TEAM_CONFIG.policy,
@@ -584,8 +588,9 @@ describe("selectProvider", () => {
 
   it("fails closed when requested Gemini lacks long-context capability", () => {
     const providers = listProviders({
-      config: {
-        writeMode: { enabled: false, requireIsolatedWorktree: true },
+	      config: {
+	        schemaVersion: DEFAULT_AGENT_TEAM_CONFIG.schemaVersion,
+	        writeMode: { enabled: false, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
         policy: DEFAULT_AGENT_TEAM_CONFIG.policy,
@@ -632,8 +637,9 @@ describe("selectProvider", () => {
 
   it("routes requested Grok profiles only through declared read-only capabilities", () => {
     const providers = listProviders({
-      config: {
-        writeMode: { enabled: false, requireIsolatedWorktree: true },
+	      config: {
+	        schemaVersion: DEFAULT_AGENT_TEAM_CONFIG.schemaVersion,
+	        writeMode: { enabled: false, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
         policy: DEFAULT_AGENT_TEAM_CONFIG.policy,

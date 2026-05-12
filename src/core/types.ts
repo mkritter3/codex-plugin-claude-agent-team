@@ -128,6 +128,7 @@ export interface AgentTeamPolicyConfig {
 }
 
 export interface AgentTeamConfig {
+  readonly schemaVersion: 1;
   readonly writeMode: {
     readonly enabled: boolean;
     readonly requireIsolatedWorktree: boolean;

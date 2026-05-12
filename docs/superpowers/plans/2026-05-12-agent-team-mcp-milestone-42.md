@@ -1,6 +1,6 @@
 # Agent Team MCP Milestone 42 Release Channel And Upgrade Safety Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]` / `- [x]`) syntax for tracking.
 
 **Goal:** Make local package upgrades boring by adding version-aware config/state checks, package smoke coverage, and release notes that explain compatibility and migrations.
 
@@ -114,13 +114,13 @@ Update `npm run ci` to include `npm run smoke:package` after packaged stdio smok
 
 ## L11 Quality Gates
 
-- [ ] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
-- [ ] TDD red proof is captured for config schema, state layout, doctor, package smoke, and docs.
-- [ ] Focused milestone tests are listed with expected red and green outcomes.
-- [ ] Full verification commands are listed.
-- [ ] Required edge cases selected: input validation, packaged runtime, docs/examples, state stores, auth/provider-neutrality boundary scans.
-- [ ] Invariant scans are listed.
-- [ ] Live provider smoke is not required because M42 makes package/config/state compatibility claims only and no live-provider readiness or model-quality claims.
+- [x] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
+- [x] TDD red proof is captured for config schema, state layout, doctor, package smoke, and docs.
+- [x] Focused milestone tests are listed with expected red and green outcomes.
+- [x] Full verification commands are listed.
+- [x] Required edge cases selected: input validation, packaged runtime, docs/examples, state stores, auth/provider-neutrality boundary scans.
+- [x] Invariant scans are listed.
+- [x] Live provider smoke is not required because M42 makes package/config/state compatibility claims only and no live-provider readiness or model-quality claims.
 
 ## Success Criteria
 
@@ -140,7 +140,7 @@ Update `npm run ci` to include `npm run smoke:package` after packaged stdio smok
 - Modify: `src/core/config.ts`
 - Modify: `src/core/types.ts`
 
-- [ ] **Step 1: Add failing config tests**
+- [x] **Step 1: Add failing config tests**
 
 Add tests proving:
 
@@ -154,7 +154,7 @@ await writeConfig(workspace, { schemaVersion: "1" });
 await expect(loadAgentTeamConfig(workspace)).rejects.toThrow("schemaVersion must be an integer");
 ```
 
-- [ ] **Step 2: Run red**
+- [x] **Step 2: Run red**
 
 Run:
 
@@ -164,11 +164,11 @@ npm test -- tests/core/config.test.ts
 
 Expected red: `schemaVersion` is missing and invalid versions are not rejected.
 
-- [ ] **Step 3: Implement minimal config support**
+- [x] **Step 3: Implement minimal config support**
 
 Add `AGENT_TEAM_CONFIG_SCHEMA_VERSION = 1`, `schemaVersion: 1` to `AgentTeamConfig`, and a strict parser that accepts missing/current version only.
 
-- [ ] **Step 4: Run green**
+- [x] **Step 4: Run green**
 
 Run:
 
@@ -186,7 +186,7 @@ Expected green: config tests pass.
 - Create: `src/core/state/layout.ts`
 - Modify: `src/core/state/paths.ts`
 
-- [ ] **Step 1: Add failing state layout tests**
+- [x] **Step 1: Add failing state layout tests**
 
 Create tests for:
 
@@ -196,7 +196,7 @@ Create tests for:
 - malformed JSON returns `status: "corrupt"`
 - invalid `layoutVersion` type returns `status: "corrupt"`
 
-- [ ] **Step 2: Run red**
+- [x] **Step 2: Run red**
 
 Run:
 
@@ -206,11 +206,11 @@ npm test -- tests/core/state/layout.test.ts
 
 Expected red: layout module and path helper do not exist.
 
-- [ ] **Step 3: Implement read-only layout inspector**
+- [x] **Step 3: Implement read-only layout inspector**
 
 Add `stateLayoutPath(workspaceRoot)` to `src/core/state/paths.ts` and implement `inspectStateLayout(workspaceRoot)` in `src/core/state/layout.ts`.
 
-- [ ] **Step 4: Run green**
+- [x] **Step 4: Run green**
 
 Run:
 
@@ -227,7 +227,7 @@ Expected green: layout inspector tests pass.
 - Modify: `src/doctor.ts`
 - Modify: `tests/doctor.test.ts`
 
-- [ ] **Step 1: Add failing doctor tests**
+- [x] **Step 1: Add failing doctor tests**
 
 Add tests proving:
 
@@ -236,7 +236,7 @@ Add tests proving:
 - Doctor fails for future state layout with `reason: "state_layout_incompatible"`.
 - Doctor fails for corrupt state layout with `reason: "state_layout_corrupt"`.
 
-- [ ] **Step 2: Run red**
+- [x] **Step 2: Run red**
 
 Run:
 
@@ -246,11 +246,11 @@ npm test -- tests/doctor.test.ts
 
 Expected red: doctor has no config schema or state layout checks.
 
-- [ ] **Step 3: Implement doctor checks**
+- [x] **Step 3: Implement doctor checks**
 
 Add safe doctor checks after config load and writable-state check. Details must include version numbers and paths only; no prompts, provider commands, secrets, process ids, or raw state payloads.
 
-- [ ] **Step 4: Run green**
+- [x] **Step 4: Run green**
 
 Run:
 
@@ -268,11 +268,11 @@ Expected green: doctor tests pass.
 - Create: `tests/package-smoke.test.ts`
 - Modify: `package.json`
 
-- [ ] **Step 1: Add failing package smoke tests**
+- [x] **Step 1: Add failing package smoke tests**
 
 Add tests proving package scripts contain `smoke:package`, `ci` runs it, and the script text checks required built/package artifacts.
 
-- [ ] **Step 2: Run red**
+- [x] **Step 2: Run red**
 
 Run:
 
@@ -282,11 +282,11 @@ npm test -- tests/package-smoke.test.ts tests/package-scripts.test.ts
 
 Expected red: script and package script do not exist.
 
-- [ ] **Step 3: Implement package smoke**
+- [x] **Step 3: Implement package smoke**
 
 Implement `scripts/smoke-package.mjs` using `child_process.execFileSync("npm", ["pack", "--dry-run", "--json"])` and JSON parsing. Throw clear errors for missing files or mismatched entrypoints.
 
-- [ ] **Step 4: Run green and script smoke**
+- [x] **Step 4: Run green and script smoke**
 
 Run:
 
@@ -309,7 +309,7 @@ Expected green: tests pass and package smoke passes after build.
 - Modify: `docs/runbooks/claude-team-session.md`
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-long-term-roadmap.md`
 
-- [ ] **Step 1: Add failing docs tests**
+- [x] **Step 1: Add failing docs tests**
 
 Extend docs tests to require:
 
@@ -321,7 +321,7 @@ Extend docs tests to require:
 - `Migration Notes`
 - `npm run smoke:package`
 
-- [ ] **Step 2: Run red**
+- [x] **Step 2: Run red**
 
 Run:
 
@@ -331,11 +331,11 @@ npm test -- tests/docs/packaging.test.ts tests/docs/runbook.test.ts
 
 Expected red: release note and package smoke docs do not exist.
 
-- [ ] **Step 3: Update docs**
+- [x] **Step 3: Update docs**
 
 Add concise release notes and docs. State that M42 does not publish externally, does not auto-migrate, and keeps live provider smoke opt-in.
 
-- [ ] **Step 4: Run green**
+- [x] **Step 4: Run green**
 
 Run:
 
@@ -352,7 +352,7 @@ Expected green: docs tests pass.
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-long-term-roadmap.md`
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-milestone-42.md`
 
-- [ ] **Step 1: Run focused milestone tests**
+- [x] **Step 1: Run focused milestone tests**
 
 Run:
 
@@ -360,7 +360,7 @@ Run:
 npm test -- tests/core/config.test.ts tests/core/state/layout.test.ts tests/doctor.test.ts tests/package-smoke.test.ts tests/package-scripts.test.ts tests/docs/packaging.test.ts tests/docs/runbook.test.ts
 ```
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -373,7 +373,7 @@ npm run smoke:package
 npm run ci
 ```
 
-- [ ] **Step 3: Run invariant scans**
+- [x] **Step 3: Run invariant scans**
 
 Run:
 
@@ -385,11 +385,11 @@ rg "internal prompt|hidden instruction|generated agent definition|provider-speci
 rg "process.kill|SIGKILL|automatic cleanup|workspace_cleanup_removed|cleanupRunWorkspace|auto-migrate|auto migrate|state-layout" src tests docs README.md CHANGELOG.md
 ```
 
-- [ ] **Step 4: Mark milestone complete**
+- [x] **Step 4: Mark milestone complete**
 
 Update this plan with red/green evidence and mark M42 complete in the roadmap only after proof is captured.
 
-- [ ] **Step 5: Commit implementation branch**
+- [x] **Step 5: Commit implementation branch**
 
 Run:
 
@@ -402,9 +402,9 @@ git commit -m "feat: add release and upgrade safety checks"
 
 ## Verification Evidence
 
-- Baseline before implementation: pending.
-- Red proof: pending.
-- Focused milestone proof: pending.
-- Full proof: pending.
-- Package smoke: pending.
-- Invariant scans: pending.
+- Baseline before implementation: `npm test` passed with 51 files and 410 tests before M42 implementation work began.
+- Red proof: config/state tests failed on missing schema/layout support; doctor tests failed on missing `config-schema` and `state-layout` checks; package/docs tests failed on missing `smoke:package`, missing package smoke script, missing release note, and missing docs text.
+- Focused milestone proof: `npm test -- tests/core/config.test.ts tests/core/state/layout.test.ts tests/doctor.test.ts tests/package-smoke.test.ts tests/package-scripts.test.ts tests/docs/packaging.test.ts tests/docs/runbook.test.ts tests/core/lifecycle-registry.test.ts tests/core/lifecycle.test.ts tests/core/router.test.ts tests/mcp/tools.test.ts` passed with 11 files and 194 tests.
+- Full proof: `npm run typecheck`, `npm test` with 53 files and 423 tests, and `npm run build` passed.
+- Package smoke: `npm run smoke:mcp-stdio` passed, then `npm run smoke:package` initially exposed a global npm cache permission failure; the script now uses an isolated temporary npm cache, package contents are bounded by an explicit `files` allowlist, and `npm run smoke:package` passes.
+- Invariant scans: auth/fallback, permission/bypass, model-claim, prompt/schema leakage, and cleanup/process scans were run. Matches were expected guardrails, tests, docs, provider-local internals, or pre-existing cleanup/process behavior. M42 introduced no API-key fallback, public provider-specific MCP schema, hidden prompt exposure, benchmark/model-quality behavior, automatic cleanup, or process-kill shortcut.

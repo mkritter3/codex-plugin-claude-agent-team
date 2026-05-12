@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { runDoctor, type DoctorInput } from "../src/doctor.js";
+import { stateLayoutPath } from "../src/core/state/paths.js";
 import type { AgentProviderRuntime } from "../src/providers/index.js";
 
 function cliFound(): Pick<DoctorInput, "findExecutable" | "getVersion" | "runProviderCommand"> {
@@ -324,6 +325,80 @@ describe("runDoctor", () => {
             })
           ]
         }
+      }
+    });
+  });
+
+  it("reports config schema and missing state layout upgrade posture", async () => {
+    const workspace = await tempWorkspace();
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: {},
+      ...cliFound()
+    });
+
+    expect(report.ok).toBe(true);
+    expect(report.checks.find((check) => check.id === "config-schema")).toMatchObject({
+      status: "pass",
+      message: "Agent Team config schema version is supported.",
+      details: {
+        schemaVersion: 1,
+        supportedVersion: 1
+      }
+    });
+    expect(report.checks.find((check) => check.id === "state-layout")).toMatchObject({
+      status: "pass",
+      message: "State layout marker is missing; layout version 1 can be initialized.",
+      details: {
+        status: "missing",
+        currentVersion: 1,
+        path: stateLayoutPath(workspace)
+      }
+    });
+  });
+
+  it("fails doctor when state layout marker is newer than this runtime supports", async () => {
+    const workspace = await tempWorkspace();
+    await mkdir(join(workspace, ".agent-team"), { recursive: true });
+    await writeFile(stateLayoutPath(workspace), JSON.stringify({ layoutVersion: 2 }), "utf8");
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: {},
+      ...cliFound()
+    });
+
+    expect(report.ok).toBe(false);
+    expect(report.checks.find((check) => check.id === "state-layout")).toMatchObject({
+      status: "fail",
+      details: {
+        reason: "state_layout_incompatible",
+        observedVersion: 2,
+        currentVersion: 1,
+        path: stateLayoutPath(workspace)
+      }
+    });
+  });
+
+  it("fails doctor when state layout marker is corrupt", async () => {
+    const workspace = await tempWorkspace();
+    await mkdir(join(workspace, ".agent-team"), { recursive: true });
+    await writeFile(stateLayoutPath(workspace), "{ nope", "utf8");
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: {},
+      ...cliFound()
+    });
+
+    expect(report.ok).toBe(false);
+    expect(report.checks.find((check) => check.id === "state-layout")).toMatchObject({
+      status: "fail",
+      details: {
+        reason: "state_layout_corrupt",
+        currentVersion: 1,
+        path: stateLayoutPath(workspace)
       }
     });
   });

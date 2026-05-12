@@ -13,9 +13,12 @@ describe("packaging and install docs", () => {
       "Claude Code CLI subscription OAuth",
       "npm ci",
       "npm run build",
+      "npm run smoke:package",
       "agent-team-mcp",
       "\"./dist/index.js\"",
       ".agent-team/config.json",
+      "schemaVersion",
+      "State Layout Version",
       ".agent-team/audit/events.jsonl",
       "agent_team_doctor",
       "agent_team_start_parallel",
@@ -40,13 +43,31 @@ describe("packaging and install docs", () => {
 
   it("documents versioning and changelog policy", async () => {
     const changelog = await readText("../../CHANGELOG.md");
+    const releaseNotes = await readText("../../docs/releases/0.1.0.md");
 
     expect(changelog).toContain("# Changelog");
     expect(changelog).toContain("0.1.0");
     expect(changelog).toContain("Versioning Policy");
+    expect(changelog).toContain("config schema and state layout compatibility checks");
     expect(changelog).toContain("policy and audit controls");
     expect(changelog).toContain("MCP tool surface changes");
+    expect(changelog).toContain("npm run smoke:package");
     expect(changelog).toContain("npm run ci");
+
+    for (const text of [
+      "0.1.0 Release Notes",
+      "MCP Tool Surface",
+      "Provider Compatibility",
+      "Config Schema Version",
+      "State Layout Version",
+      "Migration Notes",
+      "schemaVersion",
+      "state-layout.json",
+      "npm run ci",
+      "npm run smoke:package"
+    ]) {
+      expect(releaseNotes).toContain(text);
+    }
   });
 
   it("ships the declared MIT license text", async () => {

@@ -37,6 +37,7 @@ describe("MCP tool handlers", () => {
     const handlers = createToolHandlers({
       cwd: () => "/repo",
       config: {
+        schemaVersion: DEFAULT_AGENT_TEAM_CONFIG.schemaVersion,
         writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },

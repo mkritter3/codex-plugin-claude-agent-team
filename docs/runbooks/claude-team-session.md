@@ -18,6 +18,7 @@ Run these before changing installation or docs examples:
 ```bash
 npm run build
 npm run smoke:mcp-stdio
+npm run smoke:package
 npm run ci
 ```
 
@@ -60,6 +61,7 @@ Workspace policy can restrict role starts, provider selectors, write-capable sta
 
 ```json
 {
+  "schemaVersion": 1,
   "policy": {
     "allowedRoles": ["planner", "code-reviewer"],
     "allowedProviderSelectors": ["claude-code-cli"],
@@ -71,7 +73,13 @@ Workspace policy can restrict role starts, provider selectors, write-capable sta
 }
 ```
 
+`schemaVersion` is optional for old local workspaces and defaults to `1`. If doctor reports an unsupported future config schema, upgrade this plugin before operating that workspace.
+
 When `auditEnabled` is true, dispatch and lifecycle start decisions write sanitized records to `.agent-team/audit/events.jsonl` before provider execution. Treat those records as operator evidence for allow/block decisions, not as transcripts.
+
+## State Layout Check
+
+Doctor also inspects `.agent-team/state-layout.json` when present. Missing markers are compatible with layout version `1`; current markers are compatible; future layout versions fail closed; corrupt markers require operator review. Doctor is read-only for this check and does not auto-migrate or repair state.
 
 ## Opt-In Live Smoke
 
@@ -288,7 +296,7 @@ Do not overwrite state by hand. Preserve the archive and re-run the relevant rea
 
 ## Practical Session Checklist
 
-1. Run fixture-safe verification with `npm run build`, `npm run smoke:mcp-stdio`, and `npm run ci`.
+1. Run fixture-safe verification with `npm run build`, `npm run smoke:mcp-stdio`, `npm run smoke:package`, and `npm run ci`.
 2. Build the package before using the packaged MCP entrypoint.
 3. Run `agent_team_doctor` against the target workspace.
 4. Start a small team with `agent_team_start_parallel`.

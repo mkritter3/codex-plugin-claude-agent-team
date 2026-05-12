@@ -29,6 +29,7 @@ From this private repository:
 npm ci
 npm run build
 npm run smoke:mcp-stdio
+npm run smoke:package
 ```
 
 The built executable is exposed as the `agent-team-mcp` package bin and points to `"./dist/index.js"`.
@@ -56,6 +57,7 @@ The default posture is read-only. Isolated implementation runs require explicit 
 
 ```json
 {
+  "schemaVersion": 1,
   "writeMode": {
     "enabled": true,
     "requireIsolatedWorktree": true
@@ -67,6 +69,8 @@ The default posture is read-only. Isolated implementation runs require explicit 
 ```
 
 Keep `requireIsolatedWorktree` enabled for write-capable roles. Retained implementation worktrees are review evidence until explicit cleanup.
+
+`schemaVersion` is optional for existing workspaces and defaults to `1`. Future schema versions fail closed in config loading and `agent_team_doctor`; the runtime does not silently downgrade an unsupported config shape.
 
 Provider selection policy is optional and capability-first. Request-level `provider` values and workspace routing config use the same neutral selector strings: exact provider ids such as `claude-code-cli`, families such as `family:grok`, model selectors such as `model:grok-4.20`, or capability selectors such as `capability:reasoning`.
 
@@ -104,6 +108,17 @@ Policy controls are also optional and provider-neutral. They restrict which role
 ```
 
 When `auditEnabled` is true, dispatch and lifecycle start decisions append sanitized JSONL records to `.agent-team/audit/events.jsonl` before provider runtime or session execution. Audit records identify the operation, role, provider, run id, decision, and policy reason; they do not include prompt text, provider session ids, provider command details, mailbox payloads, secrets, process metadata, or environment values.
+
+## State Layout Version
+
+Workspace state currently uses state layout version `1`. `agent_team_doctor` inspects `.agent-team/state-layout.json` when present:
+
+- missing marker: compatible existing workspace
+- `{"layoutVersion":1}`: compatible current workspace
+- future integer version: incompatible until this runtime is upgraded
+- malformed marker: corrupt state requiring operator review
+
+Doctor only reports this posture. It does not auto-migrate, repair, archive, or delete workspace state.
 
 OpenAI-compatible providers are disabled by default and never inferred from environment variables. To use the foundation adapter for synchronous read-only dispatch, opt in explicitly with provider-scoped endpoint/model/auth-env config and only the capabilities the endpoint can actually satisfy:
 
@@ -227,7 +242,7 @@ Do not route around doctor failures. Claude Code CLI subscription OAuth remains 
 
 ## Basic Workflow
 
-1. Build and smoke the packaged runtime with `npm run build` and `npm run smoke:mcp-stdio`.
+1. Build and smoke the packaged runtime with `npm run build`, `npm run smoke:mcp-stdio`, and `npm run smoke:package`.
 2. Run `agent_team_doctor`.
 3. Start a bounded team with `agent_team_start_parallel`.
 4. Optionally group returned run ids with `agent_team_create_team`.
@@ -283,4 +298,4 @@ Every integrated change should pass:
 npm run ci
 ```
 
-`npm run ci` runs typecheck, tests, build, and packaged stdio smoke in that order.
+`npm run ci` runs typecheck, tests, build, packaged stdio smoke, and package dry-run smoke in that order.

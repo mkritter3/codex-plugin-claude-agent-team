@@ -43,6 +43,60 @@ describe("loadAgentTeamConfig", () => {
     });
   });
 
+  it("defaults missing config schema version to the current supported version", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-config-"));
+
+    await expect(loadAgentTeamConfig(workspace)).resolves.toMatchObject({
+      schemaVersion: 1
+    });
+  });
+
+  it("accepts explicit current config schema version", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-config-"));
+    await mkdir(join(workspace, ".agent-team"), { recursive: true });
+    await writeFile(
+      join(workspace, ".agent-team", "config.json"),
+      JSON.stringify({ schemaVersion: 1 }),
+      "utf8"
+    );
+
+    await expect(loadAgentTeamConfig(workspace)).resolves.toMatchObject({
+      schemaVersion: 1
+    });
+  });
+
+  it("rejects unsupported future config schema versions", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-config-"));
+    await mkdir(join(workspace, ".agent-team"), { recursive: true });
+    await writeFile(
+      join(workspace, ".agent-team", "config.json"),
+      JSON.stringify({ schemaVersion: 2 }),
+      "utf8"
+    );
+
+    await expect(loadAgentTeamConfig(workspace)).rejects.toThrow(
+      "Unsupported config schemaVersion 2"
+    );
+  });
+
+  it("rejects invalid config schema versions", async () => {
+    const invalidVersions = ["1", 0, -1, 1.5, null];
+
+    for (const [index, schemaVersion] of invalidVersions.entries()) {
+      const workspace = await mkdtemp(join(tmpdir(), `agent-team-config-version-${index}-`));
+      await mkdir(join(workspace, ".agent-team"), { recursive: true });
+      await writeFile(
+        join(workspace, ".agent-team", "config.json"),
+        JSON.stringify({ schemaVersion }),
+        "utf8"
+      );
+
+      await expect(loadAgentTeamConfig(workspace)).rejects.toThrow(
+        "schemaVersion must be an integer"
+      );
+    }
+  });
+
   it("loads explicit isolated write mode without enabling API-key fallback", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "agent-team-config-"));
     await mkdir(join(workspace, ".agent-team"), { recursive: true });
@@ -55,6 +109,7 @@ describe("loadAgentTeamConfig", () => {
     );
 
     await expect(loadAgentTeamConfig(workspace)).resolves.toEqual({
+      schemaVersion: 1,
       writeMode: { enabled: true, requireIsolatedWorktree: true },
       auth: { allowApiKeyFallback: false },
       routing: { rolePins: {}, providerOrder: [] },

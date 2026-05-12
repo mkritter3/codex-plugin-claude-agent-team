@@ -3,11 +3,15 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import {
+  AGENT_TEAM_CONFIG_SCHEMA_VERSION,
   DEFAULT_AGENT_TEAM_CONFIG,
   loadAgentTeamConfig
 } from "./core/config.js";
 import { listRoles } from "./core/roles.js";
 import { explainProviderSelection } from "./core/router.js";
+import {
+  inspectStateLayout as defaultInspectStateLayout
+} from "./core/state/layout.js";
 import { STATE_DIR } from "./core/state/paths.js";
 import type { AgentProviderDescriptor, AgentTeamConfig } from "./core/types.js";
 import {
@@ -51,6 +55,7 @@ export interface DoctorInput {
   readonly checkMcpServerLoadable?: () => Promise<void>;
   readonly loadConfig?: typeof loadAgentTeamConfig;
   readonly ensureWritableState?: (workspaceRoot: string) => Promise<void>;
+  readonly inspectStateLayout?: typeof defaultInspectStateLayout;
   readonly inspectGitWorktreeSupport?: typeof defaultInspectGitWorktreeSupport;
   readonly providers?: readonly AgentProviderDescriptor[];
   readonly runtimes?: readonly AgentProviderRuntime[];
@@ -152,6 +157,7 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
     input.checkMcpServerLoadable ?? defaultCheckMcpServerLoadable;
   const loadConfig = input.loadConfig ?? loadAgentTeamConfig;
   const ensureWritableState = input.ensureWritableState ?? defaultEnsureWritableState;
+  const inspectStateLayout = input.inspectStateLayout ?? defaultInspectStateLayout;
   const inspectGitWorktreeSupport =
     input.inspectGitWorktreeSupport ?? defaultInspectGitWorktreeSupport;
   const checks: DoctorCheck[] = [];
@@ -252,6 +258,16 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
   }
 
   if (configLoaded) {
+    checks.push({
+      id: "config-schema",
+      status: "pass",
+      message: "Agent Team config schema version is supported.",
+      details: {
+        schemaVersion: config.schemaVersion,
+        supportedVersion: AGENT_TEAM_CONFIG_SCHEMA_VERSION
+      }
+    });
+
     const policyDetails = {
       allowedRoles: config.policy.allowedRoles,
       allowedProviderSelectors: config.policy.allowedProviderSelectors,
@@ -304,6 +320,38 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
       }
     });
   }
+
+  const stateLayout = await inspectStateLayout(workspaceRoot);
+  const stateLayoutReason =
+    stateLayout.status === "incompatible"
+      ? "state_layout_incompatible"
+      : stateLayout.status === "corrupt"
+        ? "state_layout_corrupt"
+        : undefined;
+  checks.push({
+    id: "state-layout",
+    status: stateLayoutReason === undefined ? "pass" : "fail",
+    message: stateLayout.message,
+    details: {
+      status: stateLayout.status,
+      currentVersion: stateLayout.currentVersion,
+      ...(stateLayout.observedVersion === undefined
+        ? {}
+        : { observedVersion: stateLayout.observedVersion }),
+      path: stateLayout.path,
+      ...(stateLayoutReason === undefined ? {} : { reason: stateLayoutReason }),
+      ...(stateLayout.status === "incompatible"
+        ? {
+            fix: "Use a compatible Agent Team MCP version before reading or mutating this workspace state."
+          }
+        : {}),
+      ...(stateLayout.status === "corrupt"
+        ? {
+            fix: "Inspect or restore .agent-team/state-layout.json before starting agent runs."
+          }
+        : {})
+    }
+  });
 
   if (config.writeMode.enabled && config.writeMode.requireIsolatedWorktree) {
     const git = await inspectGitWorktreeSupport({ workspaceRoot });
