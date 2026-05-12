@@ -13,6 +13,7 @@
 ## File Structure
 
 - Modify `src/core/types.ts`: add status-many request/result types.
+- Add `src/core/status-many.ts`: bounded provider-neutral status-many helper.
 - Modify `src/mcp/tools.ts`: add parsing and handling for `agent_team_status_many`.
 - Modify `src/mcp/schemas.ts`: expose the `agent_team_status_many` input schema.
 - Modify `tests/mcp/tools.test.ts`: prove validation, ordering, detached reconciliation, per-run failures, and per-run corruption recovery.
@@ -23,13 +24,15 @@
 ## Success Criteria
 
 - `agent_team_status_many` appears in `listToolNames()` and MCP metadata.
-- Input shape is `{ runIds: string[], cwd? }`.
-- `runIds` must be a non-empty array of non-empty strings.
-- `cwd`, when provided, must be a string.
+- Input shape is `{ runs: [{ runId, cwd?, correlationId? }], cwd?, concurrency? }`.
+- Top-level `cwd` applies as the default for child status reads; item-level `cwd` can override it.
+- `runs` must be a non-empty array of objects with non-empty `runId` strings.
+- `cwd` and `correlationId`, when provided, must be strings.
+- `concurrency` must be a positive integer from 1 through 8; default is 8.
 - Results preserve input order.
-- Each successful item returns `{ status: "ok", index, runId, run }`.
-- A non-corruption status failure returns `{ status: "failed", index, runId, error }` without aborting the whole call.
-- A `StateCorruptionError` for one run returns `{ status: "state_corrupt", index, runId, recovery }` using the same archive/recovery path as `agent_team_status`.
+- Each successful item returns `{ status: "ok", index, runId, cwd, correlationId?, run }`.
+- A non-corruption status failure returns `{ status: "failed", index, runId, cwd, correlationId?, error }` without aborting the whole call.
+- A `StateCorruptionError` for one run returns `{ status: "state_corrupt", index, runId, cwd, correlationId?, recovery }` using the same archive/recovery path as `agent_team_status`.
 - Top-level status is `"ok"` only when all items are `ok`; otherwise it is `"partial_failure"`.
 - Detached reconciliation remains lifecycle-owned: `agent_team_status_many` must call `getStatus`, not read sidecars directly.
 - Sidecars, mailboxes, verdicts, status, wind-down, and cleanup remain first-class per child run.
@@ -40,6 +43,7 @@
 ## Task 1: MCP Batch Status Tool
 
 **Files:**
+- Add: `src/core/status-many.ts`
 - Modify: `src/core/types.ts`
 - Modify: `src/mcp/tools.ts`
 - Modify: `tests/mcp/tools.test.ts`
@@ -48,9 +52,10 @@
 
 Add tests proving:
 
-- `agent_team_status_many` validates missing, empty, and non-string `runIds`.
-- `agent_team_status_many` validates `cwd` when provided.
-- two valid run ids call `getStatus` twice through the same lifecycle manager and return ordered `ok` results.
+- `agent_team_status_many` validates missing, empty, non-object, missing `runId`, empty `runId`, invalid `cwd`, invalid `correlationId`, and invalid `concurrency`.
+- top-level `cwd` defaults into child status reads, and item-level `cwd` overrides the default.
+- two valid runs with the same cwd call `getStatus` twice through the same lifecycle manager and return ordered `ok` results.
+- two valid runs that resolve out of order still return results in input order.
 - a failed `getStatus` call returns a per-run `failed` item and still returns later run statuses.
 - a `StateCorruptionError` for one run returns a per-run `state_corrupt` item with recovery details and still returns later run statuses.
 
@@ -68,14 +73,22 @@ In `src/core/types.ts`, add:
 
 ```ts
 export interface AgentStatusManyRequest {
+  readonly runs: readonly AgentStatusManyRun[];
+  readonly concurrency: number;
+}
+
+export interface AgentStatusManyRun {
+  readonly runId: string;
   readonly cwd: string;
-  readonly runIds: readonly string[];
+  readonly correlationId?: string;
 }
 
 export interface AgentStatusManyOk {
   readonly status: "ok";
   readonly index: number;
   readonly runId: string;
+  readonly cwd: string;
+  readonly correlationId?: string;
   readonly run: RunSidecar;
 }
 
@@ -83,6 +96,8 @@ export interface AgentStatusManyFailed {
   readonly status: "failed";
   readonly index: number;
   readonly runId: string;
+  readonly cwd: string;
+  readonly correlationId?: string;
   readonly error: string;
 }
 
@@ -90,6 +105,8 @@ export interface AgentStatusManyRecovered {
   readonly status: "state_corrupt";
   readonly index: number;
   readonly runId: string;
+  readonly cwd: string;
+  readonly correlationId?: string;
   readonly recovery: unknown;
 }
 
@@ -104,26 +121,54 @@ export interface AgentStatusManyResult {
 }
 ```
 
-- [ ] **Step 3: Register and parse the tool**
+- [ ] **Step 3: Implement bounded status-many helper**
+
+In `src/core/status-many.ts`, export:
+
+```ts
+export interface StatusManyDependencies {
+  readonly getStatus: (cwd: string, runId: string) => Promise<RunSidecar>;
+  readonly recoverStateCorruption: (input: StateCorruptionRecoveryInput) => Promise<unknown>;
+}
+
+export async function readAgentStatuses(
+  request: AgentStatusManyRequest,
+  deps: StatusManyDependencies
+): Promise<AgentStatusManyResult>
+```
+
+Implementation requirements:
+
+- allocate a fixed result array with the same length as `request.runs`
+- run a worker loop with `Math.min(request.concurrency, request.runs.length)` workers
+- each worker claims the next index synchronously before awaiting status
+- call `deps.getStatus(run.cwd, run.runId)` for every run
+- map successes to `{ status: "ok", index, runId, cwd, correlationId?, run }`
+- map `StateCorruptionError` to `{ status: "state_corrupt", index, runId, cwd, correlationId?, recovery }`
+- map other thrown errors to `{ status: "failed", index, runId, cwd, correlationId?, error }`
+- return top-level `partial_failure` when any item is not `ok`
+
+- [ ] **Step 4: Register and parse the tool**
 
 In `src/mcp/tools.ts`:
 
 - add `"agent_team_status_many"` after `"agent_team_status"` in `TOOL_NAMES`
 - add `parseStatusManyArgs(args, cwd)` returning `AgentStatusManyRequest | JsonToolResult`
 - validation rules:
-  - `runIds` must be a non-empty array
-  - each `runIds[index]` must be a non-empty string
+  - `runs` must be a non-empty array
+  - each `runs[index]` must be an object
+  - each `runs[index].runId` must be a non-empty string
+  - each `runs[index].cwd`, when provided, must be a string
+  - each `runs[index].correlationId`, when provided, must be a string
   - `cwd`, when provided, must be a string
+  - `concurrency` defaults to `8`
+  - `concurrency` must be an integer from `1` to `8`
 - handle `agent_team_status_many` by:
-  - resolving `workspaceRoot` from parsed `cwd`
-  - getting one lifecycle through `lifecycleFor(workspaceRoot)`
-  - iterating run ids in order
-  - calling `lifecycle.getStatus(workspaceRoot, runId)` for every run
-  - catching `StateCorruptionError`, calling `recoverStateCorruption({ workspaceRoot, runId, operation: "agent_team_status_many", error })`, and returning a `state_corrupt` item
-  - catching other errors and returning a `failed` item
-  - returning top-level `partial_failure` if any item is not `ok`
+  - calling `readAgentStatuses(parsed, { getStatus, recoverStateCorruption })`
+  - using `lifecycleFor(itemCwd).getStatus(itemCwd, runId)` inside the supplied `getStatus` dependency so workspace-specific config and lifecycle registry identity remain unchanged
+  - calling `recoverStateCorruption({ workspaceRoot: itemCwd, runId, operation: "agent_team_status_many", error })` inside the supplied recovery dependency
 
-- [ ] **Step 4: Run focused MCP tests**
+- [ ] **Step 5: Run focused MCP tests**
 
 Run:
 
@@ -134,10 +179,10 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add src/core/types.ts src/mcp/tools.ts tests/mcp/tools.test.ts
+git add src/core/types.ts src/core/status-many.ts src/mcp/tools.ts tests/mcp/tools.test.ts
 git commit -m "feat: add batch status MCP tool"
 ```
 
@@ -153,9 +198,9 @@ git commit -m "feat: add batch status MCP tool"
 
 Add tests proving:
 
-- MCP server metadata exposes `agent_team_status_many` with required `runIds`.
+- MCP server metadata exposes `agent_team_status_many` with required `runs`.
 - `listToolNames()` includes `agent_team_status_many` in the expected position.
-- the packaged smoke script checks `agent_team_status_many` requires `runIds`.
+- the packaged smoke script checks `agent_team_status_many` requires `runs`.
 
 Run:
 
@@ -171,8 +216,13 @@ In `src/mcp/schemas.ts`, add:
 
 ```ts
 const statusManyInputSchema = {
-  runIds: z.array(runId).min(1),
-  cwd
+  runs: z.array(z.object({
+    runId,
+    cwd,
+    correlationId
+  })).min(1),
+  cwd,
+  concurrency: z.number().int().min(1).max(8).optional()
 };
 ```
 
@@ -191,7 +241,7 @@ agent_team_status_many: {
 In `scripts/smoke-mcp-stdio.mjs`, add:
 
 ```js
-assertToolRequires(tools.tools, "agent_team_status_many", ["runIds"]);
+assertToolRequires(tools.tools, "agent_team_status_many", ["runs"]);
 ```
 
 near the existing `agent_team_status` assertion.
