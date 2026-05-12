@@ -27,7 +27,7 @@ Codex should be able to stand up and manage an external AI agent team from insid
 
 ## Current Baseline
 
-Completed through Milestone 39:
+Completed through Milestone 40:
 
 - package scaffold, MCP server, CI, stdio smoke, and schema coverage
 - provider-neutral roles, capabilities, router, config, and doctor
@@ -49,6 +49,7 @@ Completed through Milestone 39:
 - explicit Grok profiles backed by the OpenAI-compatible runtime
 - capability-first provider selection policy with role pins, provider order, and routing explanations
 - optional durable team records under `.agent-team/teams/` for grouping related run ids without replacing per-run sidecars
+- `agent_team_dashboard` read-only dashboard/report surface for team or explicit run refs
 - end-to-end Claude team session runbook
 - README, changelog/versioning policy, license, and package/plugin metadata alignment
 
@@ -255,6 +256,8 @@ That gate requires:
 - It shows run state, waiting questions, latest activity, evidence paths, retained worktrees, and cleanup status.
 - It does not expose internal prompt text or hidden agent instructions.
 
+**Status:** Complete. `agent_team_dashboard` accepts either a durable `teamId` or explicit run refs, preserves ordered per-run addressability and partial failures through the existing summary pipeline, reports evidence/mailbox/cleanup pointers, reports corrupt state without archiving inspected artifacts, and omits raw summary payloads, prompt hashes, provider session ids, and provider-specific control details.
+
 ### Milestone 41: Policy And Audit Controls
 
 **Goal:** Add stronger enterprise-grade controls for auth posture, provider allowlists, role permissions, and audit trails.
@@ -302,4 +305,4 @@ Implement the next milestones in this order:
 2. Milestone 41: Policy And Audit Controls
 3. Milestone 42: Release Channel And Upgrade Safety
 
-This order moves from durable team grouping into operator usability, stronger audit controls, and safer releases without weakening the V1 control plane.
+Milestone 40 is now complete, so the next implementation target is Milestone 41, followed by Milestone 42. That order moves from operator visibility into stronger audit controls and safer releases without weakening the V1 control plane.

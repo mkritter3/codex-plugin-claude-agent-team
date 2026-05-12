@@ -24,6 +24,7 @@ describe("Claude team session runbook", () => {
       "agent_team_create_team",
       "agent_team_get_team",
       "agent_team_list_teams",
+      "agent_team_dashboard",
       "agent_team_status_many",
       "agent_team_summary",
       "agent_team_message_many",
@@ -42,6 +43,7 @@ describe("Claude team session runbook", () => {
     expect(doc).toContain("partial_failure");
     expect(doc).toContain("awaiting-input");
     expect(doc).toContain("cleanupBlocked");
+    expect(doc).toContain("read-only dashboard");
     expect(doc).toContain(".agent-team/teams/");
     expect(doc).toContain("Per-run sidecars remain authoritative");
   });

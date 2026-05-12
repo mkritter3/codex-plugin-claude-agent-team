@@ -121,6 +121,7 @@ function runState(run: RunSidecar): AgentTeamSummaryRunState {
       ? {}
       : { workspaceCleanup: run.workspaceCleanup }),
     ...(run.workspaceStatus === undefined ? {} : { workspaceStatus: run.workspaceStatus }),
+    ...(run.outputSummary === undefined ? {} : { outputSummary: run.outputSummary }),
     ...(run.awaitingInputSince === undefined
       ? {}
       : { awaitingInputSince: run.awaitingInputSince }),
@@ -130,7 +131,11 @@ function runState(run: RunSidecar): AgentTeamSummaryRunState {
     ...(run.outboxRequestIds === undefined
       ? {}
       : { outboxRequestIds: run.outboxRequestIds }),
-    ...(run.warnings === undefined ? {} : { warnings: run.warnings })
+    ...(run.warnings === undefined ? {} : { warnings: run.warnings }),
+    ...(run.recentActivities === undefined
+      ? {}
+      : { recentActivities: run.recentActivities }),
+    ...(run.currentActivity === undefined ? {} : { currentActivity: run.currentActivity })
   };
 }
 

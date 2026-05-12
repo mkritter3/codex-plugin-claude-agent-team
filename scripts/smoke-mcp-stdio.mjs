@@ -31,6 +31,17 @@ function assertObjectSchema(tools, toolName) {
   assert(tool.inputSchema?.type === "object", `${toolName} does not expose an object schema.`);
 }
 
+async function assertValidationError(client, toolName, args) {
+  const result = await client.callTool({
+    name: toolName,
+    arguments: args
+  });
+  assert(
+    result.structuredContent?.status === "validation_error",
+    `${toolName} did not reject invalid smoke arguments.`
+  );
+}
+
 async function assertRuntimeExists() {
   try {
     await access(runtimePath);
@@ -79,6 +90,7 @@ async function main() {
     assertToolRequires(tools.tools, "agent_team_create_team", ["runs"]);
     assertToolRequires(tools.tools, "agent_team_get_team", ["teamId"]);
     assertObjectSchema(tools.tools, "agent_team_list_teams");
+    assertObjectSchema(tools.tools, "agent_team_dashboard");
     assertToolRequires(tools.tools, "agent_team_cancel_many", ["runs"]);
     assertToolRequires(tools.tools, "agent_team_wind_down_many", ["runs"]);
     assertObjectSchema(tools.tools, "agent_team_list_roles");
@@ -93,6 +105,12 @@ async function main() {
       roles.some((role) => role?.id === "planner"),
       "agent_team_list_roles did not include planner."
     );
+
+    await assertValidationError(client, "agent_team_dashboard", {});
+    await assertValidationError(client, "agent_team_dashboard", {
+      teamId: "team_smoke",
+      runs: [{ runId: "run_smoke" }]
+    });
 
     console.log("MCP stdio smoke passed.");
   } catch (error) {

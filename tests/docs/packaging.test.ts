@@ -20,6 +20,7 @@ describe("packaging and install docs", () => {
       "agent_team_start_parallel",
       "agent_team_create_team",
       "agent_team_get_team",
+      "agent_team_dashboard",
       "agent_team_summary",
       "agent_team_cleanup",
       "npm run ci",
@@ -30,6 +31,7 @@ describe("packaging and install docs", () => {
     }
     expect(readme).toContain("opt-in live smoke");
     expect(readme).toContain("not part of CI");
+    expect(readme).toContain("read-only dashboard");
   });
 
   it("documents versioning and changelog policy", async () => {

@@ -215,15 +215,18 @@ Do not route around doctor failures. Claude Code CLI subscription OAuth remains 
 3. Start a bounded team with `agent_team_start_parallel`.
 4. Optionally group returned run ids with `agent_team_create_team`.
 5. Read the team record later with `agent_team_get_team` or `agent_team_list_teams`.
-6. Read state with `agent_team_status_many`.
-7. Inspect grouped evidence with `agent_team_summary`.
-8. Send updates with `agent_team_message_many`.
-9. Gracefully finalize with `agent_team_wind_down_many`.
-10. Use `agent_team_cancel_many` only for explicit operator-driven cancellation.
-11. Review evidence and retained implementation worktrees.
-12. Use `agent_team_cleanup` only after review.
+6. Open the read-only dashboard with `agent_team_dashboard`.
+7. Read state with `agent_team_status_many`.
+8. Inspect grouped evidence with `agent_team_summary`.
+9. Send updates with `agent_team_message_many`.
+10. Gracefully finalize with `agent_team_wind_down_many`.
+11. Use `agent_team_cancel_many` only for explicit operator-driven cancellation.
+12. Review evidence and retained implementation worktrees.
+13. Use `agent_team_cleanup` only after review.
 
 For a full operator flow, see `docs/runbooks/claude-team-session.md`.
+
+`agent_team_dashboard` is inspection-only. It reports corrupt state as evidence without archiving inspected artifacts, and all lifecycle actions still go through explicit control tools.
 
 ## Evidence
 

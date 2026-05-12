@@ -111,6 +111,12 @@ describe("package runtime contract", () => {
       'assertObjectSchema(tools.tools, "agent_team_list_teams")'
     );
     expect(smokeScript).toContain(
+      'assertObjectSchema(tools.tools, "agent_team_dashboard")'
+    );
+    expect(smokeScript).toContain(
+      'assertValidationError(client, "agent_team_dashboard", {})'
+    );
+    expect(smokeScript).toContain(
       'assertToolRequires(tools.tools, "agent_team_cancel_many", ["runs"])'
     );
     expect(smokeScript).toContain(

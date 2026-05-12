@@ -137,6 +137,21 @@ Use the team record's `runs` array with `agent_team_status_many` for per-run sta
 
 Status results show durable sidecar state. Treat `awaiting-input` as a request for operator input, not as a failure.
 
+## Open The Team Dashboard
+
+Use `agent_team_dashboard` for a read-only dashboard that combines a team record or explicit run refs with compact counts, ordered rows, mailbox pointers, cleanup state, and evidence paths:
+
+```json
+{
+  "cwd": "/absolute/path/to/workspace",
+  "teamId": "team_example"
+}
+```
+
+You can also pass the same `runs` array used by `agent_team_status_many` when you do not have a saved team record. The dashboard is an operator view only; it does not start, resume, message, cancel, wind down, clean up, or call providers.
+
+If the dashboard encounters corrupt team, sidecar, or mailbox state, it reports `state_corrupt` evidence and leaves the inspected artifact in place for review. Use the dedicated recovery/control tools when you intentionally want state repair or lifecycle mutation.
+
 ## Inspect The Team Summary
 
 Use the team record's `runs` array with `agent_team_summary` for the compact team view:

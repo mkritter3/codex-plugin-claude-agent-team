@@ -136,6 +136,19 @@ const listTeamsInputSchema = {
   cwd
 };
 
+const dashboardInputSchema = {
+  teamId: teamId
+    .optional()
+    .describe("Exactly one dashboard source is required: teamId or runs."),
+  runs: z
+    .array(teamRunInputSchema)
+    .min(1)
+    .optional()
+    .describe("Exactly one dashboard source is required: teamId or runs."),
+  cwd,
+  concurrency: z.number().int().min(1).max(8).optional()
+};
+
 const cleanupInputSchema = {
   runId,
   cwd,
@@ -236,6 +249,12 @@ export const TOOL_METADATA_BY_NAME = {
     title: "List Agent Team Records",
     description: "List durable team records for a workspace.",
     inputSchema: listTeamsInputSchema
+  },
+  agent_team_dashboard: {
+    title: "Agent Team Dashboard",
+    description:
+      "Read-only compact dashboard and evidence report for exactly one source: a team or run list.",
+    inputSchema: dashboardInputSchema
   },
   agent_team_cancel: {
     title: "Cancel Agent Session",

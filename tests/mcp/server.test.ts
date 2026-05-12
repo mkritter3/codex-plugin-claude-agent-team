@@ -41,6 +41,7 @@ vi.mock("../../src/mcp/tools.js", () => ({
     "agent_team_create_team",
     "agent_team_get_team",
     "agent_team_list_teams",
+    "agent_team_dashboard",
     "agent_team_cancel_many",
     "agent_team_wind_down_many",
     "agent_team_cleanup"
@@ -83,6 +84,7 @@ describe("MCP server", () => {
       "agent_team_create_team",
       "agent_team_get_team",
       "agent_team_list_teams",
+      "agent_team_dashboard",
       "agent_team_cancel_many",
       "agent_team_wind_down_many",
       "agent_team_cleanup"
@@ -128,6 +130,10 @@ describe("MCP server", () => {
     });
     expect(metadataByName.get("agent_team_list_teams")?.inputSchema).toMatchObject({
       cwd: expect.any(Object)
+    });
+    expect(metadataByName.get("agent_team_dashboard")?.inputSchema).toMatchObject({
+      teamId: expect.any(Object),
+      runs: expect.any(Object)
     });
     expect(metadataByName.get("agent_team_cancel_many")?.inputSchema).toMatchObject({
       runs: expect.any(Object)

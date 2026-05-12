@@ -379,10 +379,13 @@ export interface AgentTeamSummaryRunState {
   readonly workspaceRetention?: "retain-until-integrated";
   readonly workspaceCleanup?: "retained" | "removed";
   readonly workspaceStatus?: readonly string[];
+  readonly outputSummary?: string;
   readonly awaitingInputSince?: string;
   readonly pendingOutboxRequest?: AgentOutboxRequestEvidence;
   readonly outboxRequestIds?: readonly string[];
   readonly warnings?: readonly string[];
+  readonly recentActivities?: readonly ProviderSessionActivity[];
+  readonly currentActivity?: ProviderSessionActivity | null;
 }
 
 export interface AgentTeamSummaryOk {
@@ -422,6 +425,77 @@ export interface AgentTeamSummaryResult {
   readonly status: "ok" | "partial_failure";
   readonly groups: AgentTeamSummaryGroups;
   readonly runs: readonly AgentTeamSummaryRunResult[];
+}
+
+export interface AgentTeamDashboardRequest {
+  readonly cwd: string;
+  readonly teamId?: string;
+  readonly runs?: readonly AgentTeamSummaryRunRequest[];
+  readonly concurrency: number;
+}
+
+export type AgentTeamDashboardSource =
+  | {
+      readonly kind: "team";
+      readonly teamId: string;
+      readonly evidencePath: string;
+    }
+  | {
+      readonly kind: "runs";
+    };
+
+export interface AgentTeamDashboardCounts {
+  readonly total: number;
+  readonly running: number;
+  readonly awaitingInput: number;
+  readonly windingDown: number;
+  readonly terminal: number;
+  readonly failed: number;
+  readonly detached: number;
+  readonly cleanupBlocked: number;
+  readonly retainedWorktree: number;
+  readonly recovered: number;
+}
+
+export interface AgentTeamDashboardRow {
+  readonly index: number;
+  readonly runId: string;
+  readonly cwd: string;
+  readonly correlationId?: string;
+  readonly status: "ok" | "failed" | "state_corrupt";
+  readonly role?: RoleId;
+  readonly provider?: string;
+  readonly runStatus?: RunStatus;
+  readonly operationalState?: AgentTeamSummaryOperationalState;
+  readonly updatedAt?: string;
+  readonly awaitingInputSince?: string;
+  readonly latestActivity?: string;
+  readonly pendingQuestion?: boolean;
+  readonly retainedWorktree?: boolean;
+  readonly cleanupBlocked?: boolean;
+  readonly cleanupStatus?: "retained" | "removed" | "not_applicable";
+  readonly evidencePaths?: readonly string[];
+  readonly mailboxPaths?: readonly string[];
+  readonly workspaceDiffPath?: string;
+  readonly changedFiles?: readonly string[];
+  readonly error?: string;
+  readonly recovery?: unknown;
+}
+
+export interface AgentTeamDashboardIssue {
+  readonly status: "state_corrupt";
+  readonly target: "team_record";
+  readonly recovery: unknown;
+}
+
+export interface AgentTeamDashboardResult {
+  readonly status: "ok" | "partial_failure";
+  readonly source: AgentTeamDashboardSource;
+  readonly generatedAt: string;
+  readonly counts: AgentTeamDashboardCounts;
+  readonly rows: readonly AgentTeamDashboardRow[];
+  readonly issues?: readonly AgentTeamDashboardIssue[];
+  readonly report: string;
 }
 
 export interface AgentTeamRunRef {

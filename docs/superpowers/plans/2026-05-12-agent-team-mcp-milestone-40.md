@@ -52,8 +52,10 @@ MCP tool:
     - When `teamId` is provided, reads the team record from `cwd` and uses its ordered `runs` refs.
     - When `runs` is provided, top-level `cwd` defaults into child refs.
     - Delegates state inspection to `summarizeAgentTeam()` with bounded concurrency.
-    - Preserves ordered per-run results, partial failures, and state-corruption recovery evidence from summary.
+    - Preserves ordered per-run results, partial failures, and state-corruption evidence from summary.
+    - Reports dashboard corruption without archiving inspected artifacts.
     - Returns a dashboard object plus a compact text report.
+    - Uses the raw team summary as an internal projection input only; public dashboard output does not include raw summary payloads.
 
 Suggested output shape:
 
@@ -110,7 +112,6 @@ export interface AgentTeamDashboardResult {
   readonly counts: AgentTeamDashboardCounts;
   readonly rows: readonly AgentTeamDashboardRow[];
   readonly report: string;
-  readonly summary: AgentTeamSummaryResult;
 }
 ```
 
@@ -126,13 +127,13 @@ The report must not include internal prompts, prompt hashes, provider session id
 
 ## L11 Quality Gates
 
-- [ ] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
-- [ ] TDD red proof is captured for new behavior.
-- [ ] Focused milestone tests are listed with expected red and green outcomes.
-- [ ] Full verification commands are listed.
-- [ ] Required edge cases from the matrix are explicitly selected.
-- [ ] Invariant scans are listed.
-- [ ] Live provider smoke is marked required or not required with rationale.
+- [x] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
+- [x] TDD red proof is captured for new behavior.
+- [x] Focused milestone tests are listed with expected red and green outcomes.
+- [x] Full verification commands are listed.
+- [x] Required edge cases from the matrix are explicitly selected.
+- [x] Invariant scans are listed.
+- [x] Live provider smoke is marked required or not required with rationale.
 
 Selected quality-gate rows:
 
@@ -140,6 +141,7 @@ Selected quality-gate rows:
 - MCP handlers: validation returns `validation_error` before state reads; unknown tools remain explicit; injected dependencies are not called on invalid input.
 - State stores: team record reads remain strict; corrupt team JSON surfaces through shared recovery in the dashboard tool.
 - Corruption recovery: corrupt team record or per-run sidecar/mailbox produces `state_corrupt` evidence without hiding later runs.
+- Dashboard read-only posture: corrupt team records, sidecars, and mailboxes are reported without moving inspected artifacts into archive.
 - Documentation: user docs explain the dashboard as read-only operator visibility and do not expose internal prompts.
 - Boundary scan: fallback, bypass, benchmark/model-quality, provider-specific schema, prompt leakage, cleanup, process-kill, and dashboard/control shortcuts are reviewed.
 
@@ -153,6 +155,7 @@ Live provider smoke is not required for M40 because the dashboard is a local rea
 - Explicit `runs` uses safe `run_` ids and top-level `cwd` defaulting.
 - Dashboard delegates per-run state/evidence inspection to `summarizeAgentTeam()` or a shared helper rather than duplicating sidecar/mailbox readers.
 - Results preserve input order, per-run addressability, bounded concurrency, partial failures, and recovery evidence.
+- Corrupt state encountered through the dashboard is reported without archiving inspected artifacts.
 - Dashboard rows show run state, awaiting-input signal, latest activity summary, evidence paths, retained worktree status, cleanup status, and changed files where present.
 - The text report is deterministic and compact.
 - Public output does not include prompt hashes, provider session ids, internal prompt text, hidden instructions, provider commands, raw mailbox payloads, process ids, or secrets.
@@ -167,7 +170,7 @@ Live provider smoke is not required for M40 because the dashboard is a local rea
 - Create: `tests/core/team-dashboard.test.ts`
 - Modify: `src/core/types.ts`
 
-- [ ] **Step 1: Write failing dashboard projection tests**
+- [x] **Step 1: Write failing dashboard projection tests**
 
 Add tests proving:
 
@@ -193,11 +196,11 @@ Expected red: `src/core/team-dashboard.ts` and dashboard types do not exist yet.
 - Modify: `src/core/types.ts`
 - Create: `src/core/team-dashboard.ts`
 
-- [ ] **Step 1: Add dashboard types**
+- [x] **Step 1: Add dashboard types**
 
 Add `AgentTeamDashboardRequest`, `AgentTeamDashboardSource`, `AgentTeamDashboardCounts`, `AgentTeamDashboardRow`, and `AgentTeamDashboardResult` to `src/core/types.ts`.
 
-- [ ] **Step 2: Implement dashboard projection**
+- [x] **Step 2: Implement dashboard projection**
 
 Create `src/core/team-dashboard.ts` with:
 
@@ -214,6 +217,7 @@ Implementation rules:
 - Build counts from summary groups and result item statuses.
 - Preserve `summary.runs` order exactly.
 - Use only already-sanitized summary fields.
+- Do not include the raw `AgentTeamSummaryResult` in public dashboard output.
 - Collect evidence pointers only: sidecar/log/transcript/workspace diff/evidence/mailbox paths/changed files.
 - Derive `cleanupStatus` as `removed`, `retained`, or `not_applicable`.
 - Produce deterministic report lines.
@@ -235,7 +239,7 @@ Expected green: core dashboard projection tests pass.
 - Modify: `tests/mcp/tools.test.ts`
 - Modify: `tests/mcp/server.test.ts`
 
-- [ ] **Step 1: Write failing MCP tests**
+- [x] **Step 1: Write failing MCP tests**
 
 Add tests proving:
 
@@ -256,7 +260,7 @@ npm test -- tests/mcp/tools.test.ts tests/mcp/server.test.ts
 
 Expected red: `agent_team_dashboard` tool, schema, parser, and handler do not exist.
 
-- [ ] **Step 2: Implement schemas and handler**
+- [x] **Step 2: Implement schemas and handler**
 
 Add `dashboardInputSchema` and metadata in `src/mcp/schemas.ts`.
 
@@ -293,7 +297,7 @@ Expected green: MCP dashboard contract and registration tests pass.
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-long-term-roadmap.md`
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-milestone-40.md`
 
-- [ ] **Step 1: Write/update failing package and docs tests**
+- [x] **Step 1: Write/update failing package and docs tests**
 
 Add test expectations proving:
 
@@ -310,7 +314,7 @@ npm test -- tests/package-runtime.test.ts tests/docs/runbook.test.ts tests/docs/
 
 Expected red: package smoke and docs do not mention `agent_team_dashboard` yet.
 
-- [ ] **Step 2: Update package smoke and docs**
+- [x] **Step 2: Update package smoke and docs**
 
 Update docs to say:
 
@@ -335,7 +339,7 @@ Expected green: package/docs tests pass.
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-long-term-roadmap.md`
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-milestone-40.md`
 
-- [ ] **Step 1: Run focused milestone tests**
+- [x] **Step 1: Run focused milestone tests**
 
 Run:
 
@@ -343,7 +347,7 @@ Run:
 npm test -- tests/core/team-dashboard.test.ts tests/mcp/tools.test.ts tests/mcp/server.test.ts tests/package-runtime.test.ts tests/docs/runbook.test.ts tests/docs/packaging.test.ts
 ```
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -355,7 +359,7 @@ npm run smoke:mcp-stdio
 npm run ci
 ```
 
-- [ ] **Step 3: Run invariant scans**
+- [x] **Step 3: Run invariant scans**
 
 Run:
 
@@ -367,7 +371,7 @@ rg "internal prompt|hidden instruction|generated agent definition|provider-speci
 rg "process.kill|SIGKILL|automatic cleanup|workspace_cleanup_removed|cleanupRunWorkspace|agent_team_dashboard|dashboard.*cancel|dashboard.*wind_down|dashboard.*cleanup" src tests docs README.md CHANGELOG.md
 ```
 
-- [ ] **Step 4: Mark milestone complete**
+- [x] **Step 4: Mark milestone complete**
 
 Update this plan with verification evidence and mark checkboxes complete only after proof is captured.
 
@@ -378,7 +382,7 @@ Update roadmap:
 - Add M40 status: complete, read-only, evidence-oriented.
 - Move near-term recommendation to M41/M42 plus the next scoped milestone if present.
 
-- [ ] **Step 5: Commit implementation branch**
+- [x] **Step 5: Commit implementation branch**
 
 Run:
 
@@ -391,9 +395,16 @@ git commit -m "feat: add team dashboard report"
 
 ## Verification Evidence
 
-- Baseline before implementation: pending.
-- Red proof: pending.
-- Focused milestone proof: pending.
-- Full proof: pending.
-- Packaged stdio smoke: pending.
-- Invariant scans: pending.
+- Baseline before implementation: `npm test` passed with 48 files and 382 tests.
+- Red proof: `npm test -- tests/core/team-dashboard.test.ts` failed because `src/core/team-dashboard.ts` did not exist yet.
+- Red proof: `npm test -- tests/mcp/tools.test.ts tests/mcp/server.test.ts` failed before MCP registration because `agent_team_dashboard` was unknown and missing metadata.
+- Review red proof: `npm test -- tests/core/team-dashboard.test.ts tests/mcp/tools.test.ts tests/package-runtime.test.ts` failed after adding regressions for failed-run counts, non-mutating corruption reporting, and packaged dashboard validation.
+- Privacy red proof: full `npm test` failed when a fixture added raw outbox `payload`, proving the dashboard must not expose raw summary objects; the fix removed raw `summary` from public dashboard output.
+- Package/docs proof: `npm test -- tests/package-runtime.test.ts tests/docs/runbook.test.ts tests/docs/packaging.test.ts` passed with 3 files and 10 tests.
+- Focused milestone proof: `npm test -- tests/core/team-dashboard.test.ts tests/mcp/tools.test.ts tests/mcp/server.test.ts tests/package-runtime.test.ts tests/docs/runbook.test.ts tests/docs/packaging.test.ts` passed with 6 files and 70 tests.
+- Typecheck: `npm run typecheck` passed.
+- Full tests: `npm test` passed with 49 files and 385 tests.
+- Build: `npm run build` passed.
+- Packaged stdio smoke: `npm run smoke:mcp-stdio` passed with `MCP stdio smoke passed.`
+- Invariant scans: dashboard/docs touched-surface scans found no API-key fallback, bypass, benchmark/model-quality, hidden prompt, provider-session, prompt-hash, or raw-payload leakage.
+- CI: `npm run ci` passed, including typecheck, 49-file/385-test suite, build, and packaged stdio smoke.

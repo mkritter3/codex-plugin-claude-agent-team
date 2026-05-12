@@ -16,6 +16,7 @@ All notable changes to this private local plugin are recorded here.
 - Added explicit Grok profiles backed by the OpenAI-compatible runtime for configured read-only chat-completions dispatch with provider-scoped auth env checks.
 - Added capability-first provider selection policy with role pins, provider order, neutral request selectors, and doctor routing explanations.
 - Added durable team record tools for grouping related run ids without replacing per-run sidecars or lifecycle tools.
+- Added `agent_team_dashboard` as a read-only dashboard and evidence report over saved teams or explicit run refs, including non-mutating corrupt-state reporting.
 - Added the Claude team session runbook and packaging hardening docs.
 
 ## Versioning Policy

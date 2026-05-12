@@ -2,7 +2,7 @@ import type { StateCorruptionError, StateCorruptionKind } from "../errors.js";
 import { archiveCorruptStateFile } from "./archive.js";
 
 export type StateRecoveryStatus = "state_corrupt";
-export type StateRecoveryAction = "archived" | "unarchived";
+export type StateRecoveryAction = "archived" | "unarchived" | "reported";
 
 export interface StateCorruptionRecoveryInput {
   readonly workspaceRoot: string;
@@ -65,5 +65,21 @@ export async function recoverStateCorruption(
     recovery: "archived",
     interventionRequired: true,
     message: `State corruption detected during ${operation}. The corrupt ${archived.kind} artifact was archived and user intervention is required.`
+  };
+}
+
+export function reportStateCorruption(
+  input: StateCorruptionRecoveryInput
+): StateCorruptionRecoveryResult {
+  const operation = operationMessage(input.operation);
+  return {
+    status: "state_corrupt",
+    ...(input.runId === undefined ? {} : { runId: input.runId }),
+    ...(input.operation === undefined ? {} : { operation: input.operation }),
+    ...(input.error.kind === undefined ? {} : { kind: input.error.kind }),
+    ...(input.error.path === undefined ? {} : { originalPath: input.error.path }),
+    recovery: "reported",
+    interventionRequired: true,
+    message: `State corruption detected during ${operation}. The corrupt artifact was left in place for read-only inspection and user intervention is required.`
   };
 }
