@@ -262,6 +262,54 @@ export interface AgentMessageManyResult {
   readonly messages: readonly AgentMessageManyItem[];
 }
 
+export interface AgentWindDownManyRun {
+  readonly runId: string;
+  readonly cwd: string;
+  readonly correlationId?: string;
+}
+
+export interface AgentWindDownManyRequest {
+  readonly runs: readonly AgentWindDownManyRun[];
+  readonly concurrency: number;
+}
+
+export interface AgentWindDownManyOk {
+  readonly status: "ok";
+  readonly index: number;
+  readonly runId: string;
+  readonly cwd: string;
+  readonly correlationId?: string;
+  readonly result: AgentControlResult;
+}
+
+export interface AgentWindDownManyFailed {
+  readonly status: "failed";
+  readonly index: number;
+  readonly runId: string;
+  readonly cwd: string;
+  readonly correlationId?: string;
+  readonly error: string;
+}
+
+export interface AgentWindDownManyRecovered {
+  readonly status: "state_corrupt";
+  readonly index: number;
+  readonly runId: string;
+  readonly cwd: string;
+  readonly correlationId?: string;
+  readonly recovery: unknown;
+}
+
+export type AgentWindDownManyItem =
+  | AgentWindDownManyOk
+  | AgentWindDownManyFailed
+  | AgentWindDownManyRecovered;
+
+export interface AgentWindDownManyResult {
+  readonly status: "ok" | "partial_failure";
+  readonly runs: readonly AgentWindDownManyItem[];
+}
+
 export interface AgentControlResult {
   readonly runId: string;
   readonly status: RunStatus;
