@@ -8,7 +8,7 @@ All notable changes to this private local plugin are recorded here.
 - Added provider-neutral roles, capabilities, routing, lifecycle state, sidecars, mailboxes, logs, verdicts, recovery, cleanup, and doctor checks.
 - Added Claude Code CLI subscription OAuth as the primary v1 provider adapter.
 - Added durable background runs, status, message, reply, cancel, wind-down, cleanup, timeout expiry, detached reconciliation, and retained isolated implementation worktrees.
-- Added bounded team tools for start, status, message, summary, and wind-down.
+- Added bounded team tools for start, status, message, summary, cancel, and wind-down.
 - Added the Claude team session runbook and packaging hardening docs.
 
 ## Versioning Policy

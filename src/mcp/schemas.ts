@@ -116,6 +116,18 @@ const cleanupInputSchema = {
   force
 };
 
+const cancelManyRunInputSchema = z.object({
+  runId,
+  cwd,
+  correlationId
+});
+
+const cancelManyInputSchema = {
+  runs: z.array(cancelManyRunInputSchema).min(1),
+  cwd,
+  concurrency: z.number().int().min(1).max(8).optional()
+};
+
 const windDownManyRunInputSchema = z.object({
   runId,
   cwd,
@@ -188,6 +200,11 @@ export const TOOL_METADATA_BY_NAME = {
     title: "Cancel Agent Session",
     description: "Request cancellation for an active or durable run.",
     inputSchema: statusInputSchema
+  },
+  agent_team_cancel_many: {
+    title: "Cancel Agent Sessions",
+    description: "Request cancellation for multiple active or durable runs with bounded concurrency.",
+    inputSchema: cancelManyInputSchema
   },
   agent_team_wind_down: {
     title: "Wind Down Agent Session",

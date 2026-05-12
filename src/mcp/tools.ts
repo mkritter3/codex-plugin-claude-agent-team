@@ -1,5 +1,6 @@
 import { resolve } from "node:path";
 import { runDoctor } from "../doctor.js";
+import { cancelAgentRuns } from "../core/cancel-many.js";
 import { loadAgentTeamConfig } from "../core/config.js";
 import { dispatchReadOnlyAgent } from "../core/dispatch.js";
 import { StateCorruptionError } from "../core/errors.js";
@@ -20,6 +21,8 @@ import { windDownAgentRuns } from "../core/wind-down-many.js";
 import type {
   AgentCleanupRequest,
   AgentCleanupResult,
+  AgentCancelManyRequest,
+  AgentCancelManyRun,
   AgentControlResult,
   AgentDispatchRequest,
   AgentMessageManyItemRequest,
@@ -55,6 +58,7 @@ export const TOOL_NAMES = [
   "agent_team_status_many",
   "agent_team_summary",
   "agent_team_cancel",
+  "agent_team_cancel_many",
   "agent_team_wind_down",
   "agent_team_wind_down_many",
   "agent_team_cleanup",
@@ -561,6 +565,86 @@ function parseMessageManyArgs(
   };
 }
 
+function parseCancelManyArgs(
+  args: Record<string, unknown>,
+  cwd: string
+): AgentCancelManyRequest | JsonToolResult {
+  if (!Array.isArray(args.runs) || args.runs.length === 0) {
+    return validationError("agent_team_cancel_many requires a non-empty runs array.");
+  }
+
+  const defaultCwd = readOptionalString(
+    args.cwd,
+    "agent_team_cancel_many cwd must be a string."
+  );
+  if (typeof defaultCwd === "object") {
+    return defaultCwd;
+  }
+
+  const concurrency = args.concurrency === undefined ? 8 : args.concurrency;
+  if (
+    typeof concurrency !== "number" ||
+    !Number.isInteger(concurrency) ||
+    concurrency < 1 ||
+    concurrency > 8
+  ) {
+    return validationError(
+      "agent_team_cancel_many concurrency must be an integer from 1 to 8."
+    );
+  }
+
+  const runs: AgentCancelManyRun[] = [];
+  const seenTargets = new Set<string>();
+  for (const [index, value] of args.runs.entries()) {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      return validationError(`agent_team_cancel_many runs[${index}] must be an object.`);
+    }
+
+    const run = value as Record<string, unknown>;
+    if (typeof run.runId !== "string" || run.runId.trim().length === 0) {
+      return validationError(
+        `agent_team_cancel_many runs[${index}] requires a non-empty runId.`
+      );
+    }
+
+    const itemCwd = readOptionalString(
+      run.cwd,
+      `agent_team_cancel_many runs[${index}] cwd must be a string.`
+    );
+    if (typeof itemCwd === "object") {
+      return itemCwd;
+    }
+
+    const correlationId = readOptionalString(
+      run.correlationId,
+      `agent_team_cancel_many runs[${index}] correlationId must be a string.`
+    );
+    if (typeof correlationId === "object") {
+      return correlationId;
+    }
+
+    const resolvedCwd = itemCwd ?? defaultCwd ?? cwd;
+    const targetKey = `${resolve(resolvedCwd)}\0${run.runId}`;
+    if (seenTargets.has(targetKey)) {
+      return validationError(
+        `agent_team_cancel_many runs[${index}] duplicates target ${run.runId}.`
+      );
+    }
+    seenTargets.add(targetKey);
+
+    runs.push({
+      runId: run.runId,
+      cwd: resolvedCwd,
+      ...(correlationId === undefined ? {} : { correlationId })
+    });
+  }
+
+  return {
+    runs,
+    concurrency
+  };
+}
+
 function parseWindDownManyArgs(
   args: Record<string, unknown>,
   cwd: string
@@ -908,6 +992,21 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
                 : await lifecycle.windDownRun(workspaceRoot, runId);
             return jsonToolResult({ ...result });
           }
+        });
+      }
+
+      if (name === "agent_team_cancel_many") {
+        const parsed = parseCancelManyArgs(args, cwd());
+        if ("content" in parsed) {
+          return parsed;
+        }
+
+        return jsonToolResult({
+          ...(await cancelAgentRuns(parsed, {
+            cancelRun: async (workspaceRoot, runId) =>
+              (await lifecycleFor(workspaceRoot)).cancelRun(workspaceRoot, runId),
+            recoverStateCorruption: async (input) => recoverStateCorruption(input)
+          }))
         });
       }
 

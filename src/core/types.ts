@@ -421,6 +421,54 @@ export interface AgentWindDownManyResult {
   readonly runs: readonly AgentWindDownManyItem[];
 }
 
+export interface AgentCancelManyRun {
+  readonly runId: string;
+  readonly cwd: string;
+  readonly correlationId?: string;
+}
+
+export interface AgentCancelManyRequest {
+  readonly runs: readonly AgentCancelManyRun[];
+  readonly concurrency: number;
+}
+
+export interface AgentCancelManyOk {
+  readonly status: "ok";
+  readonly index: number;
+  readonly runId: string;
+  readonly cwd: string;
+  readonly correlationId?: string;
+  readonly result: AgentControlResult;
+}
+
+export interface AgentCancelManyFailed {
+  readonly status: "failed";
+  readonly index: number;
+  readonly runId: string;
+  readonly cwd: string;
+  readonly correlationId?: string;
+  readonly error: string;
+}
+
+export interface AgentCancelManyRecovered {
+  readonly status: "state_corrupt";
+  readonly index: number;
+  readonly runId: string;
+  readonly cwd: string;
+  readonly correlationId?: string;
+  readonly recovery: unknown;
+}
+
+export type AgentCancelManyItem =
+  | AgentCancelManyOk
+  | AgentCancelManyFailed
+  | AgentCancelManyRecovered;
+
+export interface AgentCancelManyResult {
+  readonly status: "ok" | "partial_failure";
+  readonly runs: readonly AgentCancelManyItem[];
+}
+
 export interface AgentControlResult {
   readonly runId: string;
   readonly status: RunStatus;

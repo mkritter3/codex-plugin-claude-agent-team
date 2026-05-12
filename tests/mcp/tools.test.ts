@@ -1549,6 +1549,279 @@ describe("MCP tool handlers", () => {
     await expect(readFile(archivePath, "utf8")).resolves.toBe("{\"bad\"\n");
   });
 
+  it("validates cancel_many args before invoking lifecycle", async () => {
+    let called = false;
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      lifecycle: {
+        async startRun() {
+          throw new Error("should not start");
+        },
+        async getStatus() {
+          throw new Error("should not status");
+        },
+        async messageRun() {
+          throw new Error("should not message");
+        },
+        async replyRun() {
+          throw new Error("should not reply");
+        },
+        async cancelRun() {
+          called = true;
+          throw new Error("should not cancel");
+        },
+        async windDownRun() {
+          throw new Error("should not wind down");
+        }
+      }
+    });
+
+    const invalidInputs: Record<string, unknown>[] = [
+      {},
+      { runs: [] },
+      { runs: [1] },
+      { runs: [{}] },
+      { runs: [{ runId: "" }] },
+      { runs: [{ runId: "run_1", cwd: 1 }] },
+      { runs: [{ runId: "run_1", correlationId: "" }] },
+      { cwd: "", runs: [{ runId: "run_1" }] },
+      { runs: [{ runId: "run_1" }], concurrency: 0 },
+      { runs: [{ runId: "run_1" }], concurrency: 9 },
+      { runs: [{ runId: "run_1" }], concurrency: 1.5 },
+      {
+        runs: [{ runId: "run_1" }, { runId: "run_1" }]
+      },
+      {
+        runs: [{ runId: "run_1" }, { runId: "run_1", cwd: "/repo/." }]
+      }
+    ];
+
+    for (const input of invalidInputs) {
+      const result = await handlers.handleToolCall("agent_team_cancel_many", input);
+      expect(result.structuredContent?.status).toBe("validation_error");
+    }
+    expect(called).toBe(false);
+  });
+
+  it("cancels many runs through the lifecycle registry with default and per-run cwd", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-cancel-many-"));
+    const otherWorkspace = await mkdtemp(join(tmpdir(), "agent-team-cancel-many-other-"));
+    const managerByCwd = new Map<string, string>();
+    const calls: string[] = [];
+    let managerCount = 0;
+    const handlers = createToolHandlers({
+      cwd: () => workspace,
+      lifecycleFactory: () => {
+        managerCount += 1;
+        const managerId = `manager_${managerCount}`;
+        return {
+          async startRun() {
+            throw new Error("should not start");
+          },
+          async getStatus() {
+            throw new Error("should not status");
+          },
+          async messageRun() {
+            throw new Error("should not message");
+          },
+          async replyRun() {
+            throw new Error("should not reply");
+          },
+          async cancelRun(cwd, runId) {
+            managerByCwd.set(cwd, managerId);
+            calls.push(`${managerId}:${cwd}:${runId}`);
+            return {
+              runId,
+              status: runId === "run_b" ? "cancelling" : "cancelled",
+              sidecarPath: `${cwd}/.agent-team/runs/${runId}.json`,
+              message:
+                runId === "run_b"
+                  ? "Cancellation intent recorded."
+                  : "Run cancelled."
+            };
+          },
+          async windDownRun() {
+            throw new Error("should not wind down");
+          }
+        };
+      }
+    });
+
+    const result = await handlers.handleToolCall("agent_team_cancel_many", {
+      cwd: workspace,
+      concurrency: 2,
+      runs: [
+        { runId: "run_a", correlationId: "a" },
+        { runId: "run_b", cwd: otherWorkspace, correlationId: "b" },
+        { runId: "run_c" }
+      ]
+    });
+
+    expect(managerByCwd.get(workspace)).toBeDefined();
+    expect(managerByCwd.get(otherWorkspace)).toBeDefined();
+    expect(managerByCwd.get(workspace)).not.toBe(managerByCwd.get(otherWorkspace));
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        `${managerByCwd.get(workspace)}:${workspace}:run_a`,
+        `${managerByCwd.get(workspace)}:${workspace}:run_c`,
+        `${managerByCwd.get(otherWorkspace)}:${otherWorkspace}:run_b`
+      ])
+    );
+    expect(result.structuredContent).toMatchObject({
+      status: "ok",
+      runs: [
+        {
+          status: "ok",
+          index: 0,
+          runId: "run_a",
+          cwd: workspace,
+          correlationId: "a",
+          result: { runId: "run_a", status: "cancelled" }
+        },
+        {
+          status: "ok",
+          index: 1,
+          runId: "run_b",
+          cwd: otherWorkspace,
+          correlationId: "b",
+          result: { runId: "run_b", status: "cancelling" }
+        },
+        {
+          status: "ok",
+          index: 2,
+          runId: "run_c",
+          cwd: workspace,
+          result: { runId: "run_c", status: "cancelled" }
+        }
+      ]
+    });
+  });
+
+  it("returns partial failures from cancel_many without dropping later runs", async () => {
+    const attempted: string[] = [];
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      lifecycle: {
+        async startRun() {
+          throw new Error("should not start");
+        },
+        async getStatus() {
+          throw new Error("should not status");
+        },
+        async messageRun() {
+          throw new Error("should not message");
+        },
+        async replyRun() {
+          throw new Error("should not reply");
+        },
+        async cancelRun(_cwd, runId) {
+          attempted.push(runId);
+          if (runId === "run_bad") {
+            throw new Error("cancel failed");
+          }
+          return {
+            runId,
+            status: "cancelled",
+            sidecarPath: `/repo/.agent-team/runs/${runId}.json`,
+            message: "Run cancelled."
+          };
+        },
+        async windDownRun() {
+          throw new Error("should not wind down");
+        }
+      }
+    });
+
+    const result = await handlers.handleToolCall("agent_team_cancel_many", {
+      concurrency: 1,
+      runs: [
+        { runId: "run_ok_1" },
+        { runId: "run_bad", correlationId: "bad" },
+        { runId: "run_ok_2" }
+      ]
+    });
+
+    expect(attempted).toEqual(["run_ok_1", "run_bad", "run_ok_2"]);
+    expect(result.structuredContent).toMatchObject({
+      status: "partial_failure",
+      runs: [
+        { status: "ok", index: 0, runId: "run_ok_1" },
+        {
+          status: "failed",
+          index: 1,
+          runId: "run_bad",
+          cwd: "/repo",
+          correlationId: "bad",
+          error: "cancel failed"
+        },
+        { status: "ok", index: 2, runId: "run_ok_2" }
+      ]
+    });
+  });
+
+  it("recovers one corrupt cancel_many sidecar and still returns later cancellation results", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-cancel-many-corrupt-"));
+    await writeRunSidecar(workspace, {
+      runId: "run_ok_many_cancel",
+      role: "planner",
+      provider: "claude-code-cli",
+      status: "running",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:00:01.000Z",
+      capabilitiesUsed: ["structuredOutput", "cancellation"],
+      evidencePaths: []
+    });
+    const corruptPath = runSidecarPath(workspace, "run_corrupt_many_cancel");
+    await mkdir(join(workspace, ".agent-team", "runs"), { recursive: true });
+    await writeFile(corruptPath, "{\"bad\"\n", "utf8");
+    const handlers = createToolHandlers({ cwd: () => workspace });
+
+    const result = await handlers.handleToolCall("agent_team_cancel_many", {
+      runs: [
+        { runId: "run_corrupt_many_cancel", correlationId: "bad" },
+        { runId: "run_ok_many_cancel" }
+      ]
+    });
+
+    expect(result.structuredContent).toMatchObject({
+      status: "partial_failure",
+      runs: [
+        {
+          status: "state_corrupt",
+          index: 0,
+          runId: "run_corrupt_many_cancel",
+          cwd: workspace,
+          correlationId: "bad",
+          recovery: {
+            status: "state_corrupt",
+            runId: "run_corrupt_many_cancel",
+            operation: "agent_team_cancel_many",
+            kind: "json",
+            originalPath: corruptPath,
+            recovery: "archived",
+            interventionRequired: true
+          }
+        },
+        {
+          status: "ok",
+          index: 1,
+          runId: "run_ok_many_cancel",
+          cwd: workspace,
+          result: {
+            status: "running",
+            detached: true,
+            message: expect.stringContaining("No active process")
+          }
+        }
+      ]
+    });
+    const archivePath = (
+      result.structuredContent?.runs as Array<{ recovery?: { archivePath?: string } }>
+    )[0]?.recovery?.archivePath as string;
+    expect(archivePath).toContain(join(".agent-team", "archive"));
+    await expect(readFile(archivePath, "utf8")).resolves.toBe("{\"bad\"\n");
+  });
+
   it("validates wind_down_many args before invoking lifecycle", async () => {
     let called = false;
     const handlers = createToolHandlers({
@@ -2349,6 +2622,7 @@ describe("MCP tool handlers", () => {
       "agent_team_status_many",
       "agent_team_summary",
       "agent_team_cancel",
+      "agent_team_cancel_many",
       "agent_team_wind_down",
       "agent_team_wind_down_many",
       "agent_team_cleanup",

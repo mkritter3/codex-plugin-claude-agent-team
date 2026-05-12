@@ -39,13 +39,13 @@
 
 ## L11 Quality Gates
 
-- [ ] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
-- [ ] TDD red proof is captured for new behavior.
-- [ ] Focused milestone tests are listed with expected red and green outcomes.
-- [ ] Full verification commands are listed.
-- [ ] Required edge cases from the matrix are explicitly selected.
-- [ ] Invariant scans are listed.
-- [ ] Live provider smoke is marked required or not required with rationale.
+- [x] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
+- [x] TDD red proof is captured for new behavior.
+- [x] Focused milestone tests are listed with expected red and green outcomes.
+- [x] Full verification commands are listed.
+- [x] Required edge cases from the matrix are explicitly selected.
+- [x] Invariant scans are listed.
+- [x] Live provider smoke is marked required or not required with rationale.
 
 Selected quality-gate rows:
 
@@ -90,7 +90,7 @@ Live provider smoke is not required for this milestone because M29 adds a provid
 - Modify: `src/core/types.ts`
 - Create: `tests/core/cancel-many.test.ts`
 
-- [ ] **Step 1: Write failing core batch-cancel tests**
+- [x] **Step 1: Write failing core batch-cancel tests**
 
 Create `tests/core/cancel-many.test.ts` with tests proving:
 
@@ -106,13 +106,13 @@ Run:
 npm test -- tests/core/cancel-many.test.ts
 ```
 
-Expected: FAIL because `src/core/cancel-many.ts` does not exist yet.
+Observed: FAIL because `src/core/cancel-many.ts` did not exist yet.
 
-- [ ] **Step 2: Add batch-cancel types**
+- [x] **Step 2: Add batch-cancel types**
 
 In `src/core/types.ts`, add request/result types matching the existing batch wind-down type shape but named `AgentCancelManyRun`, `AgentCancelManyRequest`, `AgentCancelManyOk`, `AgentCancelManyFailed`, `AgentCancelManyRecovered`, `AgentCancelManyItem`, and `AgentCancelManyResult`.
 
-- [ ] **Step 3: Implement bounded batch-cancel helper**
+- [x] **Step 3: Implement bounded batch-cancel helper**
 
 In `src/core/cancel-many.ts`, export:
 
@@ -140,7 +140,7 @@ Implementation requirements:
 - map other thrown errors to `{ status: "failed", index, runId, cwd, correlationId?, error }`
 - return top-level `partial_failure` when any item is not `ok`
 
-- [ ] **Step 4: Run focused core tests**
+- [x] **Step 4: Run focused core tests**
 
 Run:
 
@@ -148,7 +148,7 @@ Run:
 npm test -- tests/core/cancel-many.test.ts
 ```
 
-Expected: PASS.
+Observed: PASS.
 
 ## Task 2: MCP Schema And Handler
 
@@ -159,7 +159,7 @@ Expected: PASS.
 - Modify: `tests/mcp/tools.test.ts`
 - Modify: `tests/mcp/server.test.ts`
 
-- [ ] **Step 1: Write failing MCP tests**
+- [x] **Step 1: Write failing MCP tests**
 
 Add tests proving:
 
@@ -175,9 +175,9 @@ Run:
 npm test -- tests/mcp/tools.test.ts tests/mcp/server.test.ts
 ```
 
-Expected: FAIL because `agent_team_cancel_many` is unknown.
+Observed: FAIL because `agent_team_cancel_many` was unknown and had no metadata.
 
-- [ ] **Step 2: Add public schema**
+- [x] **Step 2: Add public schema**
 
 In `src/mcp/schemas.ts`, add a `cancelManyRunInputSchema` and `cancelManyInputSchema` matching `runs`, `cwd`, and optional `concurrency`, then add metadata:
 
@@ -191,7 +191,7 @@ agent_team_cancel_many: {
 
 The description must not mention provider internals, prompts, process ids, cleanup, or wind-down.
 
-- [ ] **Step 3: Add parser and handler**
+- [x] **Step 3: Add parser and handler**
 
 In `src/mcp/tools.ts`:
 
@@ -203,7 +203,7 @@ In `src/mcp/tools.ts`:
 
 Do not call `windDownRun`, `cleanupRunWorkspace`, `messageRun`, `replyRun`, provider APIs, or direct mailbox writers in the batch tool.
 
-- [ ] **Step 4: Run focused MCP tests**
+- [x] **Step 4: Run focused MCP tests**
 
 Run:
 
@@ -211,7 +211,7 @@ Run:
 npm test -- tests/mcp/tools.test.ts tests/mcp/server.test.ts
 ```
 
-Expected: PASS.
+Observed: PASS.
 
 ## Task 3: Packaged Runtime And Docs
 
@@ -223,7 +223,7 @@ Expected: PASS.
 - Modify: `CHANGELOG.md`
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-long-term-roadmap.md`
 
-- [ ] **Step 1: Write failing packaged-runtime assertions**
+- [x] **Step 1: Write failing packaged-runtime assertions**
 
 Update `tests/package-runtime.test.ts` to require:
 
@@ -239,9 +239,9 @@ Run:
 npm test -- tests/package-runtime.test.ts
 ```
 
-Expected: FAIL because the smoke script does not assert `agent_team_cancel_many`.
+Observed: FAIL because the smoke script did not assert `agent_team_cancel_many`.
 
-- [ ] **Step 2: Add smoke coverage**
+- [x] **Step 2: Add smoke coverage**
 
 In `scripts/smoke-mcp-stdio.mjs`, assert:
 
@@ -249,7 +249,7 @@ In `scripts/smoke-mcp-stdio.mjs`, assert:
 assertToolRequires(tools.tools, "agent_team_cancel_many", ["runs"]);
 ```
 
-- [ ] **Step 3: Update docs and roadmap**
+- [x] **Step 3: Update docs and roadmap**
 
 Update:
 
@@ -257,7 +257,7 @@ Update:
 - `CHANGELOG.md` `0.1.0` section to mention batch cancellation support.
 - roadmap current baseline and near-term recommendation to show V1 batch cancel is complete and provider adapter conformance is next.
 
-- [ ] **Step 4: Run focused package/docs tests**
+- [x] **Step 4: Run focused package/docs tests**
 
 Run:
 
@@ -265,7 +265,7 @@ Run:
 npm test -- tests/package-runtime.test.ts tests/docs/packaging.test.ts tests/docs/runbook.test.ts
 ```
 
-Expected: PASS.
+Observed: PASS.
 
 ## Task 4: Verification And Integration
 
@@ -273,7 +273,7 @@ Expected: PASS.
 
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-milestone-29.md`
 
-- [ ] **Step 1: Run focused milestone tests**
+- [x] **Step 1: Run focused milestone tests**
 
 Run:
 
@@ -281,9 +281,9 @@ Run:
 npm test -- tests/core/cancel-many.test.ts tests/mcp/tools.test.ts tests/mcp/server.test.ts tests/package-runtime.test.ts tests/docs/packaging.test.ts tests/docs/runbook.test.ts
 ```
 
-Expected: PASS.
+Observed: PASS.
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -295,9 +295,9 @@ npm run smoke:mcp-stdio
 npm run ci
 ```
 
-Expected: all PASS.
+Observed: all PASS.
 
-- [ ] **Step 3: Run invariant scans**
+- [x] **Step 3: Run invariant scans**
 
 Run:
 
@@ -308,9 +308,17 @@ rg "benchmark|model-quality|mock LLM|embedding|heuristic" src tests docs README.
 rg "process.kill|SIGKILL|automatic cleanup|workspace_cleanup_removed|cleanupRunWorkspace|agent_team_cancel_many|partial_failure|concurrency|correlationId|StateCorruptionError|recoverStateCorruption" src tests docs README.md CHANGELOG.md
 ```
 
-Expected: matches are limited to existing config/guard tests/docs and the new provider-neutral batch-cancel implementation/tests/docs. New implementation must not introduce provider-specific schemas, hidden cleanup, prompt leakage, process-kill shortcuts, API fallback, benchmark, or model-quality claims.
+Observed: matches were limited to existing config/guard tests/docs and the new provider-neutral batch-cancel implementation/tests/docs. No provider-specific schema, hidden cleanup, prompt leakage, process-kill shortcut, API fallback, benchmark, or model-quality claim was introduced.
 
-- [ ] **Step 4: Mark plan complete and commit**
+- [x] **Step 4: Mark plan complete and commit**
 
 After all proof is captured, mark the L11 gates and task checkboxes complete in this plan, then commit the implementation branch.
 
+## Verification Evidence
+
+- Baseline before implementation: `npm test` passed with 39 files and 258 tests.
+- Core red proof: `npm test -- tests/core/cancel-many.test.ts` failed because `src/core/cancel-many.ts` did not exist.
+- MCP red proof: `npm test -- tests/mcp/tools.test.ts tests/mcp/server.test.ts` failed because `agent_team_cancel_many` was unknown and had no metadata.
+- Packaged-runtime red proof: `npm test -- tests/package-runtime.test.ts` failed because stdio smoke did not assert `agent_team_cancel_many`.
+- Focused green proof: `npm test -- tests/core/cancel-many.test.ts tests/mcp/tools.test.ts tests/mcp/server.test.ts tests/package-runtime.test.ts tests/docs/packaging.test.ts tests/docs/runbook.test.ts` passed with 6 files and 65 tests.
+- Full green proof: `npm run typecheck && npm test && npm run build && npm run smoke:mcp-stdio` passed with 40 files and 266 tests plus packaged stdio smoke.

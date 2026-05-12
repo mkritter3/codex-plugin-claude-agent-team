@@ -76,6 +76,7 @@ async function main() {
     assertToolRequires(tools.tools, "agent_team_status", ["runId"]);
     assertToolRequires(tools.tools, "agent_team_status_many", ["runs"]);
     assertToolRequires(tools.tools, "agent_team_summary", ["runs"]);
+    assertToolRequires(tools.tools, "agent_team_cancel_many", ["runs"]);
     assertToolRequires(tools.tools, "agent_team_wind_down_many", ["runs"]);
     assertObjectSchema(tools.tools, "agent_team_list_roles");
 

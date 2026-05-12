@@ -83,8 +83,9 @@ Do not route around doctor failures. Claude Code CLI subscription OAuth remains 
 5. Inspect grouped evidence with `agent_team_summary`.
 6. Send updates with `agent_team_message_many`.
 7. Gracefully finalize with `agent_team_wind_down_many`.
-8. Review evidence and retained implementation worktrees.
-9. Use `agent_team_cleanup` only after review.
+8. Use `agent_team_cancel_many` only for explicit operator-driven cancellation.
+9. Review evidence and retained implementation worktrees.
+10. Use `agent_team_cleanup` only after review.
 
 For a full operator flow, see `docs/runbooks/claude-team-session.md`.
 
