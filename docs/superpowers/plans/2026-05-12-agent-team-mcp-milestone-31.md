@@ -31,13 +31,13 @@
 
 ## L11 Quality Gates
 
-- [ ] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
-- [ ] TDD red proof is captured for the runbook guard tests.
-- [ ] Focused milestone tests are listed with expected red and green outcomes.
-- [ ] Full verification commands are listed.
-- [ ] Required edge cases from the matrix are explicitly selected.
-- [ ] Invariant scans are listed.
-- [ ] Live provider smoke is marked required or not required with rationale.
+- [x] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
+- [x] TDD red proof is captured for the runbook guard tests.
+- [x] Focused milestone tests are listed with expected red and green outcomes.
+- [x] Full verification commands are listed.
+- [x] Required edge cases from the matrix are explicitly selected.
+- [x] Invariant scans are listed.
+- [x] Live provider smoke is marked required or not required with rationale.
 
 Selected quality-gate rows:
 
@@ -71,7 +71,7 @@ Live provider smoke is opt-in for this milestone because the milestone creates d
 
 - Create: `tests/docs/runbook.test.ts`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Create `tests/docs/runbook.test.ts`:
 
@@ -136,7 +136,7 @@ describe("Claude team session runbook", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify red**
+- [x] **Step 2: Run tests to verify red**
 
 Run:
 
@@ -152,7 +152,7 @@ Expected: fail because `docs/runbooks/claude-team-session.md` does not exist and
 
 - Create: `docs/runbooks/claude-team-session.md`
 
-- [ ] **Step 1: Add the runbook**
+- [x] **Step 1: Add the runbook**
 
 Create `docs/runbooks/claude-team-session.md` with:
 
@@ -166,7 +166,7 @@ Create `docs/runbooks/claude-team-session.md` with:
 - partial-failure, awaiting-input, state-corrupt, and cleanup-blocked triage
 - evidence checklist for sidecars, logs, transcript, mailboxes, verdict, workspace diff, changed files, and recovery archive paths
 
-- [ ] **Step 2: Run focused docs tests**
+- [x] **Step 2: Run focused docs tests**
 
 Run:
 
@@ -182,7 +182,7 @@ Expected: fail only on the roadmap baseline until Task 3 is complete.
 
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-long-term-roadmap.md`
 
-- [ ] **Step 1: Update current baseline**
+- [x] **Step 1: Update current baseline**
 
 Change the roadmap current baseline from `Completed through Milestone 26` to `Completed through Milestone 30` and add bullets for:
 
@@ -190,7 +190,7 @@ Change the roadmap current baseline from `Completed through Milestone 26` to `Co
 - `agent_team_wind_down_many`
 - `agent_team_summary`
 
-- [ ] **Step 2: Run focused docs tests**
+- [x] **Step 2: Run focused docs tests**
 
 Run:
 
@@ -206,11 +206,11 @@ Expected: pass.
 
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-milestone-31.md`
 
-- [ ] **Step 1: Mark completed gates**
+- [x] **Step 1: Mark completed gates**
 
 After implementation and verification, mark this plan’s L11 checklist and task checkboxes complete.
 
-- [ ] **Step 2: Run focused verification**
+- [x] **Step 2: Run focused verification**
 
 Commands:
 
@@ -222,7 +222,7 @@ npm run build
 node scripts/smoke-mcp-stdio.mjs
 ```
 
-- [ ] **Step 3: Run invariant scans**
+- [x] **Step 3: Run invariant scans**
 
 Commands:
 
@@ -232,7 +232,7 @@ rg -n "api[- ]key fallback|ANTHROPIC_API_KEY=.*|ANTHROPIC_AUTH_TOKEN=.*|internal
 rg -n "agent_team_(start_parallel|status_many|summary|message_many|wind_down_many|cleanup)" docs/runbooks/claude-team-session.md tests/docs/runbook.test.ts
 ```
 
-- [ ] **Step 4: Run full CI**
+- [x] **Step 4: Run full CI**
 
 Command:
 

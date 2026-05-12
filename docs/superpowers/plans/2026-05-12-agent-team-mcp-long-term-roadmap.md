@@ -27,7 +27,7 @@ Codex should be able to stand up and manage an external AI agent team from insid
 
 ## Current Baseline
 
-Completed through Milestone 26:
+Completed through Milestone 30:
 
 - package scaffold, MCP server, CI, stdio smoke, and schema coverage
 - provider-neutral roles, capabilities, router, config, and doctor
@@ -38,6 +38,9 @@ Completed through Milestone 26:
 - Claude role policy, generated agent definitions, artifact drift guard, provider health checks
 - `agent_team_start_parallel`
 - `agent_team_status_many`
+- `agent_team_message_many`
+- `agent_team_wind_down_many`
+- `agent_team_summary`
 
 ## Roadmap Shape
 
@@ -273,11 +276,8 @@ V1.5 is complete when at least one non-Claude provider can be configured explici
 
 Implement the next milestones in this order:
 
-1. Milestone 27: Batch Message
-2. Milestone 28: Batch Wind-Down
-3. Milestone 30: Team Summary
-4. Milestone 31: End-To-End Claude Team Runbook
-5. Milestone 32: V1 Packaging And Release Hardening
-6. Milestone 29: Batch Cancel, either before or after the runbook depending on how often explicit multi-cancel feels necessary during live use
+1. Milestone 31: End-To-End Claude Team Runbook
+2. Milestone 32: V1 Packaging And Release Hardening
+3. Milestone 29: Batch Cancel, if the runbook or live usage shows explicit multi-cancel is operationally urgent
 
 This order finishes in-flight communication and graceful shutdown before adding provider breadth.
