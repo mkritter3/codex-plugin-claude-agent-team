@@ -213,13 +213,15 @@ Do not route around doctor failures. Claude Code CLI subscription OAuth remains 
 1. Build and smoke the packaged runtime with `npm run build` and `npm run smoke:mcp-stdio`.
 2. Run `agent_team_doctor`.
 3. Start a bounded team with `agent_team_start_parallel`.
-4. Read state with `agent_team_status_many`.
-5. Inspect grouped evidence with `agent_team_summary`.
-6. Send updates with `agent_team_message_many`.
-7. Gracefully finalize with `agent_team_wind_down_many`.
-8. Use `agent_team_cancel_many` only for explicit operator-driven cancellation.
-9. Review evidence and retained implementation worktrees.
-10. Use `agent_team_cleanup` only after review.
+4. Optionally group returned run ids with `agent_team_create_team`.
+5. Read the team record later with `agent_team_get_team` or `agent_team_list_teams`.
+6. Read state with `agent_team_status_many`.
+7. Inspect grouped evidence with `agent_team_summary`.
+8. Send updates with `agent_team_message_many`.
+9. Gracefully finalize with `agent_team_wind_down_many`.
+10. Use `agent_team_cancel_many` only for explicit operator-driven cancellation.
+11. Review evidence and retained implementation worktrees.
+12. Use `agent_team_cleanup` only after review.
 
 For a full operator flow, see `docs/runbooks/claude-team-session.md`.
 
@@ -228,6 +230,7 @@ For a full operator flow, see `docs/runbooks/claude-team-session.md`.
 Treat these as first-class records:
 
 - sidecars under `.agent-team/runs/`
+- optional team records under `.agent-team/teams/`
 - JSONL mailboxes under `.agent-team/mailboxes/`
 - logs and transcripts
 - parsed verdicts
@@ -242,6 +245,7 @@ Treat these as first-class records:
 - If live runs fail preflight, run `agent_team_doctor` and address the reported readiness item.
 - If a result is `partial_failure`, inspect each per-run item by `index`, `runId`, `cwd`, and `correlationId`.
 - If a result is `state_corrupt`, preserve the archive path and repair state before continuing.
+- If a team record is stale, use its run refs as an index and trust per-run sidecars for current status, verdicts, cleanup, and evidence.
 - If cleanup is blocked, review the retained implementation worktree and diff evidence before calling `agent_team_cleanup`.
 
 ## Provider Adapter Development

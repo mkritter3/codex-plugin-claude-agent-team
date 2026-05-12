@@ -21,6 +21,9 @@ describe("Claude team session runbook", () => {
     for (const text of [
       "agent_team_doctor",
       "agent_team_start_parallel",
+      "agent_team_create_team",
+      "agent_team_get_team",
+      "agent_team_list_teams",
       "agent_team_status_many",
       "agent_team_summary",
       "agent_team_message_many",
@@ -39,6 +42,8 @@ describe("Claude team session runbook", () => {
     expect(doc).toContain("partial_failure");
     expect(doc).toContain("awaiting-input");
     expect(doc).toContain("cleanupBlocked");
+    expect(doc).toContain(".agent-team/teams/");
+    expect(doc).toContain("Per-run sidecars remain authoritative");
   });
 
   it("keeps documentation provider-neutral and avoids private implementation disclosure", async () => {

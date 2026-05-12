@@ -27,7 +27,7 @@ Codex should be able to stand up and manage an external AI agent team from insid
 
 ## Current Baseline
 
-Completed through Milestone 36:
+Completed through Milestone 39:
 
 - package scaffold, MCP server, CI, stdio smoke, and schema coverage
 - provider-neutral roles, capabilities, router, config, and doctor
@@ -48,6 +48,7 @@ Completed through Milestone 36:
 - explicitly configured Gemini adapter for synchronous read-only dispatch
 - explicit Grok profiles backed by the OpenAI-compatible runtime
 - capability-first provider selection policy with role pins, provider order, and routing explanations
+- optional durable team records under `.agent-team/teams/` for grouping related run ids without replacing per-run sidecars
 - end-to-end Claude team session runbook
 - README, changelog/versioning policy, license, and package/plugin metadata alignment
 
@@ -242,6 +243,8 @@ That gate requires:
 - Per-run sidecars remain the source of truth for run state, verdicts, cleanup, and evidence.
 - Team records make status/message/wind-down/cancel workflows easier but do not introduce hidden control behavior.
 
+**Status:** Complete. Durable team records live under `.agent-team/teams/`, create/get/list tools preserve grouping metadata only, referenced run sidecars are validated before writes, and per-run sidecars plus existing lifecycle tools remain authoritative.
+
 ### Milestone 40: Team Dashboard Surface
 
 **Goal:** Add a compact local dashboard or CLI report for team state.
@@ -295,8 +298,8 @@ V1.5 is complete when at least one non-Claude provider can be configured explici
 
 Implement the next milestones in this order:
 
-1. Milestone 39: Durable Team Records
-2. Milestone 40: Team Dashboard Surface
-3. Milestone 41: Policy And Audit Controls
+1. Milestone 40: Team Dashboard Surface
+2. Milestone 41: Policy And Audit Controls
+3. Milestone 42: Release Channel And Upgrade Safety
 
-This order moves from routing policy into durable team grouping, operator usability, and stronger audit controls without weakening the V1 control plane.
+This order moves from durable team grouping into operator usability, stronger audit controls, and safer releases without weakening the V1 control plane.

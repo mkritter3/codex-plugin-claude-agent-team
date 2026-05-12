@@ -29,6 +29,7 @@
 - Modify: `tests/package-runtime.test.ts`
 - Modify: `README.md`
 - Modify: `docs/runbooks/claude-team-session.md`
+- Modify: `CHANGELOG.md`
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-long-term-roadmap.md`
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-milestone-39.md`
 
@@ -86,13 +87,13 @@ The returned `runs` array is intentionally shaped so callers can pass it directl
 
 ## L11 Quality Gates
 
-- [ ] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
-- [ ] TDD red proof is captured for new behavior.
-- [ ] Focused milestone tests are listed with expected red and green outcomes.
-- [ ] Full verification commands are listed.
-- [ ] Required edge cases from the matrix are explicitly selected.
-- [ ] Invariant scans are listed.
-- [ ] Live provider smoke is marked required or not required with rationale.
+- [x] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
+- [x] TDD red proof is captured for new behavior.
+- [x] Focused milestone tests are listed with expected red and green outcomes.
+- [x] Full verification commands are listed.
+- [x] Required edge cases from the matrix are explicitly selected.
+- [x] Invariant scans are listed.
+- [x] Live provider smoke is marked required or not required with rationale.
 
 Selected quality-gate rows:
 
@@ -128,7 +129,7 @@ Live provider smoke is not required for M39 because durable team records are loc
 - Create: `tests/core/team-records.test.ts`
 - Modify: `src/core/types.ts`
 
-- [ ] **Step 1: Write failing team store tests**
+- [x] **Step 1: Write failing team store tests**
 
 Add tests proving:
 
@@ -145,7 +146,7 @@ npm test -- tests/core/state/team-store.test.ts
 
 Expected red: team store helpers and team path helpers do not exist yet.
 
-- [ ] **Step 2: Write failing core team-record tests**
+- [x] **Step 2: Write failing core team-record tests**
 
 Add tests proving:
 
@@ -172,11 +173,11 @@ Expected red: core team-record creation module and types do not exist yet.
 - Create: `src/core/state/team-store.ts`
 - Create: `src/core/team-records.ts`
 
-- [ ] **Step 1: Add team record types**
+- [x] **Step 1: Add team record types**
 
 Add `AgentTeamRunRef`, `AgentTeamRecord`, `AgentTeamCreateRequest`, `AgentTeamCreateResult`, `AgentTeamGetRequest`, and `AgentTeamListResult` to `src/core/types.ts`.
 
-- [ ] **Step 2: Add team state paths**
+- [x] **Step 2: Add team state paths**
 
 Add:
 
@@ -187,7 +188,7 @@ export function teamRecordPath(workspaceRoot: string, teamId: string): string;
 
 Use `.agent-team/teams/<teamId>.json`.
 
-- [ ] **Step 3: Implement team store**
+- [x] **Step 3: Implement team store**
 
 Implement:
 
@@ -205,7 +206,7 @@ Run:
 npm test -- tests/core/state/team-store.test.ts
 ```
 
-- [ ] **Step 4: Implement core create/get/list helpers**
+- [x] **Step 4: Implement core create/get/list helpers**
 
 Implement `src/core/team-records.ts` with:
 
@@ -232,7 +233,7 @@ npm test -- tests/core/team-records.test.ts
 - Modify: `scripts/smoke-mcp-stdio.mjs`
 - Modify: `tests/package-runtime.test.ts`
 
-- [ ] **Step 1: Write failing MCP metadata and validation tests**
+- [x] **Step 1: Write failing MCP metadata and validation tests**
 
 Add tests proving:
 
@@ -251,7 +252,7 @@ npm test -- tests/mcp/tools.test.ts tests/mcp/server.test.ts
 
 Expected red: tools, schemas, parser, and server metadata do not exist yet.
 
-- [ ] **Step 2: Implement MCP schemas and handlers**
+- [x] **Step 2: Implement MCP schemas and handlers**
 
 Add parsers and handlers that delegate to `createAgentTeamRecord()`, `getAgentTeamRecord()`, and `listAgentTeamRecords()`.
 
@@ -263,7 +264,7 @@ Run:
 npm test -- tests/mcp/tools.test.ts tests/mcp/server.test.ts
 ```
 
-- [ ] **Step 3: Update package smoke**
+- [x] **Step 3: Update package smoke**
 
 Update `scripts/smoke-mcp-stdio.mjs` and `tests/package-runtime.test.ts` so packaged stdio smoke requires the three team tools and their required fields.
 
@@ -284,7 +285,7 @@ npm run smoke:mcp-stdio
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-long-term-roadmap.md`
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-milestone-39.md`
 
-- [ ] **Step 1: Update user-facing docs**
+- [x] **Step 1: Update user-facing docs**
 
 Document:
 
@@ -295,11 +296,11 @@ Document:
 - cleanup remains per-run and explicit
 - team tools do not invoke providers or lifecycle control actions
 
-- [ ] **Step 2: Update roadmap**
+- [x] **Step 2: Update roadmap**
 
 Mark M39 complete only after proof is captured and move near-term recommendation to M40/M41/M42.
 
-- [ ] **Step 3: Run focused milestone tests**
+- [x] **Step 3: Run focused milestone tests**
 
 Run:
 
@@ -307,7 +308,7 @@ Run:
 npm test -- tests/core/state/team-store.test.ts tests/core/team-records.test.ts tests/mcp/tools.test.ts tests/mcp/server.test.ts tests/package-runtime.test.ts tests/docs/runbook.test.ts tests/docs/packaging.test.ts
 ```
 
-- [ ] **Step 4: Run full verification**
+- [x] **Step 4: Run full verification**
 
 Run:
 
@@ -319,7 +320,7 @@ npm run smoke:mcp-stdio
 npm run ci
 ```
 
-- [ ] **Step 5: Run invariant scans**
+- [x] **Step 5: Run invariant scans**
 
 Run:
 
@@ -331,15 +332,29 @@ rg "internal prompt|hidden instruction|generated agent definition|provider-speci
 rg "process.kill|SIGKILL|automatic cleanup|workspace_cleanup_removed|cleanupRunWorkspace|teamId|agent_team_.*team" src tests docs README.md CHANGELOG.md
 ```
 
-- [ ] **Step 6: Mark plan complete and commit**
+- [x] **Step 6: Mark plan complete and commit**
 
 After all proof is captured, mark the L11 gates and task checkboxes complete in this plan, then commit the implementation branch.
 
 ## Verification Evidence
 
-- Baseline before implementation: pending.
-- Red proof: pending.
-- Focused milestone proof: pending.
-- Full proof: pending.
-- Packaged stdio smoke: pending.
-- Invariant scans: pending.
+- Baseline before implementation: `npm test` passed before M39 implementation with 46 test files and 364 tests.
+- Red proof:
+  - `npm test -- tests/core/state/team-store.test.ts tests/core/team-records.test.ts` failed because `src/core/state/team-store.js` and `src/core/team-records.js` did not exist.
+  - `npm test -- tests/mcp/tools.test.ts tests/mcp/server.test.ts` failed because the team tools, schemas, parser, metadata, and server registration were not implemented.
+  - `npm test -- tests/package-runtime.test.ts` failed because packaged stdio smoke did not assert the team tools.
+  - Review hardening red proof: `npm test -- tests/core/state/team-store.test.ts tests/mcp/tools.test.ts` failed with 5 regressions proving unsafe `teamId` traversal, shape-invalid team JSON leakage, poisoned list leakage, and missing safe `runId`/`teamId` validation.
+- Focused milestone proof:
+  - `npm test -- tests/core/state/team-store.test.ts tests/core/team-records.test.ts` passed with 2 test files and 9 tests.
+  - `npm test -- tests/mcp/tools.test.ts tests/mcp/server.test.ts` passed with 2 test files and 56 tests.
+  - `npm test -- tests/package-runtime.test.ts` passed with 3 tests.
+  - `npm test -- tests/docs/runbook.test.ts tests/docs/packaging.test.ts` passed with 2 test files and 7 tests.
+  - `npm test -- tests/core/state/team-store.test.ts tests/mcp/tools.test.ts` passed with 2 test files and 63 tests after safe id validation and strict team-record parsing were added.
+  - `npm test -- tests/core/state/team-store.test.ts tests/core/team-records.test.ts tests/mcp/tools.test.ts tests/mcp/server.test.ts tests/package-runtime.test.ts tests/docs/runbook.test.ts tests/docs/packaging.test.ts` passed with 7 test files and 79 tests.
+- Full proof:
+  - `npm run typecheck` passed.
+  - `npm test` passed with 48 test files and 382 tests.
+  - `npm run build` passed.
+- Packaged stdio smoke: `npm run smoke:mcp-stdio` passed with `MCP stdio smoke passed.`
+- CI proof: `npm run ci` passed after typecheck, full tests, build, and packaged stdio smoke.
+- Invariant scans: reviewed fallback/auth, provider routing, permission bypass, benchmark/model-quality, internal prompt/provider-specific schema, cleanup/process-kill, and team-tool terms across `src`, `tests`, `docs`, `README.md`, and `CHANGELOG.md`. No new API-key fallback, provider-specific public schema, hidden prompt exposure, model-quality/benchmark behavior, automatic cleanup, or process-kill shortcut was introduced. New matches are the expected team record tool names/schema/tests/docs and `teamId`; the team tools are state-only and do not lifecycle-control runs. Review hardening added safe `team_`/`run_` id checks for team tools and strict team-record parsing so poisoned JSON is treated as state corruption instead of public team data.

@@ -13,10 +13,16 @@ import { listRoles } from "../core/roles.js";
 import { createRunId } from "../core/run-ids.js";
 import { sendAgentMessages } from "../core/message-many.js";
 import { readMailboxRecords } from "../core/state/mailbox-store.js";
+import { isSafeRunId, isSafeTeamId } from "../core/state/paths.js";
 import { recoverStateCorruption } from "../core/state/recovery.js";
 import { readRunSidecar } from "../core/state/run-store.js";
 import { readAgentStatuses } from "../core/status-many.js";
 import { summarizeAgentTeam } from "../core/team-summary.js";
+import {
+  createAgentTeamRecord,
+  getAgentTeamRecord,
+  listAgentTeamRecords
+} from "../core/team-records.js";
 import { windDownAgentRuns } from "../core/wind-down-many.js";
 import type {
   AgentCleanupRequest,
@@ -37,6 +43,8 @@ import type {
   AgentStatusManyRequest,
   AgentStatusManyRun,
   AgentTeamConfig,
+  AgentTeamCreateRequest,
+  AgentTeamRunRef,
   AgentTeamSummaryRequest,
   AgentTeamSummaryRunRequest,
   AgentWindDownManyRequest,
@@ -57,6 +65,9 @@ export const TOOL_NAMES = [
   "agent_team_status",
   "agent_team_status_many",
   "agent_team_summary",
+  "agent_team_create_team",
+  "agent_team_get_team",
+  "agent_team_list_teams",
   "agent_team_cancel",
   "agent_team_cancel_many",
   "agent_team_wind_down",
@@ -438,6 +449,134 @@ function parseSummaryArgs(
   return {
     runs,
     concurrency
+  };
+}
+
+function parseCreateTeamArgs(
+  args: Record<string, unknown>,
+  cwd: string
+): AgentTeamCreateRequest | JsonToolResult {
+  if (!Array.isArray(args.runs) || args.runs.length === 0) {
+    return validationError("agent_team_create_team requires a non-empty runs array.");
+  }
+
+  const defaultCwd = readOptionalString(
+    args.cwd,
+    "agent_team_create_team cwd must be a string."
+  );
+  if (typeof defaultCwd === "object") {
+    return defaultCwd;
+  }
+
+  const name = readOptionalString(
+    args.name,
+    "agent_team_create_team name must be a string."
+  );
+  if (typeof name === "object") {
+    return name;
+  }
+
+  const description = readOptionalString(
+    args.description,
+    "agent_team_create_team description must be a string."
+  );
+  if (typeof description === "object") {
+    return description;
+  }
+
+  const runs: AgentTeamRunRef[] = [];
+  const seenTargets = new Set<string>();
+  for (const [index, value] of args.runs.entries()) {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      return validationError(`agent_team_create_team runs[${index}] must be an object.`);
+    }
+
+    const run = value as Record<string, unknown>;
+    if (typeof run.runId !== "string" || run.runId.trim().length === 0) {
+      return validationError(
+        `agent_team_create_team runs[${index}] requires a non-empty runId.`
+      );
+    }
+    if (!isSafeRunId(run.runId)) {
+      return validationError(
+        `agent_team_create_team runs[${index}] requires a safe run_ id.`
+      );
+    }
+
+    const itemCwd = readOptionalString(
+      run.cwd,
+      `agent_team_create_team runs[${index}] cwd must be a string.`
+    );
+    if (typeof itemCwd === "object") {
+      return itemCwd;
+    }
+
+    const correlationId = readOptionalString(
+      run.correlationId,
+      `agent_team_create_team runs[${index}] correlationId must be a string.`
+    );
+    if (typeof correlationId === "object") {
+      return correlationId;
+    }
+
+    const resolvedCwd = itemCwd ?? defaultCwd ?? cwd;
+    const targetKey = `${resolve(resolvedCwd)}\0${run.runId}`;
+    if (seenTargets.has(targetKey)) {
+      return validationError(
+        `agent_team_create_team runs[${index}] duplicates target ${run.runId}.`
+      );
+    }
+    seenTargets.add(targetKey);
+
+    runs.push({
+      runId: run.runId,
+      cwd: resolvedCwd,
+      ...(correlationId === undefined ? {} : { correlationId })
+    });
+  }
+
+  return {
+    cwd: defaultCwd ?? cwd,
+    ...(name === undefined ? {} : { name }),
+    ...(description === undefined ? {} : { description }),
+    runs
+  };
+}
+
+function parseTeamIdArgs(
+  args: Record<string, unknown>,
+  cwd: string,
+  toolName: "agent_team_get_team"
+): { readonly teamId: string; readonly cwd: string } | JsonToolResult {
+  if (typeof args.teamId !== "string" || args.teamId.trim().length === 0) {
+    return validationError(`${toolName} requires a non-empty teamId.`);
+  }
+  if (!isSafeTeamId(args.teamId)) {
+    return validationError(`${toolName} requires a safe team_ id.`);
+  }
+  const workspaceRoot = readOptionalString(args.cwd, `${toolName} cwd must be a string.`);
+  if (typeof workspaceRoot === "object") {
+    return workspaceRoot;
+  }
+  return {
+    teamId: args.teamId,
+    cwd: workspaceRoot ?? cwd
+  };
+}
+
+function parseListTeamsArgs(
+  args: Record<string, unknown>,
+  cwd: string
+): { readonly cwd: string } | JsonToolResult {
+  const workspaceRoot = readOptionalString(
+    args.cwd,
+    "agent_team_list_teams cwd must be a string."
+  );
+  if (typeof workspaceRoot === "object") {
+    return workspaceRoot;
+  }
+  return {
+    cwd: workspaceRoot ?? cwd
   };
 }
 
@@ -968,6 +1107,51 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
               readMailboxRecords(workspaceRoot, runId, kind),
             recoverStateCorruption: async (input) => recoverStateCorruption(input)
           }))
+        });
+      }
+
+      if (name === "agent_team_create_team") {
+        const parsed = parseCreateTeamArgs(args, cwd());
+        if ("content" in parsed) {
+          return parsed;
+        }
+        return recoverableLifecycleTool({
+          workspaceRoot: parsed.cwd,
+          operation: name,
+          action: async () =>
+            jsonToolResult({
+              ...(await createAgentTeamRecord(parsed))
+            })
+        });
+      }
+
+      if (name === "agent_team_get_team") {
+        const parsed = parseTeamIdArgs(args, cwd(), name);
+        if ("content" in parsed) {
+          return parsed;
+        }
+        return recoverableLifecycleTool({
+          workspaceRoot: parsed.cwd,
+          operation: name,
+          action: async () =>
+            jsonToolResult({
+              ...(await getAgentTeamRecord(parsed))
+            })
+        });
+      }
+
+      if (name === "agent_team_list_teams") {
+        const parsed = parseListTeamsArgs(args, cwd());
+        if ("content" in parsed) {
+          return parsed;
+        }
+        return recoverableLifecycleTool({
+          workspaceRoot: parsed.cwd,
+          operation: name,
+          action: async () =>
+            jsonToolResult({
+              ...(await listAgentTeamRecords(parsed.cwd))
+            })
         });
       }
 

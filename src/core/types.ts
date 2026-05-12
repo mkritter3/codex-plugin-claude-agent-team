@@ -424,6 +424,49 @@ export interface AgentTeamSummaryResult {
   readonly runs: readonly AgentTeamSummaryRunResult[];
 }
 
+export interface AgentTeamRunRef {
+  readonly runId: string;
+  readonly cwd: string;
+  readonly correlationId?: string;
+}
+
+export interface AgentTeamRecord {
+  readonly teamId: string;
+  readonly name?: string;
+  readonly description?: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly runs: readonly AgentTeamRunRef[];
+  readonly evidencePath: string;
+}
+
+export interface AgentTeamCreateRequest {
+  readonly cwd: string;
+  readonly name?: string;
+  readonly description?: string;
+  readonly runs: readonly AgentTeamRunRef[];
+}
+
+export interface AgentTeamCreateResult {
+  readonly status: "created";
+  readonly team: AgentTeamRecord;
+}
+
+export interface AgentTeamGetRequest {
+  readonly cwd: string;
+  readonly teamId: string;
+}
+
+export interface AgentTeamGetResult {
+  readonly status: "ok";
+  readonly team: AgentTeamRecord;
+}
+
+export interface AgentTeamListResult {
+  readonly status: "ok";
+  readonly teams: readonly AgentTeamRecord[];
+}
+
 export interface AgentMessageManyItemRequest {
   readonly runId: string;
   readonly cwd: string;

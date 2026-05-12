@@ -18,6 +18,8 @@ describe("packaging and install docs", () => {
       ".agent-team/config.json",
       "agent_team_doctor",
       "agent_team_start_parallel",
+      "agent_team_create_team",
+      "agent_team_get_team",
       "agent_team_summary",
       "agent_team_cleanup",
       "npm run ci",

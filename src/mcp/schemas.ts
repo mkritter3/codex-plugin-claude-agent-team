@@ -17,6 +17,10 @@ const cwd = z.string().min(1).optional().describe("Workspace root. Defaults to s
 const provider = z.string().min(1).optional().describe("Preferred provider selector.");
 const timeoutMs = z.number().positive().optional().describe("Positive timeout in milliseconds.");
 const runId = z.string().min(1).describe("Agent Team run id.");
+const teamId = z
+  .string()
+  .regex(/^team_[A-Za-z0-9_-]+$/)
+  .describe("Agent Team record id.");
 const message = z.string().min(1).describe("Message content.");
 const messageType = z.string().min(1).optional().describe("Mailbox message type.");
 const correlationId = z.string().min(1).optional().describe("Caller correlation id.");
@@ -110,6 +114,28 @@ const summaryInputSchema = {
   concurrency: z.number().int().min(1).max(8).optional()
 };
 
+const teamRunInputSchema = z.object({
+  runId,
+  cwd,
+  correlationId
+});
+
+const createTeamInputSchema = {
+  runs: z.array(teamRunInputSchema).min(1),
+  cwd,
+  name: z.string().min(1).optional().describe("Human-readable team name."),
+  description: z.string().min(1).optional().describe("Short team description.")
+};
+
+const getTeamInputSchema = {
+  teamId,
+  cwd
+};
+
+const listTeamsInputSchema = {
+  cwd
+};
+
 const cleanupInputSchema = {
   runId,
   cwd,
@@ -195,6 +221,21 @@ export const TOOL_METADATA_BY_NAME = {
     title: "Summarize Agent Team",
     description: "Read grouped operational state and evidence pointers for multiple runs.",
     inputSchema: summaryInputSchema
+  },
+  agent_team_create_team: {
+    title: "Create Agent Team Record",
+    description: "Create a durable team record that groups run ids as metadata.",
+    inputSchema: createTeamInputSchema
+  },
+  agent_team_get_team: {
+    title: "Get Agent Team Record",
+    description: "Read one durable team record by id.",
+    inputSchema: getTeamInputSchema
+  },
+  agent_team_list_teams: {
+    title: "List Agent Team Records",
+    description: "List durable team records for a workspace.",
+    inputSchema: listTeamsInputSchema
   },
   agent_team_cancel: {
     title: "Cancel Agent Session",

@@ -90,11 +90,39 @@ Use `agent_team_start_parallel` to start a bounded team:
 }
 ```
 
-Record the returned run ids. Every follow-up call should use those ids directly.
+Record the returned run ids. Every control call still uses run ids directly.
+
+## Create A Team Record
+
+Use `agent_team_create_team` when you want a durable index for the related run ids:
+
+```json
+{
+  "cwd": "/absolute/path/to/workspace",
+  "name": "Roadmap Review Team",
+  "description": "Planner, debugger, and test-designer review for one bounded change.",
+  "runs": [
+    { "runId": "run_planner", "correlationId": "plan" },
+    { "runId": "run_debugger", "correlationId": "debug" },
+    { "runId": "run_tests", "correlationId": "tests" }
+  ]
+}
+```
+
+Team records live under `.agent-team/teams/` and contain grouping metadata only. Per-run sidecars remain authoritative for status, verdicts, cleanup state, and evidence paths.
+
+Later, use `agent_team_get_team` or `agent_team_list_teams` to recover the run refs:
+
+```json
+{
+  "cwd": "/absolute/path/to/workspace",
+  "teamId": "team_example"
+}
+```
 
 ## Inspect Status
 
-Use `agent_team_status_many` for per-run status:
+Use the team record's `runs` array with `agent_team_status_many` for per-run status:
 
 ```json
 {
@@ -111,7 +139,7 @@ Status results show durable sidecar state. Treat `awaiting-input` as a request f
 
 ## Inspect The Team Summary
 
-Use `agent_team_summary` for the compact team view:
+Use the team record's `runs` array with `agent_team_summary` for the compact team view:
 
 ```json
 {
@@ -160,6 +188,8 @@ Use `agent_team_message_many` to provide evidence or direction without resuming 
 ```
 
 The result may be `delivered_live` or `recorded_for_resume`. Both are durable outcomes. A `partial_failure` response keeps per-run evidence and does not imply later items were skipped.
+
+Team records do not message agents by themselves. They only provide run refs that you can place into the existing batch tools.
 
 ## Reply To Awaiting Input
 

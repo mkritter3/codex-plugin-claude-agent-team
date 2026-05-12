@@ -8,8 +8,13 @@ import {
   appendMailboxRecord,
   readMailboxRecords
 } from "../../src/core/state/mailbox-store.js";
-import { mailboxPath, runSidecarPath } from "../../src/core/state/paths.js";
+import {
+  mailboxPath,
+  runSidecarPath,
+  teamRecordPath
+} from "../../src/core/state/paths.js";
 import { writeRunSidecar } from "../../src/core/state/run-store.js";
+import { readTeamRecord } from "../../src/core/state/team-store.js";
 import { TOOL_METADATA_BY_NAME } from "../../src/mcp/schemas.js";
 import { createToolHandlers, handleToolCall, listToolNames } from "../../src/mcp/tools.js";
 
@@ -61,6 +66,35 @@ describe("MCP tool handlers", () => {
     expect(TOOL_METADATA_BY_NAME.agent_team_dispatch.inputSchema).not.toHaveProperty("gemini");
     expect(TOOL_METADATA_BY_NAME.agent_team_dispatch.inputSchema).not.toHaveProperty(
       "ollamaCloud"
+    );
+  });
+
+  it("exposes provider-neutral durable team record tools", () => {
+    expect(listToolNames()).toEqual(
+      expect.arrayContaining([
+        "agent_team_create_team",
+        "agent_team_get_team",
+        "agent_team_list_teams"
+      ])
+    );
+    expect(TOOL_METADATA_BY_NAME.agent_team_create_team).toMatchObject({
+      title: "Create Agent Team Record",
+      description: expect.stringMatching(/durable team record/i)
+    });
+    expect(TOOL_METADATA_BY_NAME.agent_team_create_team.inputSchema).toMatchObject({
+      runs: expect.any(Object)
+    });
+    expect(TOOL_METADATA_BY_NAME.agent_team_get_team.inputSchema).toMatchObject({
+      teamId: expect.any(Object)
+    });
+    expect(TOOL_METADATA_BY_NAME.agent_team_list_teams.inputSchema).toMatchObject({
+      cwd: expect.any(Object)
+    });
+    expect(TOOL_METADATA_BY_NAME.agent_team_create_team.inputSchema).not.toHaveProperty(
+      "provider"
+    );
+    expect(TOOL_METADATA_BY_NAME.agent_team_create_team.inputSchema).not.toHaveProperty(
+      "prompt"
     );
   });
 
@@ -880,6 +914,199 @@ describe("MCP tool handlers", () => {
     expect(
       eventsB.filter((record) => record.messageType === "detached_handle_missing")
     ).toHaveLength(1);
+  });
+
+  it("validates team record args before durable-state writes", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-team-invalid-"));
+    const handlers = createToolHandlers({ cwd: () => workspace });
+
+    const invalidCreateInputs: Record<string, unknown>[] = [
+      {},
+      { runs: [] },
+      { runs: [1] },
+      { runs: [{}] },
+      { runs: [{ runId: "" }] },
+      { runs: [{ runId: "../runs/run_escape" }] },
+      { runs: [{ runId: "team_not_a_run" }] },
+      { runs: [{ runId: "run_1", cwd: 1 }] },
+      { runs: [{ runId: "run_1", correlationId: "" }] },
+      { cwd: "", runs: [{ runId: "run_1" }] },
+      { name: "", runs: [{ runId: "run_1" }] },
+      { description: "", runs: [{ runId: "run_1" }] },
+      { runs: [{ runId: "run_1" }, { runId: "run_1" }] },
+      { runs: [{ runId: "run_1" }, { runId: "run_1", cwd: `${workspace}/.` }] }
+    ];
+
+    for (const input of invalidCreateInputs) {
+      const result = await handlers.handleToolCall("agent_team_create_team", input);
+      expect(result.structuredContent?.status).toBe("validation_error");
+    }
+
+    for (const input of [
+      {},
+      { teamId: "" },
+      { teamId: 1 },
+      { teamId: "../runs/run_escape" },
+      { teamId: "run_not_a_team" },
+      { teamId: "team_1", cwd: 1 }
+    ]) {
+      const result = await handlers.handleToolCall("agent_team_get_team", input);
+      expect(result.structuredContent?.status).toBe("validation_error");
+    }
+
+    const invalidList = await handlers.handleToolCall("agent_team_list_teams", { cwd: 1 });
+    expect(invalidList.structuredContent?.status).toBe("validation_error");
+  });
+
+  it("rejects team id traversal before state recovery can archive another artifact", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-team-traversal-"));
+    const runPath = runSidecarPath(workspace, "run_escape");
+    await mkdir(join(workspace, ".agent-team", "runs"), { recursive: true });
+    await writeFile(runPath, "{ nope", "utf8");
+    const handlers = createToolHandlers({ cwd: () => workspace });
+
+    const result = await handlers.handleToolCall("agent_team_get_team", {
+      teamId: "../runs/run_escape"
+    });
+
+    expect(result.structuredContent?.status).toBe("validation_error");
+    await expect(readFile(runPath, "utf8")).resolves.toBe("{ nope");
+  });
+
+  it("creates, reads, and lists durable team records without invoking lifecycle control", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-team-record-"));
+    const otherWorkspace = await mkdtemp(join(tmpdir(), "agent-team-team-record-other-"));
+    await writeRunSidecar(workspace, {
+      runId: "run_team_a",
+      role: "planner",
+      provider: "claude-code-cli",
+      status: "running",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:01:00.000Z",
+      capabilitiesUsed: ["structuredOutput"],
+      evidencePaths: []
+    });
+    await writeRunSidecar(otherWorkspace, {
+      runId: "run_team_b",
+      role: "code-reviewer",
+      provider: "claude-code-cli",
+      status: "completed",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:02:00.000Z",
+      capabilitiesUsed: ["structuredOutput"],
+      evidencePaths: []
+    });
+    const lifecycleCalls: string[] = [];
+    const handlers = createToolHandlers({
+      cwd: () => workspace,
+      lifecycle: {
+        async startRun() {
+          lifecycleCalls.push("start");
+          throw new Error("should not start");
+        },
+        async getStatus() {
+          lifecycleCalls.push("status");
+          throw new Error("should not status");
+        },
+        async messageRun() {
+          lifecycleCalls.push("message");
+          throw new Error("should not message");
+        },
+        async replyRun() {
+          lifecycleCalls.push("reply");
+          throw new Error("should not reply");
+        },
+        async cancelRun() {
+          lifecycleCalls.push("cancel");
+          throw new Error("should not cancel");
+        },
+        async windDownRun() {
+          lifecycleCalls.push("wind_down");
+          throw new Error("should not wind down");
+        }
+      }
+    });
+
+    const created = await handlers.handleToolCall("agent_team_create_team", {
+      cwd: workspace,
+      name: "Review Team",
+      description: "Parallel review",
+      runs: [
+        { runId: "run_team_a", correlationId: "planner" },
+        { runId: "run_team_b", cwd: otherWorkspace, correlationId: "reviewer" }
+      ]
+    });
+
+    expect(created.structuredContent).toMatchObject({
+      status: "created",
+      team: {
+        name: "Review Team",
+        description: "Parallel review",
+        runs: [
+          { runId: "run_team_a", cwd: workspace, correlationId: "planner" },
+          { runId: "run_team_b", cwd: otherWorkspace, correlationId: "reviewer" }
+        ]
+      }
+    });
+    const teamId = String(
+      (created.structuredContent?.team as { teamId?: string } | undefined)?.teamId
+    );
+    expect(teamId).toMatch(/^team_/);
+    await expect(readTeamRecord(workspace, teamId)).resolves.toMatchObject({
+      teamId,
+      evidencePath: teamRecordPath(workspace, teamId)
+    });
+
+    await expect(
+      handlers.handleToolCall("agent_team_get_team", { teamId })
+    ).resolves.toMatchObject({
+      structuredContent: {
+        status: "ok",
+        team: { teamId, runs: [{ runId: "run_team_a" }, { runId: "run_team_b" }] }
+      }
+    });
+    await expect(handlers.handleToolCall("agent_team_list_teams", {})).resolves.toMatchObject({
+      structuredContent: {
+        status: "ok",
+        teams: [expect.objectContaining({ teamId })]
+      }
+    });
+    expect(lifecycleCalls).toEqual([]);
+  });
+
+  it("recovers corrupt state while creating or reading team records", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-team-corrupt-"));
+    await mkdir(join(workspace, ".agent-team", "runs"), { recursive: true });
+    const corruptRunPath = runSidecarPath(workspace, "run_corrupt_team");
+    await writeFile(corruptRunPath, "{ nope", "utf8");
+    const handlers = createToolHandlers({ cwd: () => workspace });
+
+    const createResult = await handlers.handleToolCall("agent_team_create_team", {
+      runs: [{ runId: "run_corrupt_team" }]
+    });
+
+    expect(createResult.structuredContent).toMatchObject({
+      status: "state_corrupt",
+      operation: "agent_team_create_team",
+      originalPath: corruptRunPath,
+      recovery: "archived",
+      interventionRequired: true
+    });
+
+    const corruptTeamPath = teamRecordPath(workspace, "team_corrupt");
+    await mkdir(join(workspace, ".agent-team", "teams"), { recursive: true });
+    await writeFile(corruptTeamPath, "{ nope", "utf8");
+    const getResult = await handlers.handleToolCall("agent_team_get_team", {
+      teamId: "team_corrupt"
+    });
+
+    expect(getResult.structuredContent).toMatchObject({
+      status: "state_corrupt",
+      operation: "agent_team_get_team",
+      originalPath: corruptTeamPath,
+      recovery: "archived",
+      interventionRequired: true
+    });
   });
 
   it("validates summary args before durable-state reads", async () => {
@@ -2642,6 +2869,9 @@ describe("MCP tool handlers", () => {
       "agent_team_status",
       "agent_team_status_many",
       "agent_team_summary",
+      "agent_team_create_team",
+      "agent_team_get_team",
+      "agent_team_list_teams",
       "agent_team_cancel",
       "agent_team_cancel_many",
       "agent_team_wind_down",
