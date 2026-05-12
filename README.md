@@ -258,7 +258,9 @@ Do not route around doctor failures. Claude Code CLI subscription OAuth remains 
 
 ## Opt-In Live Claude Smoke
 
-The optional live smoke exercises the packaged MCP stdio entrypoint and public team tools against Claude Code CLI subscription OAuth. It is not part of CI, makes no provider ranking or comparative capability claim, and emits a sanitized report with run ids, statuses, evidence paths, summary groups, and dashboard counts instead of private prompts or provider implementation details.
+The optional live smoke exercises the packaged MCP stdio entrypoint and public tools against Claude Code CLI subscription OAuth. It is not part of CI, makes no provider ranking or comparative capability claim, and emits a sanitized report with direct proof, run ids, statuses, evidence paths, summary groups, and dashboard counts instead of private prompts or provider implementation details.
+
+The report is successful only when tracked Claude runs reach `completed`. Intermediate states such as graceful wind-down requests remain nonterminal; if a bounded smoke cannot finish, the harness records wind-down or cancellation evidence and exits non-zero without deleting logs, sidecars, transcripts, or retained worktrees.
 
 Inspect the planned flow without provider use:
 

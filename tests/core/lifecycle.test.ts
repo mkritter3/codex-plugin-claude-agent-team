@@ -470,6 +470,38 @@ describe("AgentLifecycleManager", () => {
     ).resolves.toBeDefined();
   });
 
+  it("preserves provider timeout finalization after wind-down has started", async () => {
+    const done = deferred<ProviderSessionDoneStatus>();
+    const handle = fakeHandle(done.promise);
+    const manager = new AgentLifecycleManager({
+      createRunId: () => "run_wind_down_expired",
+      now: () => new Date("2026-05-11T00:00:00.000Z"),
+      windDownGraceMs: 0,
+      sleep: async () => undefined,
+      startSession: () => handle
+    });
+
+    await manager.startRun({ role: "planner", task: "Review", cwd: workspace });
+    await manager.windDownRun(workspace, "run_wind_down_expired");
+    done.resolve("expired");
+
+    const expired = await waitForSidecar(
+      "run_wind_down_expired",
+      (sidecar) => sidecar.status === "expired"
+    );
+    expect(expired).toMatchObject({
+      status: "expired",
+      outputSummary: "Provider session expired after timeout.",
+      cleanup: "partial",
+      inputClosed: true,
+      windDownRequestedAt: "2026-05-11T00:00:00.000Z",
+      verdict: {
+        status: "BLOCKED",
+        summary: "Provider session expired after timeout."
+      }
+    });
+  });
+
   it("enriches status from active handles and flags detached running sidecars", async () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);

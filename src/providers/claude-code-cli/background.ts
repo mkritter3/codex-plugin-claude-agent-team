@@ -117,6 +117,7 @@ export function startClaudeBackgroundSession(
         });
   const command = buildClaudeCommand({
     prompt: input.prompt,
+    promptFromStdin: true,
     cwd: input.cwd,
     outputFormat: "stream-json",
     inputFormat: "stream-json",
@@ -144,6 +145,7 @@ export function startClaudeBackgroundSession(
   let writeQueue: Promise<void> = Promise.resolve();
   let sigkillSent = false;
   let timedOut = false;
+  let inputOpen = false;
   let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
 
   const child = spawnImpl(command.command, command.args, {
@@ -198,6 +200,21 @@ export function startClaudeBackgroundSession(
     });
   }
 
+  if (child.stdin !== null) {
+    inputOpen = true;
+    child.stdin.write(
+      `${JSON.stringify({
+        type: "user",
+        message: {
+          role: "user",
+          content: [{ type: "text", text: input.prompt }]
+        }
+      })}\n`
+    );
+    child.stdin.end();
+    inputOpen = false;
+  }
+
   const done = new Promise<ProviderSessionDoneStatus>((resolve) => {
     child.on("close", (code, signal) => {
       clearTimeoutBudget();
@@ -236,7 +253,9 @@ export function startClaudeBackgroundSession(
     },
     transcriptPath: rawTranscriptPath,
     logPath,
-    supportsStdin: child.stdin !== null,
+    get supportsStdin() {
+      return inputOpen && child.stdin !== null && !child.stdin.destroyed;
+    },
     kill(): void {
       if (child.killed !== true) {
         child.kill(process.platform === "win32" ? undefined : "SIGTERM");
@@ -249,7 +268,7 @@ export function startClaudeBackgroundSession(
       }
     },
     writeStdin(data: string): boolean {
-      if (child.stdin === null || child.stdin.destroyed) {
+      if (!inputOpen || child.stdin === null || child.stdin.destroyed) {
         return false;
       }
       return child.stdin.write(data);

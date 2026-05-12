@@ -11,6 +11,7 @@ export type ClaudePermissionMode =
 
 export interface ClaudeCommandInput {
   readonly prompt: string;
+  readonly promptFromStdin?: boolean;
   readonly cwd: string;
   readonly outputFormat: ClaudeOutputFormat;
   readonly inputFormat?: ClaudeInputFormat;

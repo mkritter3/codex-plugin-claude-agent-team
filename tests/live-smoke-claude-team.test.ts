@@ -71,6 +71,7 @@ describe("Claude live smoke script", () => {
     });
     expect(report.toolFlow).toEqual([
       "agent_team_doctor",
+      "agent_team_dispatch",
       "agent_team_start_parallel",
       "agent_team_status_many",
       "agent_team_dashboard",
@@ -80,6 +81,7 @@ describe("Claude live smoke script", () => {
       "agent_team_status_many"
     ]);
     expect(report.plannedRuns?.map((run) => run.role)).toEqual([
+      "planner",
       "planner",
       "code-reviewer"
     ]);
@@ -91,11 +93,13 @@ describe("Claude live smoke script", () => {
   it("uses the packaged MCP boundary and public team tools for confirmed live smoke", async () => {
     const script = await readText("scripts/live-smoke-claude-team.mjs");
 
+    expect(script).toContain("live-smoke-claude-utils.mjs");
     expect(script).toContain("@modelcontextprotocol/sdk/client/index.js");
     expect(script).toContain("@modelcontextprotocol/sdk/client/stdio.js");
     expect(script).toContain('join(repoRoot, "dist", "index.js")');
     for (const toolName of [
       "agent_team_doctor",
+      "agent_team_dispatch",
       "agent_team_start_parallel",
       "agent_team_status_many",
       "agent_team_dashboard",
@@ -107,11 +111,21 @@ describe("Claude live smoke script", () => {
     }
     expect(script).toContain("liveSmokeEnabled");
     expect(script).toContain("--max-wait-ms");
-    expect(script).toContain("waitForInitialStatuses");
+    expect(script).toContain("waitForCompletionStatuses");
+    expect(script).toContain("buildToolRequestOptions");
     expect(script).toContain("StdioClientTransport");
     expect(script).not.toContain("runClaudePrint");
     expect(script).not.toContain("startClaudeBackgroundSession");
     expect(script).not.toContain("requireProviderRuntime");
     expect(script).not.toContain("createDefaultLifecycleRegistry");
+  });
+
+  it("does not treat wind-down as successful live-smoke completion", async () => {
+    const script = await readText("scripts/live-smoke-claude-team.mjs");
+
+    expect(script).not.toContain('"winding-down"');
+    expect(script).toContain("hasAllCompletedRuns");
+    expect(script).toContain("nonTerminalRunRefs");
+    expect(script).toContain("agent_team_cancel_many");
   });
 });

@@ -123,7 +123,9 @@ npm run build
 npm run smoke:claude-live -- --confirm-live-provider-use --cwd /absolute/path/to/workspace
 ```
 
-The smoke uses Claude Code CLI subscription OAuth through the packaged MCP stdio runtime. Its sanitized report includes run ids, statuses, evidence paths, summary groups, dashboard counts, message status, wind-down status, and known limitations. It does not print private prompts, provider command details, provider session ids, process metadata, environment values, mailbox payloads, secrets, provider ranking claims, or comparative capability claims.
+The smoke uses Claude Code CLI subscription OAuth through the packaged MCP stdio runtime. Its sanitized report includes direct proof, run ids, statuses, evidence paths, summary groups, dashboard counts, message status, wind-down status, cleanup status, and known limitations. It does not print private prompts, provider command details, provider session ids, process metadata, environment values, mailbox payloads, secrets, provider ranking claims, or comparative capability claims.
+
+The smoke exits `0` only when tracked Claude runs reach `completed`. Graceful wind-down states are useful evidence, but they are not successful completion. If the bounded wait expires, the harness asks remaining runs to wind down, records cancellation intent for lingering nonterminal runs, emits a sanitized failed report, and preserves sidecars, logs, transcripts, and retained worktrees for inspection.
 
 ## Opt-In Read-Only Provider Proof Smoke
 

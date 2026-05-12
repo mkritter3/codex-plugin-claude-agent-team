@@ -6,6 +6,13 @@ import { setTimeout as delay } from "node:timers/promises";
 import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import {
+  buildLiveSmokeReportStatus,
+  buildToolRequestOptions,
+  compactStatusRows,
+  hasAllCompletedRuns,
+  nonTerminalRunRefs
+} from "./live-smoke-claude-utils.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = dirname(scriptDir);
@@ -13,6 +20,7 @@ const runtimePath = join(repoRoot, "dist", "index.js");
 
 const TOOL_FLOW = [
   "agent_team_doctor",
+  "agent_team_dispatch",
   "agent_team_start_parallel",
   "agent_team_status_many",
   "agent_team_dashboard",
@@ -23,6 +31,11 @@ const TOOL_FLOW = [
 ];
 
 const PLANNED_RUNS = [
+  {
+    role: "planner",
+    provider: "claude-code-cli",
+    correlationId: "live-direct-proof"
+  },
   {
     role: "planner",
     provider: "claude-code-cli",
@@ -84,8 +97,9 @@ async function assertRuntimeExists() {
   }
 }
 
-async function callTool(client, name, args) {
-  const result = await client.callTool({ name, arguments: args });
+async function callTool(client, name, args, timeoutMs) {
+  const options = timeoutMs === undefined ? undefined : buildToolRequestOptions(timeoutMs);
+  const result = await client.callTool({ name, arguments: args }, undefined, options);
   return result.structuredContent ?? {};
 }
 
@@ -106,77 +120,49 @@ function runRefs(startResult, workspaceRoot) {
     }));
 }
 
-function compactStatusRows(statusResult) {
-  return (Array.isArray(statusResult.runs) ? statusResult.runs : []).map((item) => ({
-    runId: item.runId,
-    role: item.run?.role,
-    correlationId: item.correlationId,
-    status: item.run?.status ?? item.status,
-    verdict: item.run?.verdict?.verdict,
-    sidecarPath: item.run?.sidecarPath,
-    logPath: item.run?.logPath,
-    transcriptPath: item.run?.transcriptPath,
-    evidencePaths: item.run?.evidencePaths,
-    cleanup: item.run?.cleanup,
-    workspaceCleanup: item.run?.workspaceCleanup
-  }));
-}
-
-function hasSettledStatus(statusResult) {
-  const terminalStatuses = new Set([
-    "awaiting-input",
-    "cancelled",
-    "completed",
-    "expired",
-    "failed",
-    "winding-down"
-  ]);
-  const rows = Array.isArray(statusResult.runs) ? statusResult.runs : [];
-  return (
-    rows.length > 0 &&
-    rows.every((item) => terminalStatuses.has(item.run?.status ?? item.status))
-  );
-}
-
-async function waitForInitialStatuses(client, workspaceRoot, runs) {
-  const maxWaitMs = readNumber("--max-wait-ms", 15000);
+async function waitForCompletionStatuses(client, workspaceRoot, runs, timeoutMs) {
+  const maxWaitMs = readNumber("--max-wait-ms", timeoutMs + 15000);
   const startedAt = Date.now();
   let lastStatus = await callTool(client, "agent_team_status_many", {
     cwd: workspaceRoot,
     runs,
     concurrency: 2
-  });
-  while (!hasSettledStatus(lastStatus) && Date.now() - startedAt < maxWaitMs) {
+  }, timeoutMs);
+  while (!hasAllCompletedRuns(lastStatus) && Date.now() - startedAt < maxWaitMs) {
     const remainingMs = maxWaitMs - (Date.now() - startedAt);
     await delay(Math.min(1000, Math.max(0, remainingMs)));
     lastStatus = await callTool(client, "agent_team_status_many", {
       cwd: workspaceRoot,
       runs,
       concurrency: 2
-    });
+    }, timeoutMs);
   }
   return lastStatus;
 }
 
 function liveReport(input) {
+  const runs = compactStatusRows(input.finalStatus);
   return {
-    status: "completed",
+    status: input.status ?? buildLiveSmokeReportStatus(runs),
     liveProviderUse: true,
     workspaceRoot: input.workspaceRoot,
     provider: "claude-code-cli",
     authMode: "subscription-oauth",
     toolFlow: TOOL_FLOW,
-    runs: compactStatusRows(input.finalStatus),
+    directProof: input.directProof,
+    runs,
     dashboard: {
-      status: input.dashboard.status,
-      counts: input.dashboard.counts
+      status: input.dashboard?.status,
+      counts: input.dashboard?.counts
     },
     summary: {
-      status: input.summary.status,
-      groups: input.summary.groups
+      status: input.summary?.status,
+      groups: input.summary?.groups
     },
-    messageStatus: input.messageResult.status,
-    windDownStatus: input.windDownResult.status,
+    messageStatus: input.messageResult?.status ?? "not_required",
+    windDownStatus: input.windDownResult?.status ?? "not_required",
+    cleanupStatus: input.cleanupResult?.status ?? "not_required",
+    cleanup: input.cleanupResult,
     knownLimitations: KNOWN_LIMITATIONS
   };
 }
@@ -202,7 +188,8 @@ async function runLiveSmoke(workspaceRoot) {
 
   try {
     await client.connect(transport);
-    const doctor = await callTool(client, "agent_team_doctor", { cwd: workspaceRoot });
+    const timeoutMs = readNumber("--timeout-ms", 120000);
+    const doctor = await callTool(client, "agent_team_doctor", { cwd: workspaceRoot }, 30000);
     if (doctor.ok !== true) {
       throw new Error("agent_team_doctor did not pass for the live smoke workspace.");
     }
@@ -212,7 +199,17 @@ async function runLiveSmoke(workspaceRoot) {
       );
     }
 
-    const timeoutMs = readNumber("--timeout-ms", 120000);
+    const directProof = await callTool(client, "agent_team_dispatch", {
+      cwd: workspaceRoot,
+      provider: "claude-code-cli",
+      role: "planner",
+      task: "Live proof only. Return verdict SHIP with summary exactly MCP dispatch reached Claude. Do not inspect files. Do not edit files.",
+      timeoutMs
+    }, timeoutMs);
+    if (directProof.status !== "completed") {
+      throw new Error("agent_team_dispatch did not complete the direct live Claude proof.");
+    }
+
     const start = await callTool(client, "agent_team_start_parallel", {
       cwd: workspaceRoot,
       provider: "claude-code-cli",
@@ -221,16 +218,16 @@ async function runLiveSmoke(workspaceRoot) {
       runs: [
         {
           role: "planner",
-          task: "Live smoke only: confirm the workspace can be inspected and return a concise SHIP/BLOCK/NEEDS_INPUT verdict without editing files.",
+          task: "Live smoke only. Do not inspect files. Do not edit files. Return verdict SHIP with summary exactly parallel planner reached Claude.",
           correlationId: "live-planner"
         },
         {
           role: "code-reviewer",
-          task: "Live smoke only: confirm the provider path can return a concise SHIP/BLOCK/NEEDS_INPUT verdict without editing files.",
+          task: "Live smoke only. Do not inspect files. Do not edit files. Return verdict SHIP with summary exactly parallel reviewer reached Claude.",
           correlationId: "live-reviewer"
         }
       ]
-    });
+    }, timeoutMs);
 
     const refs = runRefs(start, workspaceRoot);
     if (refs.length === 0) {
@@ -242,45 +239,70 @@ async function runLiveSmoke(workspaceRoot) {
       cwd: workspaceRoot,
       correlationId: ref.correlationId
     }));
-    await waitForInitialStatuses(client, workspaceRoot, runs);
+    let finalStatus = await waitForCompletionStatuses(client, workspaceRoot, runs, timeoutMs);
+    let messageResult;
+    let windDownResult;
+    let cleanupResult;
+
+    if (!hasAllCompletedRuns(finalStatus)) {
+      messageResult = await callTool(client, "agent_team_message_many", {
+        cwd: workspaceRoot,
+        concurrency: 2,
+        messages: refs.map((ref) => ({
+          runId: ref.runId,
+          cwd: workspaceRoot,
+          message: "Live smoke operator update: please wrap up with a concise final verdict.",
+          messageType: "operator_update",
+          correlationId: `${ref.correlationId ?? ref.runId}-message`
+        }))
+      }, timeoutMs);
+      windDownResult = await callTool(client, "agent_team_wind_down_many", {
+        cwd: workspaceRoot,
+        runs,
+        concurrency: 2
+      }, timeoutMs);
+      finalStatus = await waitForCompletionStatuses(client, workspaceRoot, runs, timeoutMs);
+    }
+
+    const lingeringRuns = nonTerminalRunRefs(finalStatus, runs);
+    if (lingeringRuns.length > 0) {
+      cleanupResult = await callTool(client, "agent_team_cancel_many", {
+        cwd: workspaceRoot,
+        runs: lingeringRuns,
+        concurrency: 2
+      }, timeoutMs);
+      finalStatus = await callTool(client, "agent_team_status_many", {
+        cwd: workspaceRoot,
+        runs,
+        concurrency: 2
+      }, timeoutMs);
+    }
+
     const dashboard = await callTool(client, "agent_team_dashboard", {
       cwd: workspaceRoot,
       runs,
       concurrency: 2
-    });
+    }, timeoutMs);
     const summary = await callTool(client, "agent_team_summary", {
       cwd: workspaceRoot,
       runs,
       concurrency: 2
-    });
-    const messageResult = await callTool(client, "agent_team_message_many", {
-      cwd: workspaceRoot,
-      concurrency: 2,
-      messages: refs.map((ref) => ({
-        runId: ref.runId,
-        cwd: workspaceRoot,
-        message: "Live smoke operator update: please wrap up with a concise final verdict.",
-        messageType: "operator_update",
-        correlationId: `${ref.correlationId ?? ref.runId}-message`
-      }))
-    });
-    const windDownResult = await callTool(client, "agent_team_wind_down_many", {
-      cwd: workspaceRoot,
-      runs,
-      concurrency: 2
-    });
-    const finalStatus = await callTool(client, "agent_team_status_many", {
-      cwd: workspaceRoot,
-      runs,
-      concurrency: 2
-    });
+    }, timeoutMs);
 
     return liveReport({
       workspaceRoot,
+      directProof: {
+        status: directProof.status,
+        runId: directProof.runId,
+        verdict: directProof.verdict?.verdict ?? directProof.verdict?.status,
+        sidecarPath: directProof.sidecarPath,
+        logPath: directProof.logPath
+      },
       dashboard,
       summary,
       messageResult,
       windDownResult,
+      cleanupResult,
       finalStatus
     });
   } catch (error) {
@@ -309,6 +331,9 @@ async function main() {
 
   const report = await runLiveSmoke(workspaceRoot);
   console.log(JSON.stringify(report, null, 2));
+  if (report.status !== "completed") {
+    process.exitCode = 1;
+  }
 }
 
 main().catch((error) => {

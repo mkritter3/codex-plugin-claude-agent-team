@@ -27,7 +27,7 @@ Codex should be able to stand up and manage an external AI agent team from insid
 
 ## Current Baseline
 
-Completed through Milestone 45:
+Completed through Milestone 46:
 
 - package scaffold, MCP server, CI, stdio smoke, and schema coverage
 - provider-neutral roles, capabilities, router, config, and doctor
@@ -58,10 +58,7 @@ Completed through Milestone 45:
 - install handoff preflight that emits a sanitized absolute MCP config
 - opt-in read-only provider proof smoke harness through the packaged MCP boundary
 - README, changelog/versioning policy, license, and package/plugin metadata alignment
-
-In progress:
-
-- Milestone 46 real Claude call reliability hardening for honest terminal-state reporting, MCP request-timeout alignment, and evidence-preserving failure cleanup in the opt-in Claude live smoke.
+- real Claude call reliability hardening for honest terminal-state reporting, MCP request-timeout alignment, stream-json background input, wind-down timeout finalization, and evidence-preserving failure cleanup in the opt-in Claude live smoke
 
 ## Roadmap Shape
 
@@ -350,6 +347,8 @@ That gate requires:
 - The harness continues to use `dist/index.js` and public MCP tools only; it does not call provider internals or the Claude CLI directly.
 - Live Claude proof remains opt-in and excluded from CI.
 
+**Status:** Complete. `npm run smoke:claude-live` now performs a direct packaged-MCP Claude dispatch proof, starts a small parallel Claude team through public MCP tools, uses explicit MCP request timeouts, treats only `completed` as successful live-smoke terminal state, fails with sanitized evidence for nonterminal or unsuccessful terminal runs, and preserves wind-down/cancellation evidence. The Claude background runtime now sends the initial prompt as documented stream-json stdin and closes stdin so real prompt-mode sessions complete instead of timing out while waiting for input; lifecycle also allows provider timeout finalization after wind-down has begun.
+
 ## Definition Of Done For V1
 
 V1 is complete when Codex can reliably:
@@ -370,4 +369,4 @@ V1.5 is complete when at least one non-Claude provider can be configured explici
 
 ## Near-Term Recommendation
 
-Milestones 40 through 45 are complete, and Milestone 46 is in progress. The current roadmap has reached the planned V2 product maturity baseline for durable team records, dashboard visibility, policy/audit controls, release/upgrade safety, an opt-in live Claude team smoke harness, repeatable install handoff, and explicit read-only provider proof. The next implementation target is real-call reliability hardening for the Claude subscription-backed path before moving into richer operator recovery, clearer install ergonomics, or the next roadmap extension for provider-neutral team orchestration.
+Milestones 40 through 46 are complete. The current roadmap has reached the planned V2 product maturity baseline for durable team records, dashboard visibility, policy/audit controls, release/upgrade safety, opt-in live Claude proof, repeatable install handoff, explicit read-only provider proof, and real-call reliability hardening. The next implementation target should move toward richer operator recovery, clearer install ergonomics, or the next roadmap extension for provider-neutral team orchestration.

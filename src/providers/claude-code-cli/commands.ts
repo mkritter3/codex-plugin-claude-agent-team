@@ -12,7 +12,10 @@ export function buildClaudeCommand(input: ClaudeCommandInput): ClaudeCommand {
     throw new Error("--bare is disabled unless allowBareMode is true");
   }
 
-  const args = ["-p", input.prompt, "--output-format", input.outputFormat];
+  const args =
+    input.promptFromStdin === true
+      ? ["-p", "--output-format", input.outputFormat]
+      : ["-p", input.prompt, "--output-format", input.outputFormat];
 
   if (input.inputFormat !== undefined) {
     args.push("--input-format", input.inputFormat);

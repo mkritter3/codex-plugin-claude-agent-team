@@ -73,6 +73,7 @@ function main() {
     "scripts/install-check.mjs",
     "scripts/lib/install-preflight.mjs",
     "scripts/live-smoke-claude-team.mjs",
+    "scripts/live-smoke-claude-utils.mjs",
     "scripts/live-smoke-readonly-providers.mjs"
   ]) {
     assert(packedFiles.has(requiredPath), `packed artifact is missing ${requiredPath}.`);

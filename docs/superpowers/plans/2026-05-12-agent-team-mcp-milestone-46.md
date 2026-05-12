@@ -20,7 +20,13 @@
 **Modify:**
 
 - `scripts/live-smoke-claude-team.mjs`
+- `src/providers/claude-code-cli/background.ts`
+- `src/providers/claude-code-cli/commands.ts`
+- `src/providers/claude-code-cli/types.ts`
+- `src/core/state/run-store.ts`
+- `tests/providers/claude-code-cli/background.test.ts`
 - `tests/live-smoke-claude-team.test.ts`
+- `tests/core/lifecycle.test.ts`
 - `README.md`
 - `CHANGELOG.md`
 - `docs/runbooks/claude-team-session.md`
@@ -39,13 +45,13 @@
 
 ## L11 Quality Gates
 
-- [ ] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
-- [ ] TDD red proof is captured for terminal-state handling, smoke report status, MCP timeout options, lingering-run cancellation evidence, dry-run redaction, and docs/runbook updates.
-- [ ] Focused milestone tests are listed with expected red and green outcomes.
-- [ ] Full verification commands are listed.
-- [ ] Required edge cases selected: nonterminal `running`/`winding-down` statuses, terminal failure statuses, empty run refs, request timeout alignment, cleanup after smoke failure, report redaction, packaged runtime boundary, and no live provider use in CI.
-- [ ] Invariant scans are listed.
-- [ ] Live provider smoke is required before claiming real Claude reachability for this milestone; it remains opt-in and outside CI.
+- [x] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
+- [x] TDD red proof is captured for terminal-state handling, smoke report status, MCP timeout options, lingering-run cancellation evidence, dry-run redaction, stream-json background input, wind-down/timeout finalization, and docs/runbook updates.
+- [x] Focused milestone tests are listed with expected red and green outcomes.
+- [x] Full verification commands are listed.
+- [x] Required edge cases selected: nonterminal `running`/`winding-down` statuses, terminal failure statuses, empty run refs, request timeout alignment, cleanup after smoke failure, report redaction, packaged runtime boundary, Claude stream-json stdin shape, wind-down timeout race, and no live provider use in CI.
+- [x] Invariant scans are listed.
+- [x] Live provider smoke is required before claiming real Claude reachability for this milestone; it remains opt-in and outside CI.
 
 ## Contracts
 
@@ -65,6 +71,7 @@ Every live MCP call that may block on provider execution must pass explicit SDK 
 
 ```js
 client.callTool(request, {
+  resultSchema: undefined,
   timeout: timeoutMs + bufferMs,
   maxTotalTimeout: timeoutMs + bufferMs,
   resetTimeoutOnProgress: true
@@ -103,7 +110,7 @@ The proof must use public MCP tools and `dist/index.js`; it must not call `runCl
 - Create: `tests/live-smoke-claude-utils.test.ts`
 - Modify: `tests/live-smoke-claude-team.test.ts`
 
-- [ ] **Step 1: Add failing utility tests**
+- [x] **Step 1: Add failing utility tests**
 
 Add tests proving:
 
@@ -114,7 +121,7 @@ Add tests proving:
 - empty run refs never produce `completed`.
 - request options include `timeout`, `maxTotalTimeout`, and `resetTimeoutOnProgress`.
 
-- [ ] **Step 2: Add failing script wiring tests**
+- [x] **Step 2: Add failing script wiring tests**
 
 Extend script tests so the source no longer contains a terminal status set with `winding-down`, and so live calls route through a helper that accepts request timeout options.
 
@@ -125,7 +132,7 @@ Extend script tests so the source no longer contains a terminal status set with 
 - Modify: `scripts/live-smoke-claude-utils.mjs`
 - Modify: `scripts/live-smoke-claude-team.mjs`
 
-- [ ] **Step 1: Extract pure smoke helpers**
+- [x] **Step 1: Extract pure smoke helpers**
 
 Implement utility helpers for:
 
@@ -135,7 +142,7 @@ Implement utility helpers for:
 - sanitized report status calculation
 - MCP request option construction
 
-- [ ] **Step 2: Wire helper usage into live smoke**
+- [x] **Step 2: Wire helper usage into live smoke**
 
 Update `scripts/live-smoke-claude-team.mjs` to use helper predicates and request options for tool calls.
 
@@ -146,7 +153,7 @@ Update `scripts/live-smoke-claude-team.mjs` to use helper predicates and request
 - Modify: `scripts/live-smoke-claude-team.mjs`
 - Modify: `tests/live-smoke-claude-team.test.ts`
 
-- [ ] **Step 1: Add bounded finalization flow**
+- [x] **Step 1: Add bounded finalization flow**
 
 After start/status/message/wind-down, wait for successful terminal status. If unsuccessful or nonterminal:
 
@@ -155,7 +162,7 @@ After start/status/message/wind-down, wait for successful terminal status. If un
 - fetch final status again
 - return a failed report with `cleanupStatus`
 
-- [ ] **Step 2: Exit non-zero on failed report**
+- [x] **Step 2: Exit non-zero on failed report**
 
 The CLI must print the sanitized failed report and exit `1`, rather than throwing away evidence behind a generic error.
 
@@ -168,13 +175,15 @@ The CLI must print the sanitized failed report and exit `1`, rather than throwin
 - Modify: `docs/runbooks/claude-team-session.md`
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-long-term-roadmap.md`
 
-- [ ] **Step 1: Document honest live smoke semantics**
+- [x] **Step 1: Document honest live smoke semantics**
 
 Explain that live smoke is successful only when tracked runs complete, and that cancellation evidence is expected if a bounded smoke fails.
 
-- [ ] **Step 2: Record prior-art learning**
+- [x] **Step 2: Record prior-art learning**
 
 Briefly note in the milestone plan that the third-party Claude dev-team project informed terminal-state, output-wait, and cleanup semantics without becoming a dependency.
+
+Observed implementation note: live validation exposed an additional Claude Code CLI contract issue. Current Claude Code headless docs show `--input-format stream-json` expects a JSON user message on stdin, so the background runner now launches `claude -p --output-format stream-json --input-format stream-json --verbose`, writes the initial prompt as a stream-json user message, closes stdin, and treats later operator messages as durable mailbox/resume evidence unless a future transport supports truly live stdin.
 
 ## Task 5: Verification And Live Proof
 

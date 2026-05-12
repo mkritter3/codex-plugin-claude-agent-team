@@ -76,7 +76,6 @@ describe("Claude background session runner", () => {
     expect(calls[0]?.args).toEqual(
       expect.arrayContaining([
         "-p",
-        "Inspect the repo",
         "--input-format",
         "stream-json",
         "--output-format",
@@ -86,10 +85,19 @@ describe("Claude background session runner", () => {
         "default"
       ])
     );
+    expect(calls[0]?.args).not.toContain("Inspect the repo");
     expect(calls[0]?.args).not.toContain("--bare");
     expect(calls[0]?.args).not.toContain("acceptEdits");
     expect(calls[0]?.args).not.toContain("bypassPermissions");
     expect(calls[0]?.args).toContain("--exclude-dynamic-system-prompt-sections");
+    const input = JSON.parse(child.stdin.read()?.toString().trim() ?? "{}");
+    expect(input).toMatchObject({
+      type: "user",
+      message: {
+        role: "user",
+        content: [{ type: "text", text: "Inspect the repo" }]
+      }
+    });
   });
 
   it("applies read-only role policy to background sessions", () => {
@@ -397,7 +405,7 @@ describe("Claude background session runner", () => {
     expect(child.signals).toEqual(["SIGTERM", "SIGKILL"]);
   });
 
-  it("reports stdin support and write success for live control messages", () => {
+  it("writes initial stream-json input and closes stdin for prompt-mode completion", () => {
     const child = new FakeChildProcess();
     const handle = startClaudeBackgroundSession(
       {
@@ -410,9 +418,10 @@ describe("Claude background session runner", () => {
       { spawn: () => child }
     );
 
-    expect(handle.supportsStdin).toBe(true);
-    expect(handle.writeStdin?.("{\"type\":\"agent_team_message\"}\n")).toBe(true);
-    expect(child.stdin.read()?.toString()).toBe("{\"type\":\"agent_team_message\"}\n");
+    expect(handle.supportsStdin).toBe(false);
+    expect(handle.writeStdin?.("{\"type\":\"agent_team_message\"}\n")).toBe(false);
+    const input = JSON.parse(child.stdin.read()?.toString().trim() ?? "{}");
+    expect(input.message.content[0].text).toBe("Inspect");
   });
 
   it("reports stdin write failure when stdin is unavailable", () => {
@@ -446,7 +455,7 @@ describe("Claude background session runner", () => {
     );
     child.stdin.destroy();
 
-    expect(handle.supportsStdin).toBe(true);
+    expect(handle.supportsStdin).toBe(false);
     expect(handle.writeStdin?.("{\"type\":\"agent_team_message\"}\n")).toBe(false);
   });
 

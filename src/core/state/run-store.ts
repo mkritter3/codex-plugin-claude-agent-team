@@ -44,7 +44,14 @@ const ALLOWED_TRANSITIONS: Record<RunStatus, readonly RunStatus[]> = {
     "failed",
     "expired"
   ],
-  "winding-down": ["winding-down", "completed", "failed", "cancelling", "cancelled"],
+  "winding-down": [
+    "winding-down",
+    "completed",
+    "failed",
+    "expired",
+    "cancelling",
+    "cancelled"
+  ],
   cancelling: ["cancelling", "cancelled", "failed"],
   completed: ["completed"],
   cancelled: ["cancelled"],
