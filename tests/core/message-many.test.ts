@@ -237,4 +237,59 @@ describe("sendAgentMessages", () => {
       ]
     });
   });
+
+  it("records recovery failures as per-message failures and continues queued messages", async () => {
+    const attempted: string[] = [];
+
+    const result = await sendAgentMessages(
+      {
+        concurrency: 1,
+        messages: [
+          {
+            runId: "run_recovery_fails",
+            cwd: "/repo",
+            message: "bad",
+            correlationId: "recover"
+          },
+          { runId: "run_after_recovery_failure", cwd: "/repo", message: "after" }
+        ]
+      },
+      {
+        async messageRun(request) {
+          attempted.push(request.runId);
+          if (request.runId === "run_recovery_fails") {
+            throw new StateCorruptionError("Invalid JSONL", {
+              path: "/repo/.agent-team/mailboxes/run_recovery_fails/inbox.jsonl",
+              kind: "jsonl"
+            });
+          }
+          return messageResult(request.runId, "recorded_for_resume");
+        },
+        async recoverStateCorruption() {
+          throw new Error("archive failed");
+        }
+      }
+    );
+
+    expect(attempted).toEqual(["run_recovery_fails", "run_after_recovery_failure"]);
+    expect(result).toMatchObject({
+      status: "partial_failure",
+      messages: [
+        {
+          status: "failed",
+          index: 0,
+          runId: "run_recovery_fails",
+          cwd: "/repo",
+          correlationId: "recover",
+          error: "state recovery failed: archive failed"
+        },
+        {
+          status: "ok",
+          index: 1,
+          runId: "run_after_recovery_failure",
+          cwd: "/repo"
+        }
+      ]
+    });
+  });
 });

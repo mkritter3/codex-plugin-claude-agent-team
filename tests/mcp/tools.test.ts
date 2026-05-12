@@ -1065,6 +1065,12 @@ describe("MCP tool handlers", () => {
           { runId: "run_1", message: "first" },
           { runId: "run_1", message: "second" }
         ]
+      },
+      {
+        messages: [
+          { runId: "run_1", message: "first" },
+          { runId: "run_1", cwd: "/repo/.", message: "same normalized target" }
+        ]
       }
     ];
 

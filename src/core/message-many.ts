@@ -62,23 +62,36 @@ export async function sendAgentMessages(
         results[index] = ok;
       } catch (error) {
         if (error instanceof StateCorruptionError) {
-          const recovery = await deps.recoverStateCorruption({
-            workspaceRoot: message.cwd,
-            runId: message.runId,
-            operation: "agent_team_message_many",
-            error
-          });
-          const recovered: AgentMessageManyRecovered = {
-            status: "state_corrupt",
-            index,
-            runId: message.runId,
-            cwd: message.cwd,
-            ...(message.correlationId === undefined
-              ? {}
-              : { correlationId: message.correlationId }),
-            recovery
-          };
-          results[index] = recovered;
+          try {
+            const recovery = await deps.recoverStateCorruption({
+              workspaceRoot: message.cwd,
+              runId: message.runId,
+              operation: "agent_team_message_many",
+              error
+            });
+            const recovered: AgentMessageManyRecovered = {
+              status: "state_corrupt",
+              index,
+              runId: message.runId,
+              cwd: message.cwd,
+              ...(message.correlationId === undefined
+                ? {}
+                : { correlationId: message.correlationId }),
+              recovery
+            };
+            results[index] = recovered;
+          } catch (recoveryError) {
+            results[index] = {
+              status: "failed",
+              index,
+              runId: message.runId,
+              cwd: message.cwd,
+              ...(message.correlationId === undefined
+                ? {}
+                : { correlationId: message.correlationId }),
+              error: `state recovery failed: ${errorMessage(recoveryError)}`
+            };
+          }
           continue;
         }
 

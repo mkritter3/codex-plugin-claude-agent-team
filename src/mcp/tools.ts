@@ -1,3 +1,4 @@
+import { resolve } from "node:path";
 import { runDoctor } from "../doctor.js";
 import { loadAgentTeamConfig } from "../core/config.js";
 import { dispatchReadOnlyAgent } from "../core/dispatch.js";
@@ -449,7 +450,7 @@ function parseMessageManyArgs(
     }
 
     const resolvedCwd = itemCwd ?? defaultCwd ?? cwd;
-    const targetKey = `${resolvedCwd}\0${item.runId}`;
+    const targetKey = `${resolve(resolvedCwd)}\0${item.runId}`;
     if (seenTargets.has(targetKey)) {
       return validationError(
         `agent_team_message_many messages[${index}] duplicates target ${item.runId}.`
