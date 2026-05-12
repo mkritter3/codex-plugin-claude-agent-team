@@ -53,6 +53,19 @@ The target count is intentionally a range, not a fake precision number:
 - V1.5 provider expansion likely lands around **Milestone 36-40**.
 - V2 maturity continues beyond that only if the plugin graduates from local power tool into packaged product.
 
+## Quality Gate
+
+Every milestone from Milestone 27 onward must map its success criteria and verification plan to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
+
+That gate requires:
+
+- TDD red/green proof for new behavior.
+- Focused edge-case tests selected from the matrix.
+- MCP schema and packaged stdio smoke coverage for public tools.
+- State, lifecycle, auth, provider-neutrality, cleanup, and corruption-recovery checks when touched.
+- Full `npm run ci` verification for implementation milestones.
+- Opt-in live provider smoke only when making real-provider capability, benchmark, or model-quality claims.
+
 ## V1 Completion Milestones
 
 ### Milestone 27: Batch Message
