@@ -30,6 +30,14 @@ export const DEFAULT_AGENT_TEAM_CONFIG: AgentTeamConfig = {
     ollamaCloud: {
       enabled: false,
       profiles: []
+    },
+    gemini: {
+      enabled: false,
+      capabilities: {
+        structuredOutput: false,
+        longContext: false,
+        reasoning: false
+      }
     }
   }
 };
@@ -84,8 +92,12 @@ function assertSupportedProfileCapabilities(input: {
 
   for (const capability of unsupportedCapabilities) {
     if (input.capabilities[capability] === true) {
+      const subject =
+        input.profileId === "provider"
+          ? `${input.providerName} provider`
+          : `${input.providerName} profile ${input.profileId}`;
       throw new AgentTeamConfigError(
-        `${input.providerName} profile ${input.profileId} does not support capability ${capability}.`
+        `${subject} does not support capability ${capability}.`
       );
     }
   }
@@ -192,6 +204,44 @@ function parseOllamaCloudProviderConfig(
   };
 }
 
+function parseGeminiProviderConfig(
+  providers: Record<string, unknown>
+): AgentTeamConfig["providers"]["gemini"] {
+  const gemini = objectField(providers, "gemini");
+  const capabilities = objectField(gemini, "capabilities");
+  assertSupportedProfileCapabilities({
+    providerName: "Gemini",
+    profileId: "provider",
+    capabilities
+  });
+  const baseUrl = readString(gemini.baseUrl);
+  const model = readString(gemini.model);
+  const apiKeyEnv = readString(gemini.apiKeyEnv);
+  const displayName = readString(gemini.displayName);
+
+  return {
+    enabled: readBoolean(gemini.enabled, DEFAULT_AGENT_TEAM_CONFIG.providers.gemini.enabled),
+    ...(baseUrl === undefined ? {} : { baseUrl }),
+    ...(model === undefined ? {} : { model }),
+    ...(apiKeyEnv === undefined ? {} : { apiKeyEnv }),
+    ...(displayName === undefined ? {} : { displayName }),
+    capabilities: {
+      structuredOutput: readBoolean(
+        capabilities.structuredOutput,
+        DEFAULT_AGENT_TEAM_CONFIG.providers.gemini.capabilities.structuredOutput
+      ),
+      longContext: readBoolean(
+        capabilities.longContext,
+        DEFAULT_AGENT_TEAM_CONFIG.providers.gemini.capabilities.longContext
+      ),
+      reasoning: readBoolean(
+        capabilities.reasoning,
+        DEFAULT_AGENT_TEAM_CONFIG.providers.gemini.capabilities.reasoning
+      )
+    }
+  };
+}
+
 export async function loadAgentTeamConfig(
   workspaceRoot: string
 ): Promise<AgentTeamConfig> {
@@ -229,7 +279,8 @@ export async function loadAgentTeamConfig(
     },
     providers: {
       openaiCompatible: parseOpenAICompatibleProviderConfig(providers),
-      ollamaCloud: parseOllamaCloudProviderConfig(providers)
+      ollamaCloud: parseOllamaCloudProviderConfig(providers),
+      gemini: parseGeminiProviderConfig(providers)
     }
   };
 

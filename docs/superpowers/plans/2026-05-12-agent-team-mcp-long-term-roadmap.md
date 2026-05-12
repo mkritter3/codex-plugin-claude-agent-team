@@ -27,7 +27,7 @@ Codex should be able to stand up and manage an external AI agent team from insid
 
 ## Current Baseline
 
-Completed through Milestone 35:
+Completed through Milestone 36:
 
 - package scaffold, MCP server, CI, stdio smoke, and schema coverage
 - provider-neutral roles, capabilities, router, config, and doctor
@@ -45,6 +45,7 @@ Completed through Milestone 35:
 - provider runtime conformance harness for future adapters
 - explicitly configured OpenAI-compatible provider foundation for synchronous read-only dispatch
 - explicit Ollama Cloud profiles backed by the OpenAI-compatible runtime
+- explicitly configured Gemini adapter for synchronous read-only dispatch
 - end-to-end Claude team session runbook
 - README, changelog/versioning policy, license, and package/plugin metadata alignment
 
@@ -199,6 +200,8 @@ That gate requires:
 - Unsupported implementation roles fail closed.
 - No benchmark/model-quality claims are made without real run evidence.
 
+**Status:** Complete. Gemini is explicit config only, exposes conservative read-only capabilities, uses a provider-owned `generateContent` runtime, and reuses provider-neutral router, doctor, dispatch, lifecycle, sidecar, and evidence paths without public MCP schema changes.
+
 ### Milestone 37: Grok Adapter
 
 **Goal:** Add a Grok adapter or profile for second-opinion and review-style roles where capabilities allow it.
@@ -286,8 +289,8 @@ V1.5 is complete when at least one non-Claude provider can be configured explici
 
 Implement the next milestones in this order:
 
-1. Milestone 36: Gemini Adapter
-2. Milestone 37: Grok Adapter
-3. Milestone 38: Provider Selection Policy
+1. Milestone 37: Grok Adapter
+2. Milestone 38: Provider Selection Policy
+3. Milestone 39: Durable Team Records
 
 This order finishes the V1 control plane before adding provider breadth.

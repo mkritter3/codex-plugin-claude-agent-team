@@ -12,6 +12,7 @@ All notable changes to this private local plugin are recorded here.
 - Added a provider runtime conformance harness for future adapters.
 - Added an explicitly configured OpenAI-compatible provider foundation for synchronous read-only dispatch with provider-scoped auth env checks and fail-closed lifecycle routing.
 - Added explicit Ollama Cloud profiles backed by the OpenAI-compatible runtime for configured read-only Kimi/GLM-style dispatch.
+- Added an explicitly configured Gemini adapter for synchronous read-only generateContent dispatch with provider-scoped auth env checks.
 - Added the Claude team session runbook and packaging hardening docs.
 
 ## Versioning Policy

@@ -10,7 +10,8 @@ describe("provider runtime registry", () => {
   it("lists the bundled Claude Code CLI runtime", () => {
     expect(listProviderRuntimes().map((runtime) => runtime.id)).toEqual([
       "claude-code-cli",
-      "openai-compatible"
+      "openai-compatible",
+      "gemini"
     ]);
   });
 
@@ -23,6 +24,13 @@ describe("provider runtime registry", () => {
 
   it("resolves the OpenAI-compatible runtime as disabled by default", () => {
     const runtime = getProviderRuntime("openai-compatible");
+
+    expect(runtime?.descriptor().authMode).toBe("api-key");
+    expect(runtime?.descriptor().available).toBe(false);
+  });
+
+  it("resolves the Gemini runtime as disabled by default", () => {
+    const runtime = getProviderRuntime("gemini");
 
     expect(runtime?.descriptor().authMode).toBe("api-key");
     expect(runtime?.descriptor().available).toBe(false);

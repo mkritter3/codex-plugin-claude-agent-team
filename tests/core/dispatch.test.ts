@@ -15,6 +15,10 @@ import {
   openAICompatibleProvider
 } from "../../src/providers/openai-compatible/runtime.js";
 import { listOllamaCloudProviders } from "../../src/providers/ollama-cloud/config.js";
+import {
+  createGeminiRuntime,
+  geminiProvider
+} from "../../src/providers/gemini/runtime.js";
 
 let workspace: string;
 
@@ -80,6 +84,27 @@ function ollamaConfig(): AgentTeamConfig {
             }
           }
         ]
+      }
+    }
+  } as AgentTeamConfig;
+}
+
+function geminiConfig(): AgentTeamConfig {
+  return {
+    ...DEFAULT_AGENT_TEAM_CONFIG,
+    providers: {
+      ...DEFAULT_AGENT_TEAM_CONFIG.providers,
+      gemini: {
+        enabled: true,
+        baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+        model: "gemini-2.5-flash",
+        apiKeyEnv: "GEMINI_API_KEY",
+        displayName: "Gemini Review",
+        capabilities: {
+          structuredOutput: true,
+          longContext: true,
+          reasoning: false
+        }
       }
     }
   } as AgentTeamConfig;
@@ -285,6 +310,86 @@ describe("dispatchReadOnlyAgent", () => {
       provider: "ollama-cloud:kimi-k2.6",
       providerSessionId: "chatcmpl_kimi_dispatch"
     });
+  });
+
+  it("dispatches through explicitly configured Gemini runtime", async () => {
+    const config = geminiConfig();
+    const runtime = createGeminiRuntime({
+      fetch: async () =>
+        new Response(
+          JSON.stringify({
+            responseId: "gemini_dispatch",
+            candidates: [
+              {
+                content: {
+                  parts: [{ text: shipText }]
+                }
+              }
+            ]
+          }),
+          { status: 200 }
+        )
+    });
+    const provider = geminiProvider(config);
+
+    const result = await dispatchReadOnlyAgent(
+      {
+        role: "planner",
+        task: "Review plan",
+        cwd: workspace,
+        provider: "gemini"
+      },
+      {
+        config,
+        providers: provider === undefined ? [] : [provider],
+        runtimes: [runtime],
+        createRunId: () => "run_gemini_dispatch",
+        env: { GEMINI_API_KEY: "secret-token" }
+      }
+    );
+
+    expect(result).toMatchObject({
+      status: "completed",
+      provider: "gemini",
+      verdict: { status: "SHIP" }
+    });
+    await expect(readRunSidecar(workspace, "run_gemini_dispatch")).resolves.toMatchObject({
+      provider: "gemini",
+      providerSessionId: "gemini_dispatch"
+    });
+  });
+
+  it("records Gemini dispatch failures as sidecar evidence", async () => {
+    const config = geminiConfig();
+    const runtime = createGeminiRuntime({
+      fetch: async () => new Response(JSON.stringify({ candidates: [] }), { status: 200 })
+    });
+    const provider = geminiProvider(config);
+
+    const result = await dispatchReadOnlyAgent(
+      {
+        role: "planner",
+        task: "Review plan",
+        cwd: workspace,
+        provider: "gemini"
+      },
+      {
+        config,
+        providers: provider === undefined ? [] : [provider],
+        runtimes: [runtime],
+        createRunId: () => "run_gemini_failed",
+        env: { GEMINI_API_KEY: "secret-token" }
+      }
+    );
+
+    expect(result).toMatchObject({
+      status: "failed",
+      provider: "gemini",
+      verdict: { status: "BLOCKED" }
+    });
+    await expect(readFile(runLogPath(workspace, "run_gemini_failed"), "utf8")).resolves.toContain(
+      "Gemini response did not contain candidate text."
+    );
   });
 
   it("blocks dispatch when the selected runtime reports auth precedence warnings", async () => {

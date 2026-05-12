@@ -131,6 +131,29 @@ Ollama Cloud profiles are an explicit OpenAI-compatible profile layer. They are 
 
 Profile provider ids use `ollama-cloud:<profile-id>`, for example `ollama-cloud:kimi-k2.6`. Profiles support synchronous read-only dispatch only; run live smoke separately before making any real-provider readiness, model-quality, or long-context claims.
 
+Gemini is a separate explicit adapter because its REST payloads are not OpenAI-compatible. It is disabled by default and supports synchronous read-only dispatch only:
+
+```json
+{
+  "providers": {
+    "gemini": {
+      "enabled": true,
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+      "model": "gemini-2.5-flash",
+      "apiKeyEnv": "GEMINI_API_KEY",
+      "displayName": "Gemini Review",
+      "capabilities": {
+        "structuredOutput": true,
+        "longContext": true,
+        "reasoning": false
+      }
+    }
+  }
+}
+```
+
+Gemini does not support background sessions, live stdin, resume, cancellation, edits, tools, streaming, Live API, file upload, multimodal inputs, or workspace isolation in this plugin version. Run live smoke separately before making real-provider readiness, model-quality, or practical long-context claims.
+
 ## Auth And Doctor
 
 Before starting live runs, call `agent_team_doctor` for the target workspace. Doctor checks host readiness, package/runtime shape, writable state, git/worktree readiness when needed, provider health, auth posture, and role routing.

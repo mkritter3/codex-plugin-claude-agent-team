@@ -10,6 +10,8 @@ function config(input: {
   readonly openAIModel?: string;
   readonly ollamaEnabled?: boolean;
   readonly ollamaModel?: string;
+  readonly geminiEnabled?: boolean;
+  readonly geminiModel?: string;
 } = {}): AgentTeamConfig {
   return {
     writeMode: {
@@ -47,6 +49,15 @@ function config(input: {
                 }
               ]
             : []
+      },
+      gemini: {
+        enabled: input.geminiEnabled ?? false,
+        ...(input.geminiModel === undefined ? {} : { model: input.geminiModel }),
+        capabilities: {
+          structuredOutput: input.geminiEnabled ?? false,
+          longContext: input.geminiEnabled ?? false,
+          reasoning: false
+        }
       }
     }
   };
@@ -95,6 +106,12 @@ describe("LifecycleRegistry", () => {
       registry.get("/repo", config({ ollamaEnabled: true, ollamaModel: "glm-5.1" }))
     ).not.toBe(
       registry.get("/repo", config({ ollamaEnabled: true, ollamaModel: "kimi-k2.6" }))
+    );
+    expect(registry.get("/repo", config({ geminiEnabled: true }))).not.toBe(baseline);
+    expect(
+      registry.get("/repo", config({ geminiEnabled: true, geminiModel: "gemini-2.5-pro" }))
+    ).not.toBe(
+      registry.get("/repo", config({ geminiEnabled: true, geminiModel: "gemini-2.5-flash" }))
     );
   });
 });

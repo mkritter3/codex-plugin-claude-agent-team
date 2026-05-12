@@ -81,9 +81,19 @@ export interface OllamaCloudProviderConfig {
   readonly profiles: readonly OllamaCloudProfileConfig[];
 }
 
+export interface GeminiProviderConfig {
+  readonly enabled: boolean;
+  readonly baseUrl?: string;
+  readonly model?: string;
+  readonly apiKeyEnv?: string;
+  readonly displayName?: string;
+  readonly capabilities: OpenAICompatibleProviderCapabilitiesConfig;
+}
+
 export interface AgentTeamProviderConfig {
   readonly openaiCompatible: OpenAICompatibleProviderConfig;
   readonly ollamaCloud: OllamaCloudProviderConfig;
+  readonly gemini: GeminiProviderConfig;
 }
 
 export interface AgentTeamConfig {

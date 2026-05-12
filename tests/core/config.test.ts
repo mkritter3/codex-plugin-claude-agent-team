@@ -149,6 +149,48 @@ describe("loadAgentTeamConfig", () => {
     });
   });
 
+  it("loads explicit Gemini provider config without inferring env fallback", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-config-"));
+    await mkdir(join(workspace, ".agent-team"), { recursive: true });
+    await writeFile(
+      join(workspace, ".agent-team", "config.json"),
+      JSON.stringify({
+        providers: {
+          gemini: {
+            enabled: true,
+            baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+            model: "gemini-2.5-flash",
+            apiKeyEnv: "GEMINI_API_KEY",
+            displayName: "Gemini Review",
+            capabilities: {
+              structuredOutput: true,
+              longContext: true,
+              reasoning: true
+            }
+          }
+        }
+      }),
+      "utf8"
+    );
+
+    await expect(loadAgentTeamConfig(workspace)).resolves.toMatchObject({
+      providers: {
+        gemini: {
+          enabled: true,
+          baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+          model: "gemini-2.5-flash",
+          apiKeyEnv: "GEMINI_API_KEY",
+          displayName: "Gemini Review",
+          capabilities: {
+            structuredOutput: true,
+            longContext: true,
+            reasoning: true
+          }
+        }
+      }
+    });
+  });
+
   it("rejects unsupported Ollama Cloud profile capabilities and duplicate ids", async () => {
     const unsupported = await mkdtemp(join(tmpdir(), "agent-team-config-"));
     await mkdir(join(unsupported, ".agent-team"), { recursive: true });
@@ -224,6 +266,33 @@ describe("loadAgentTeamConfig", () => {
 
     await expect(loadAgentTeamConfig(workspace)).rejects.toThrow(
       "OpenAI-compatible provider does not support capability tools"
+    );
+  });
+
+  it("rejects unsupported Gemini capability claims", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-config-"));
+    await mkdir(join(workspace, ".agent-team"), { recursive: true });
+    await writeFile(
+      join(workspace, ".agent-team", "config.json"),
+      JSON.stringify({
+        providers: {
+          gemini: {
+            enabled: true,
+            baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+            model: "gemini-2.5-flash",
+            apiKeyEnv: "GEMINI_API_KEY",
+            capabilities: {
+              structuredOutput: true,
+              sessionResume: true
+            }
+          }
+        }
+      }),
+      "utf8"
+    );
+
+    await expect(loadAgentTeamConfig(workspace)).rejects.toThrow(
+      "Gemini provider does not support capability sessionResume"
     );
   });
 

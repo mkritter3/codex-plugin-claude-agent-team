@@ -12,6 +12,7 @@ import type {
 import { claudeCodeCliRuntime } from "./claude-code-cli/runtime.js";
 import { openAICompatibleRuntime } from "./openai-compatible/runtime.js";
 import { isOllamaCloudProviderId } from "./ollama-cloud/config.js";
+import { geminiRuntime } from "./gemini/runtime.js";
 
 export interface AgentProviderRuntime {
   readonly id: string;
@@ -28,7 +29,11 @@ export interface ProviderRuntimeRegistryOptions {
   readonly runtimes?: readonly AgentProviderRuntime[];
 }
 
-const DEFAULT_PROVIDER_RUNTIMES = [claudeCodeCliRuntime, openAICompatibleRuntime] as const;
+const DEFAULT_PROVIDER_RUNTIMES = [
+  claudeCodeCliRuntime,
+  openAICompatibleRuntime,
+  geminiRuntime
+] as const;
 
 export function listProviderRuntimes(
   options: ProviderRuntimeRegistryOptions = {}

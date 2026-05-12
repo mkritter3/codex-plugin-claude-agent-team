@@ -1,6 +1,6 @@
 # Agent Team MCP Milestone 36 Gemini Adapter Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox syntax for tracking.
 
 **Goal:** Add an explicitly configured Gemini adapter for read-only planning, review, debugging, and long-context analysis roles without changing public MCP schemas.
 
@@ -47,13 +47,13 @@
 
 ## L11 Quality Gates
 
-- [ ] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
-- [ ] TDD red proof is captured for new behavior.
-- [ ] Focused milestone tests are listed with expected red and green outcomes.
-- [ ] Full verification commands are listed.
-- [ ] Required edge cases from the matrix are explicitly selected.
-- [ ] Invariant scans are listed.
-- [ ] Live provider smoke is marked required or not required with rationale.
+- [x] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
+- [x] TDD red proof is captured for new behavior.
+- [x] Focused milestone tests are listed with expected red and green outcomes.
+- [x] Full verification commands are listed.
+- [x] Required edge cases from the matrix are explicitly selected.
+- [x] Invariant scans are listed.
+- [x] Live provider smoke is marked required or not required with rationale.
 
 Selected quality-gate rows:
 
@@ -101,7 +101,7 @@ Official API notes used for adapter shape:
 - Create: `tests/providers/gemini/config.test.ts`
 - Modify: `tests/providers/runtime.test.ts`
 
-- [ ] **Step 1: Write failing config and descriptor tests**
+- [x] **Step 1: Write failing config and descriptor tests**
 
 Cover:
 
@@ -122,7 +122,7 @@ npm test -- tests/core/config.test.ts tests/core/lifecycle-registry.test.ts test
 
 Expected red: Gemini config/provider/runtime modules do not exist yet and `providers.gemini` is not parsed.
 
-- [ ] **Step 2: Write failing router tests**
+- [x] **Step 2: Write failing router tests**
 
 Cover:
 
@@ -152,7 +152,7 @@ Expected red: Gemini descriptors do not exist yet.
 - Modify: `src/doctor.ts`
 - Modify: `tests/doctor.test.ts`
 
-- [ ] **Step 1: Add provider-neutral Gemini config types**
+- [x] **Step 1: Add provider-neutral Gemini config types**
 
 Add `providers.gemini` with:
 
@@ -165,15 +165,15 @@ Add `providers.gemini` with:
 - `capabilities.longContext`
 - `capabilities.reasoning`
 
-- [ ] **Step 2: Add Gemini parser and descriptor builder**
+- [x] **Step 2: Add Gemini parser and descriptor builder**
 
 Create `src/providers/gemini/config.ts` for descriptor helpers. Keep id stable as `gemini`, reject unsupported capabilities, and sanitize warnings so no secrets, internal prompts, or implementation details are exposed.
 
-- [ ] **Step 3: Register the Gemini provider and runtime id**
+- [x] **Step 3: Register the Gemini provider and runtime id**
 
 Add Gemini to provider listing only when enabled, and add the runtime to bundled runtime registration so `requireProviderRuntime("gemini")` works.
 
-- [ ] **Step 4: Add doctor Gemini health visibility**
+- [x] **Step 4: Add doctor Gemini health visibility**
 
 Doctor must report missing endpoint/model/auth env clearly and must not treat `GEMINI_API_KEY` or any provider-scoped Gemini env as a Claude subscription fallback.
 
@@ -191,7 +191,7 @@ npm test -- tests/core/config.test.ts tests/core/lifecycle-registry.test.ts test
 - Create: `tests/providers/gemini/runtime.test.ts`
 - Modify: `tests/core/dispatch.test.ts`
 
-- [ ] **Step 1: Write failing Gemini runtime and dispatch tests**
+- [x] **Step 1: Write failing Gemini runtime and dispatch tests**
 
 Cover:
 
@@ -213,7 +213,7 @@ npm test -- tests/providers/gemini/runtime.test.ts tests/core/dispatch.test.ts t
 
 Expected red: Gemini runtime does not exist yet.
 
-- [ ] **Step 2: Implement Gemini runtime**
+- [x] **Step 2: Implement Gemini runtime**
 
 Implement `createGeminiRuntime({ config?, fetch? })` and exported `geminiRuntime`. Runtime behavior:
 
@@ -226,7 +226,7 @@ Implement `createGeminiRuntime({ config?, fetch? })` and exported `geminiRuntime
 - parse `candidates[].content.parts[].text`
 - return `sessionId` from `responseId` when present
 
-- [ ] **Step 3: Add conformance coverage**
+- [x] **Step 3: Add conformance coverage**
 
 Use the shared provider runtime conformance helper with a fixture Gemini runtime and descriptor. The conformance fixture must not make live network calls and must not claim provider quality.
 
@@ -245,7 +245,7 @@ npm test -- tests/providers/gemini/runtime.test.ts tests/core/dispatch.test.ts t
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-long-term-roadmap.md`
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-milestone-36.md`
 
-- [ ] **Step 1: Update user-facing docs**
+- [x] **Step 1: Update user-facing docs**
 
 Document:
 
@@ -256,11 +256,11 @@ Document:
 - no edit/session/tool/streaming/live-api support is claimed
 - live provider smoke is opt-in before any real-model readiness, long-context, or model-quality claim
 
-- [ ] **Step 2: Update roadmap and changelog**
+- [x] **Step 2: Update roadmap and changelog**
 
 Mark M36 complete only after proof is captured and move near-term recommendation to M37/M38/M39.
 
-- [ ] **Step 3: Run focused milestone tests**
+- [x] **Step 3: Run focused milestone tests**
 
 Run:
 
@@ -268,7 +268,7 @@ Run:
 npm test -- tests/core/config.test.ts tests/core/router.test.ts tests/core/lifecycle-registry.test.ts tests/core/lifecycle.test.ts tests/core/dispatch.test.ts tests/providers/runtime.test.ts tests/providers/gemini/config.test.ts tests/providers/gemini/runtime.test.ts tests/doctor.test.ts tests/docs/packaging.test.ts tests/docs/runbook.test.ts tests/mcp/tools.test.ts
 ```
 
-- [ ] **Step 4: Run full verification**
+- [x] **Step 4: Run full verification**
 
 Run:
 
@@ -280,7 +280,7 @@ npm run smoke:mcp-stdio
 npm run ci
 ```
 
-- [ ] **Step 5: Run invariant scans**
+- [x] **Step 5: Run invariant scans**
 
 Run:
 
@@ -293,15 +293,18 @@ rg "baseUrl|apiKey|apiKeyEnv|x-goog-api-key|Authorization|Bearer|GEMINI" src tes
 rg "process.kill|SIGKILL|automatic cleanup|workspace_cleanup_removed|cleanupRunWorkspace" src tests docs README.md CHANGELOG.md
 ```
 
-- [ ] **Step 6: Mark plan complete and commit**
+- [x] **Step 6: Mark plan complete and commit**
 
 After all proof is captured, mark the L11 gates and task checkboxes complete in this plan, then commit the implementation branch.
 
 ## Verification Evidence
 
-- Baseline before implementation: pending.
-- Red proof: pending.
-- Focused milestone proof: pending.
-- Full proof: pending.
-- Packaged stdio smoke: pending.
-- Invariant scans: pending.
+- Baseline before implementation: `npm test` passed in the isolated worktree with 43 files and 309 tests before adding M36 behavior.
+- Red proof: focused red run failed on missing `src/providers/gemini/config.js`, missing `src/providers/gemini/runtime.js`, absent `providers.gemini` config parsing, absent Gemini descriptors, absent runtime registration, absent provider-id routing, absent doctor config/auth checks, and absent lifecycle-registry config identity.
+- Focused milestone proof: `npm test -- tests/core/config.test.ts tests/core/router.test.ts tests/core/lifecycle-registry.test.ts tests/core/lifecycle.test.ts tests/core/dispatch.test.ts tests/providers/runtime.test.ts tests/providers/gemini/config.test.ts tests/providers/gemini/runtime.test.ts tests/doctor.test.ts tests/docs/packaging.test.ts tests/docs/runbook.test.ts tests/mcp/tools.test.ts` passed with 12 files and 178 tests.
+- Typecheck proof: `npm run typecheck` passed.
+- Full proof: `npm test` passed with 45 files and 334 tests.
+- Build proof: `npm run build` passed.
+- Packaged stdio smoke: `npm run smoke:mcp-stdio` passed with `MCP stdio smoke passed.`
+- CI proof: `npm run ci` passed, including typecheck, full tests, build, and packaged stdio smoke.
+- Invariant scans: auth/fallback, permission/bypass, benchmark/model-quality, prompt/schema leakage, endpoint/auth-secret, and cleanup/process-kill scans were run. Matches were expected guardrails, provider-local Gemini config/runtime/tests/docs, placeholder endpoint/env examples, or pre-existing Claude/lifecycle cleanup behavior; no public provider-specific MCP schema, Claude API-key fallback, benchmark/model-quality claim, hidden prompt leakage, secret value, or new cleanup/process-kill shortcut was introduced.

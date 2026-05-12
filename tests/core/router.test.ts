@@ -87,6 +87,14 @@ describe("selectProvider", () => {
           ollamaCloud: {
             enabled: false,
             profiles: []
+          },
+          gemini: {
+            enabled: false,
+            capabilities: {
+              structuredOutput: false,
+              longContext: false,
+              reasoning: false
+            }
           }
         }
       }
@@ -130,6 +138,14 @@ describe("selectProvider", () => {
           ollamaCloud: {
             enabled: false,
             profiles: []
+          },
+          gemini: {
+            enabled: false,
+            capabilities: {
+              structuredOutput: false,
+              longContext: false,
+              reasoning: false
+            }
           }
         }
       }
@@ -198,6 +214,14 @@ describe("selectProvider", () => {
                 }
               }
             ]
+          },
+          gemini: {
+            enabled: false,
+            capabilities: {
+              structuredOutput: false,
+              longContext: false,
+              reasoning: false
+            }
           }
         }
       }
@@ -229,6 +253,104 @@ describe("selectProvider", () => {
         roleId: "slice-implementer",
         providers,
         requestedProviderId: "ollama-cloud:kimi-k2.6"
+      })
+    ).toThrow(ProviderCapabilityError);
+  });
+
+  it("routes requested Gemini only through declared read-only capabilities", () => {
+    const providers = listProviders({
+      config: {
+        writeMode: { enabled: false, requireIsolatedWorktree: true },
+        auth: { allowApiKeyFallback: false },
+        providers: {
+          openaiCompatible: {
+            enabled: false,
+            capabilities: {
+              structuredOutput: false,
+              longContext: false,
+              reasoning: false
+            }
+          },
+          ollamaCloud: {
+            enabled: false,
+            profiles: []
+          },
+          gemini: {
+            enabled: true,
+            baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+            model: "gemini-2.5-flash",
+            apiKeyEnv: "GEMINI_API_KEY",
+            capabilities: {
+              structuredOutput: true,
+              longContext: true,
+              reasoning: false
+            }
+          }
+        }
+      }
+    });
+
+    expect(
+      selectProvider({
+        roleId: "planner",
+        providers,
+        requestedProviderId: "gemini"
+      }).id
+    ).toBe("gemini");
+    expect(
+      selectProvider({
+        roleId: "architect",
+        providers,
+        requestedProviderId: "gemini"
+      }).id
+    ).toBe("gemini");
+    expect(() =>
+      selectProvider({
+        roleId: "slice-implementer",
+        providers,
+        requestedProviderId: "gemini"
+      })
+    ).toThrow(ProviderCapabilityError);
+  });
+
+  it("fails closed when requested Gemini lacks long-context capability", () => {
+    const providers = listProviders({
+      config: {
+        writeMode: { enabled: false, requireIsolatedWorktree: true },
+        auth: { allowApiKeyFallback: false },
+        providers: {
+          openaiCompatible: {
+            enabled: false,
+            capabilities: {
+              structuredOutput: false,
+              longContext: false,
+              reasoning: false
+            }
+          },
+          ollamaCloud: {
+            enabled: false,
+            profiles: []
+          },
+          gemini: {
+            enabled: true,
+            baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+            model: "gemini-2.5-flash",
+            apiKeyEnv: "GEMINI_API_KEY",
+            capabilities: {
+              structuredOutput: true,
+              longContext: false,
+              reasoning: false
+            }
+          }
+        }
+      }
+    });
+
+    expect(() =>
+      selectProvider({
+        roleId: "architect",
+        providers,
+        requestedProviderId: "gemini"
       })
     ).toThrow(ProviderCapabilityError);
   });

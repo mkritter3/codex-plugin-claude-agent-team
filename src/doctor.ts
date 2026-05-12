@@ -219,6 +219,13 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
           ollamaCloud: {
             enabled: config.providers.ollamaCloud.enabled,
             profileCount: config.providers.ollamaCloud.profiles.length
+          },
+          gemini: {
+            enabled: config.providers.gemini.enabled,
+            hasBaseUrl: config.providers.gemini.baseUrl !== undefined,
+            hasModel: config.providers.gemini.model !== undefined,
+            apiKeyEnv: config.providers.gemini.apiKeyEnv,
+            capabilities: config.providers.gemini.capabilities
           }
         }
       }

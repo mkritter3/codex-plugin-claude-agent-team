@@ -287,6 +287,16 @@ describe("runDoctor", () => {
           ollamaCloud: {
             enabled: false,
             profileCount: 0
+          },
+          gemini: {
+            enabled: false,
+            hasBaseUrl: false,
+            hasModel: false,
+            capabilities: {
+              structuredOutput: false,
+              longContext: false,
+              reasoning: false
+            }
           }
         }
       }
@@ -447,6 +457,76 @@ describe("runDoctor", () => {
     ).toMatchObject({
       status: "pass",
       details: { env: "GLM_API_KEY", present: true }
+    });
+    expect(report.checks.find((check) => check.id === "auth-precedence")).toMatchObject({
+      status: "pass"
+    });
+  });
+
+  it("reports explicit Gemini config and missing provider auth env", async () => {
+    const workspace = await tempWorkspace();
+    await writeConfig(workspace, {
+      providers: {
+        gemini: {
+          enabled: true,
+          baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+          model: "gemini-2.5-flash",
+          apiKeyEnv: "GEMINI_API_KEY",
+          capabilities: { structuredOutput: true, longContext: true }
+        }
+      }
+    });
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: {},
+      ...cliFound()
+    });
+
+    expect(report.ok).toBe(false);
+    expect(report.checks.find((check) => check.id === "gemini-config")).toMatchObject({
+      status: "pass",
+      details: {
+        providerId: "gemini",
+        hasBaseUrl: true,
+        hasModel: true,
+        hasApiKeyEnv: true
+      }
+    });
+    expect(report.checks.find((check) => check.id === "gemini-auth-env")).toMatchObject({
+      status: "fail",
+      message: "Gemini provider auth env GEMINI_API_KEY is missing.",
+      details: { env: "GEMINI_API_KEY", present: false }
+    });
+    expect(report.checks.find((check) => check.id === "auth-precedence")).toMatchObject({
+      status: "pass"
+    });
+  });
+
+  it("does not treat provider-scoped Gemini API keys as Claude fallback", async () => {
+    const workspace = await tempWorkspace();
+    await writeConfig(workspace, {
+      providers: {
+        gemini: {
+          enabled: true,
+          baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+          model: "gemini-2.5-flash",
+          apiKeyEnv: "GEMINI_API_KEY",
+          capabilities: { structuredOutput: true }
+        }
+      }
+    });
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: { GEMINI_API_KEY: "secret-token" },
+      ...cliFound()
+    });
+
+    expect(report.ok).toBe(true);
+    expect(report.checks.find((check) => check.id === "gemini-auth-env")).toMatchObject({
+      status: "pass",
+      details: { env: "GEMINI_API_KEY", present: true }
     });
     expect(report.checks.find((check) => check.id === "auth-precedence")).toMatchObject({
       status: "pass"
