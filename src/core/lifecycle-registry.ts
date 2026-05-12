@@ -13,6 +13,7 @@ function configIdentity(config: AgentTeamConfig): string {
     auth: {
       allowApiKeyFallback: config.auth.allowApiKeyFallback
     },
+    routing: config.routing,
     writeMode: {
       enabled: config.writeMode.enabled,
       requireIsolatedWorktree: config.writeMode.requireIsolatedWorktree

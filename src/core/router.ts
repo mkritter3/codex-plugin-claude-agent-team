@@ -3,7 +3,13 @@ import { getRole } from "./roles.js";
 import type {
   AgentProviderDescriptor,
   ProviderCapability,
-  ProviderSelectionRequest
+  ProviderRoutingPolicyConfig,
+  ProviderSelectionCandidate,
+  ProviderSelectionExplanation,
+  ProviderSelectionRequest,
+  ProviderSelectionSelector,
+  ProviderSelectorKind,
+  ProviderSelectorSource
 } from "./types.js";
 
 function uniqueCapabilities(
@@ -20,42 +26,190 @@ function missingCapabilities(
   return required.filter((capability) => !providerCapabilities.has(capability));
 }
 
-export function selectProvider(
+export function parseProviderSelector(
+  value: string,
+  source: ProviderSelectorSource = "request"
+): ProviderSelectionSelector {
+  const [prefix, ...rest] = value.split(":");
+  const target = rest.join(":");
+  if (
+    (prefix === "family" || prefix === "model" || prefix === "capability") &&
+    target.trim().length > 0
+  ) {
+    return {
+      source,
+      value,
+      kind: prefix as ProviderSelectorKind,
+      target
+    };
+  }
+  return {
+    source,
+    value,
+    kind: "id",
+    target: value
+  };
+}
+
+function providerFamily(providerId: string): string {
+  return providerId.includes(":") ? providerId.split(":")[0]! : providerId;
+}
+
+function matchesSelector(
+  provider: AgentProviderDescriptor,
+  selector: ProviderSelectionSelector | undefined
+): boolean {
+  if (selector === undefined) {
+    return true;
+  }
+  if (selector.kind === "id") {
+    return provider.id === selector.target;
+  }
+  if (selector.kind === "family") {
+    return providerFamily(provider.id) === selector.target;
+  }
+  if (selector.kind === "model") {
+    return provider.model === selector.target;
+  }
+  return provider.capabilities.includes(selector.target as ProviderCapability);
+}
+
+function selectorForRequest(
   request: ProviderSelectionRequest
-): AgentProviderDescriptor {
+): ProviderSelectionSelector | undefined {
+  if (request.requestedProviderId !== undefined) {
+    return parseProviderSelector(request.requestedProviderId, "request");
+  }
+  const rolePin = request.routingPolicy?.rolePins[request.roleId];
+  if (rolePin !== undefined) {
+    return parseProviderSelector(rolePin, "role-pin");
+  }
+  return undefined;
+}
+
+function orderedProviders(input: {
+  readonly providers: readonly AgentProviderDescriptor[];
+  readonly routingPolicy?: ProviderRoutingPolicyConfig | undefined;
+}): {
+  readonly providers: readonly AgentProviderDescriptor[];
+  readonly selector?: ProviderSelectionSelector;
+} {
+  const providerOrder = input.routingPolicy?.providerOrder ?? [];
+  for (const selectorValue of providerOrder) {
+    const selector = parseProviderSelector(selectorValue, "provider-order");
+    const matched = input.providers.filter((provider) => matchesSelector(provider, selector));
+    if (matched.length > 0) {
+      const unmatched = input.providers.filter((provider) => !matchesSelector(provider, selector));
+      return {
+        providers: [...matched, ...unmatched],
+        selector
+      };
+    }
+  }
+  return { providers: input.providers };
+}
+
+function candidateFor(input: {
+  readonly provider: AgentProviderDescriptor;
+  readonly required: readonly ProviderCapability[];
+  readonly selector?: ProviderSelectionSelector | undefined;
+}): ProviderSelectionCandidate {
+  const matchedSelector = matchesSelector(input.provider, input.selector);
+  const missing = missingCapabilities(input.provider, input.required);
+  const eligible = input.provider.available && matchedSelector && missing.length === 0;
+  const rejectionReason = !input.provider.available
+    ? "unavailable"
+    : !matchedSelector
+      ? "selector_mismatch"
+      : missing.length > 0
+        ? "missing_capabilities"
+        : undefined;
+
+  return {
+    providerId: input.provider.id,
+    available: input.provider.available,
+    matchedSelector,
+    eligible,
+    missingCapabilities: missing,
+    ...(rejectionReason === undefined ? {} : { rejectionReason })
+  };
+}
+
+export function explainProviderSelection(
+  request: ProviderSelectionRequest
+): ProviderSelectionExplanation {
   const role = getRole(request.roleId);
   const required = uniqueCapabilities([
     ...role.requiredCapabilities,
     ...(request.extraCapabilities ?? [])
   ]);
-  const availableProviders = request.providers.filter((provider) => provider.available);
+  const requestSelector = selectorForRequest(request);
+  const ordered =
+    requestSelector === undefined
+      ? orderedProviders({
+          providers: request.providers,
+          ...(request.routingPolicy === undefined
+            ? {}
+            : { routingPolicy: request.routingPolicy })
+        })
+      : { providers: request.providers, selector: requestSelector };
+  const selector = requestSelector ?? ordered.selector;
+  const candidates = ordered.providers.map((provider) =>
+    candidateFor({ provider, required, selector })
+  );
+  const selectedCandidate = candidates.find((candidate) => candidate.eligible);
+  const selectedProvider =
+    selectedCandidate === undefined
+      ? undefined
+      : request.providers.find((provider) => provider.id === selectedCandidate.providerId);
 
-  if (request.requestedProviderId !== undefined) {
-    const requested = availableProviders.find(
-      (provider) => provider.id === request.requestedProviderId
+  return {
+    ok: selectedProvider !== undefined,
+    requiredCapabilities: required,
+    ...(selector === undefined ? {} : { selector }),
+    ...(selectedProvider === undefined
+      ? {}
+      : {
+          selectedProvider,
+          selectedProviderId: selectedProvider.id
+        }),
+    candidates
+  };
+}
+
+export function selectProvider(
+  request: ProviderSelectionRequest
+): AgentProviderDescriptor {
+  const explanation = explainProviderSelection(request);
+  if (explanation.selectedProvider !== undefined) {
+    return explanation.selectedProvider;
+  }
+
+  const selector = explanation.selector;
+  if (selector !== undefined) {
+    const selectorMatched = explanation.candidates.some(
+      (candidate) => candidate.matchedSelector
     );
-    if (requested === undefined) {
-      throw new ProviderNotFoundError(request.requestedProviderId);
+    if (!selectorMatched) {
+      throw new ProviderNotFoundError(selector.value);
     }
-    const missing = missingCapabilities(requested, required);
-    if (missing.length > 0) {
-      throw new ProviderCapabilityError({
-        roleId: request.roleId,
-        providerId: requested.id,
-        missingCapabilities: missing
-      });
-    }
-    return requested;
-  }
-
-  for (const provider of availableProviders) {
-    if (missingCapabilities(provider, required).length === 0) {
-      return provider;
+    const selectorMatchedAvailable = explanation.candidates.some(
+      (candidate) => candidate.matchedSelector && candidate.available
+    );
+    if (selector.kind === "id" && !selectorMatchedAvailable) {
+      throw new ProviderNotFoundError(selector.value);
     }
   }
 
+  const missing = explanation.candidates.find(
+    (candidate) =>
+      candidate.matchedSelector &&
+      candidate.available &&
+      candidate.missingCapabilities.length > 0
+  )?.missingCapabilities;
   throw new ProviderCapabilityError({
     roleId: request.roleId,
-    missingCapabilities: required
+    ...(selector?.kind === "id" ? { providerId: selector.value } : {}),
+    missingCapabilities: missing ?? explanation.requiredCapabilities
   });
 }

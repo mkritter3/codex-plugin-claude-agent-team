@@ -111,6 +111,13 @@ export interface AgentTeamProviderConfig {
   readonly gemini: GeminiProviderConfig;
 }
 
+export type ProviderSelectorSource = "request" | "role-pin" | "provider-order" | "default";
+
+export interface ProviderRoutingPolicyConfig {
+  readonly rolePins: Partial<Record<RoleId, string>>;
+  readonly providerOrder: readonly string[];
+}
+
 export interface AgentTeamConfig {
   readonly writeMode: {
     readonly enabled: boolean;
@@ -119,6 +126,7 @@ export interface AgentTeamConfig {
   readonly auth: {
     readonly allowApiKeyFallback: boolean;
   };
+  readonly routing: ProviderRoutingPolicyConfig;
   readonly providers: AgentTeamProviderConfig;
 }
 
@@ -143,6 +151,39 @@ export interface ProviderSelectionRequest {
   readonly providers: readonly AgentProviderDescriptor[];
   readonly requestedProviderId?: string;
   readonly extraCapabilities?: readonly ProviderCapability[];
+  readonly routingPolicy?: ProviderRoutingPolicyConfig;
+}
+
+export type ProviderSelectorKind = "id" | "family" | "model" | "capability";
+
+export interface ProviderSelectionSelector {
+  readonly source: ProviderSelectorSource;
+  readonly value: string;
+  readonly kind: ProviderSelectorKind;
+  readonly target: string;
+}
+
+export type ProviderSelectionRejectionReason =
+  | "unavailable"
+  | "selector_mismatch"
+  | "missing_capabilities";
+
+export interface ProviderSelectionCandidate {
+  readonly providerId: string;
+  readonly available: boolean;
+  readonly matchedSelector: boolean;
+  readonly eligible: boolean;
+  readonly missingCapabilities: readonly ProviderCapability[];
+  readonly rejectionReason?: ProviderSelectionRejectionReason;
+}
+
+export interface ProviderSelectionExplanation {
+  readonly ok: boolean;
+  readonly requiredCapabilities: readonly ProviderCapability[];
+  readonly selector?: ProviderSelectionSelector;
+  readonly selectedProviderId?: string;
+  readonly selectedProvider?: AgentProviderDescriptor;
+  readonly candidates: readonly ProviderSelectionCandidate[];
 }
 
 export interface AgentDispatchRequest {

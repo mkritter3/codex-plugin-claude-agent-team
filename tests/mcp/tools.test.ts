@@ -10,6 +10,7 @@ import {
 } from "../../src/core/state/mailbox-store.js";
 import { mailboxPath, runSidecarPath } from "../../src/core/state/paths.js";
 import { writeRunSidecar } from "../../src/core/state/run-store.js";
+import { TOOL_METADATA_BY_NAME } from "../../src/mcp/schemas.js";
 import { createToolHandlers, handleToolCall, listToolNames } from "../../src/mcp/tools.js";
 
 describe("MCP tool handlers", () => {
@@ -33,6 +34,7 @@ describe("MCP tool handlers", () => {
       config: {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
+        routing: { rolePins: {}, providerOrder: [] },
         providers: DEFAULT_AGENT_TEAM_CONFIG.providers
       }
     });
@@ -42,6 +44,23 @@ describe("MCP tool handlers", () => {
     expect(result.structuredContent?.providers?.[0]?.capabilities).toContain("edits");
     expect(result.structuredContent?.providers?.[0]?.capabilities).toContain(
       "workspaceIsolation"
+    );
+  });
+
+  it("describes provider inputs as neutral selector strings without provider-specific fields", () => {
+    expect(TOOL_METADATA_BY_NAME.agent_team_dispatch.inputSchema.provider?.description).toBe(
+      "Preferred provider selector."
+    );
+    expect(TOOL_METADATA_BY_NAME.agent_team_start.inputSchema.provider?.description).toBe(
+      "Preferred provider selector."
+    );
+    expect(TOOL_METADATA_BY_NAME.agent_team_start_parallel.inputSchema).not.toHaveProperty(
+      "providerPolicy"
+    );
+    expect(TOOL_METADATA_BY_NAME.agent_team_dispatch.inputSchema).not.toHaveProperty("grok");
+    expect(TOOL_METADATA_BY_NAME.agent_team_dispatch.inputSchema).not.toHaveProperty("gemini");
+    expect(TOOL_METADATA_BY_NAME.agent_team_dispatch.inputSchema).not.toHaveProperty(
+      "ollamaCloud"
     );
   });
 

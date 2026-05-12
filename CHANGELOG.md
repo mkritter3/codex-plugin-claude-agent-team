@@ -14,6 +14,7 @@ All notable changes to this private local plugin are recorded here.
 - Added explicit Ollama Cloud profiles backed by the OpenAI-compatible runtime for configured read-only Kimi/GLM-style dispatch.
 - Added an explicitly configured Gemini adapter for synchronous read-only generateContent dispatch with provider-scoped auth env checks.
 - Added explicit Grok profiles backed by the OpenAI-compatible runtime for configured read-only chat-completions dispatch with provider-scoped auth env checks.
+- Added capability-first provider selection policy with role pins, provider order, neutral request selectors, and doctor routing explanations.
 - Added the Claude team session runbook and packaging hardening docs.
 
 ## Versioning Policy

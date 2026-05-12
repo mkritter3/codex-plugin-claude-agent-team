@@ -7,7 +7,7 @@ import {
   loadAgentTeamConfig
 } from "./core/config.js";
 import { listRoles } from "./core/roles.js";
-import { selectProvider } from "./core/router.js";
+import { explainProviderSelection } from "./core/router.js";
 import { STATE_DIR } from "./core/state/paths.js";
 import type { AgentProviderDescriptor, AgentTeamConfig } from "./core/types.js";
 import {
@@ -208,6 +208,7 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
         workspaceRoot,
         writeMode: config.writeMode,
         auth: config.auth,
+        routing: config.routing,
         providers: {
           openaiCompatible: {
             enabled: config.providers.openaiCompatible.enabled,
@@ -372,31 +373,32 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
       continue;
     }
 
-    try {
-      const provider = selectProvider({
-        roleId: role.id,
-        providers
-      });
+    const selection = explainProviderSelection({
+      roleId: role.id,
+      providers,
+      routingPolicy: config.routing
+    });
+    if (selection.selectedProvider !== undefined) {
       checks.push({
         id: `role-routing:${role.id}`,
         status: "pass",
-        message: `Role ${role.id} can route to ${provider.id}.`,
+        message: `Role ${role.id} can route to ${selection.selectedProvider.id}.`,
         details: {
           role: role.id,
-          provider: provider.id,
-          requiredCapabilities: role.requiredCapabilities
+          provider: selection.selectedProvider.id,
+          requiredCapabilities: role.requiredCapabilities,
+          selection
         }
       });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+    } else {
       checks.push({
         id: `role-routing:${role.id}`,
         status: "fail",
         message: `Role ${role.id} cannot route to an available provider.`,
         details: {
           role: role.id,
-          error: message,
-          requiredCapabilities: role.requiredCapabilities
+          requiredCapabilities: role.requiredCapabilities,
+          selection
         }
       });
     }

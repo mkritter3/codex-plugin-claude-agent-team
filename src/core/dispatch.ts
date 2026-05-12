@@ -81,6 +81,7 @@ export async function dispatchReadOnlyAgent(
     ? selectProvider({
         roleId: request.role,
         providers,
+        routingPolicy: config.routing,
         ...(request.provider === undefined ? {} : { requestedProviderId: request.provider })
       })
     : providers[0] ?? listProviders()[0]!;

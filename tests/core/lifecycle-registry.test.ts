@@ -14,6 +14,8 @@ function config(input: {
   readonly geminiModel?: string;
   readonly grokEnabled?: boolean;
   readonly grokModel?: string;
+  readonly rolePin?: string;
+  readonly providerOrder?: readonly string[];
 } = {}): AgentTeamConfig {
   return {
     writeMode: {
@@ -22,6 +24,15 @@ function config(input: {
     },
     auth: {
       allowApiKeyFallback: input.allowApiKeyFallback ?? false
+    },
+    routing: {
+      rolePins:
+        input.rolePin === undefined
+          ? {}
+          : {
+              architect: input.rolePin
+            },
+      providerOrder: input.providerOrder ?? []
     },
     providers: {
       openaiCompatible: {
@@ -139,6 +150,12 @@ describe("LifecycleRegistry", () => {
       registry.get("/repo", config({ grokEnabled: true, grokModel: "grok-review" }))
     ).not.toBe(
       registry.get("/repo", config({ grokEnabled: true, grokModel: "grok-4.20" }))
+    );
+    expect(registry.get("/repo", config({ rolePin: "family:grok" }))).not.toBe(baseline);
+    expect(
+      registry.get("/repo", config({ providerOrder: ["family:grok"] }))
+    ).not.toBe(
+      registry.get("/repo", config({ providerOrder: ["family:ollama-cloud"] }))
     );
   });
 });

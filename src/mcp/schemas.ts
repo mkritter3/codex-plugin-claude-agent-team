@@ -14,7 +14,7 @@ const role = z
   .describe("Agent role to run.");
 
 const cwd = z.string().min(1).optional().describe("Workspace root. Defaults to server cwd.");
-const provider = z.string().min(1).optional().describe("Preferred provider id.");
+const provider = z.string().min(1).optional().describe("Preferred provider selector.");
 const timeoutMs = z.number().positive().optional().describe("Positive timeout in milliseconds.");
 const runId = z.string().min(1).describe("Agent Team run id.");
 const message = z.string().min(1).describe("Message content.");

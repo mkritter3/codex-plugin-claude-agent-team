@@ -161,6 +161,7 @@ export class AgentLifecycleManager {
     const provider = selectProvider({
       roleId: request.role,
       providers,
+      routingPolicy: this.config.routing,
       extraCapabilities: ["sessionResume", "cancellation"],
       ...(request.provider === undefined ? {} : { requestedProviderId: request.provider })
     });

@@ -137,6 +137,61 @@ function grokConfig(): AgentTeamConfig {
   } as AgentTeamConfig;
 }
 
+function grokAndOllamaConfig(input: {
+  readonly plannerPin?: string;
+  readonly providerOrder?: readonly string[];
+} = {}): AgentTeamConfig {
+  return {
+    ...DEFAULT_AGENT_TEAM_CONFIG,
+    routing: {
+      rolePins:
+        input.plannerPin === undefined
+          ? {}
+          : {
+              planner: input.plannerPin
+            },
+      providerOrder: input.providerOrder ?? []
+    },
+    providers: {
+      ...DEFAULT_AGENT_TEAM_CONFIG.providers,
+      ollamaCloud: {
+        enabled: true,
+        profiles: [
+          {
+            id: "kimi-k2.6",
+            baseUrl: "https://ollama.example/v1",
+            model: "kimi-k2.6",
+            apiKeyEnv: "KIMI_API_KEY",
+            displayName: "Kimi K2.6",
+            capabilities: {
+              structuredOutput: true,
+              longContext: true,
+              reasoning: false
+            }
+          }
+        ]
+      },
+      grok: {
+        enabled: true,
+        profiles: [
+          {
+            id: "grok-4.20-reasoning",
+            baseUrl: "https://api.x.ai/v1",
+            model: "grok-4.20",
+            apiKeyEnv: "XAI_API_KEY",
+            displayName: "Grok 4.20 Reasoning",
+            capabilities: {
+              structuredOutput: true,
+              longContext: true,
+              reasoning: true
+            }
+          }
+        ]
+      }
+    }
+  } as AgentTeamConfig;
+}
+
 function claudeRuntime(
   runPrint: AgentProviderRuntime["runPrint"],
   inspectEnvironment: AgentProviderRuntime["inspectEnvironment"] = () => ({ warnings: [] })
@@ -409,6 +464,91 @@ describe("dispatchReadOnlyAgent", () => {
     await expect(readFile(runLogPath(workspace, "run_grok_failed"), "utf8")).resolves.toContain(
       "OpenAI-compatible response did not contain assistant text."
     );
+  });
+
+  it("dispatches through a configured role pin when no request selector is provided", async () => {
+    const config = grokAndOllamaConfig({ plannerPin: "family:grok" });
+    const runtime = createOpenAICompatibleRuntime({
+      fetch: async () =>
+        new Response(
+          JSON.stringify({
+            id: "chatcmpl_grok_pinned",
+            choices: [{ message: { content: shipText } }]
+          }),
+          { status: 200 }
+        )
+    });
+
+    const result = await dispatchReadOnlyAgent(
+      {
+        role: "planner",
+        task: "Review plan",
+        cwd: workspace
+      },
+      {
+        config,
+        providers: [
+          ...listOllamaCloudProviders(config),
+          ...listGrokProviders(config)
+        ],
+        runtimes: [runtime],
+        createRunId: () => "run_grok_role_pin",
+        env: { XAI_API_KEY: "secret-token" }
+      }
+    );
+
+    expect(result).toMatchObject({
+      status: "completed",
+      provider: "grok:grok-4.20-reasoning",
+      verdict: { status: "SHIP" }
+    });
+    await expect(readRunSidecar(workspace, "run_grok_role_pin")).resolves.toMatchObject({
+      provider: "grok:grok-4.20-reasoning",
+      providerSessionId: "chatcmpl_grok_pinned"
+    });
+  });
+
+  it("dispatch request selector overrides a configured role pin", async () => {
+    const config = grokAndOllamaConfig({ plannerPin: "family:grok" });
+    const runtime = createOpenAICompatibleRuntime({
+      fetch: async () =>
+        new Response(
+          JSON.stringify({
+            id: "chatcmpl_kimi_override",
+            choices: [{ message: { content: shipText } }]
+          }),
+          { status: 200 }
+        )
+    });
+
+    const result = await dispatchReadOnlyAgent(
+      {
+        role: "planner",
+        task: "Review plan",
+        cwd: workspace,
+        provider: "family:ollama-cloud"
+      },
+      {
+        config,
+        providers: [
+          ...listGrokProviders(config),
+          ...listOllamaCloudProviders(config)
+        ],
+        runtimes: [runtime],
+        createRunId: () => "run_kimi_request_override",
+        env: { KIMI_API_KEY: "secret-token" }
+      }
+    );
+
+    expect(result).toMatchObject({
+      status: "completed",
+      provider: "ollama-cloud:kimi-k2.6",
+      verdict: { status: "SHIP" }
+    });
+    await expect(readRunSidecar(workspace, "run_kimi_request_override")).resolves.toMatchObject({
+      provider: "ollama-cloud:kimi-k2.6",
+      providerSessionId: "chatcmpl_kimi_override"
+    });
   });
 
   it("dispatches through explicitly configured Gemini runtime", async () => {

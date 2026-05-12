@@ -17,6 +17,17 @@ describe("loadAgentTeamConfig", () => {
     );
   });
 
+  it("defaults provider routing policy to no role pins or provider order", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-config-"));
+
+    await expect(loadAgentTeamConfig(workspace)).resolves.toMatchObject({
+      routing: {
+        rolePins: {},
+        providerOrder: []
+      }
+    });
+  });
+
   it("loads explicit isolated write mode without enabling API-key fallback", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "agent-team-config-"));
     await mkdir(join(workspace, ".agent-team"), { recursive: true });
@@ -31,7 +42,38 @@ describe("loadAgentTeamConfig", () => {
     await expect(loadAgentTeamConfig(workspace)).resolves.toEqual({
       writeMode: { enabled: true, requireIsolatedWorktree: true },
       auth: { allowApiKeyFallback: false },
+      routing: { rolePins: {}, providerOrder: [] },
       providers: DEFAULT_AGENT_TEAM_CONFIG.providers
+    });
+  });
+
+  it("loads explicit provider routing policy without changing auth or provider config", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-config-"));
+    await mkdir(join(workspace, ".agent-team"), { recursive: true });
+    await writeFile(
+      join(workspace, ".agent-team", "config.json"),
+      JSON.stringify({
+        routing: {
+          rolePins: {
+            architect: "family:grok",
+            "code-reviewer": "model:grok-4.20"
+          },
+          providerOrder: ["family:grok", "family:ollama-cloud", "claude-code-cli"]
+        }
+      }),
+      "utf8"
+    );
+
+    await expect(loadAgentTeamConfig(workspace)).resolves.toMatchObject({
+      auth: { allowApiKeyFallback: false },
+      providers: DEFAULT_AGENT_TEAM_CONFIG.providers,
+      routing: {
+        rolePins: {
+          architect: "family:grok",
+          "code-reviewer": "model:grok-4.20"
+        },
+        providerOrder: ["family:grok", "family:ollama-cloud", "claude-code-cli"]
+      }
     });
   });
 
@@ -418,6 +460,76 @@ describe("loadAgentTeamConfig", () => {
 
     await expect(loadAgentTeamConfig(duplicate)).rejects.toThrow(
       "Duplicate Grok profile id: grok"
+    );
+  });
+
+  it("rejects invalid provider routing policy", async () => {
+    const invalidRole = await mkdtemp(join(tmpdir(), "agent-team-config-"));
+    await mkdir(join(invalidRole, ".agent-team"), { recursive: true });
+    await writeFile(
+      join(invalidRole, ".agent-team", "config.json"),
+      JSON.stringify({
+        routing: {
+          rolePins: {
+            writer: "claude-code-cli"
+          }
+        }
+      }),
+      "utf8"
+    );
+
+    await expect(loadAgentTeamConfig(invalidRole)).rejects.toThrow(
+      "Invalid routing role pin: writer"
+    );
+
+    const emptySelector = await mkdtemp(join(tmpdir(), "agent-team-config-"));
+    await mkdir(join(emptySelector, ".agent-team"), { recursive: true });
+    await writeFile(
+      join(emptySelector, ".agent-team", "config.json"),
+      JSON.stringify({
+        routing: {
+          rolePins: {
+            planner: "   "
+          }
+        }
+      }),
+      "utf8"
+    );
+
+    await expect(loadAgentTeamConfig(emptySelector)).rejects.toThrow(
+      "Routing selector for planner must be a non-empty string"
+    );
+
+    const invalidCapability = await mkdtemp(join(tmpdir(), "agent-team-config-"));
+    await mkdir(join(invalidCapability, ".agent-team"), { recursive: true });
+    await writeFile(
+      join(invalidCapability, ".agent-team", "config.json"),
+      JSON.stringify({
+        routing: {
+          providerOrder: ["capability:telepathy"]
+        }
+      }),
+      "utf8"
+    );
+
+    await expect(loadAgentTeamConfig(invalidCapability)).rejects.toThrow(
+      "Routing selector capability:telepathy references unsupported capability telepathy"
+    );
+
+    const nonStringOrder = await mkdtemp(join(tmpdir(), "agent-team-config-"));
+    await mkdir(join(nonStringOrder, ".agent-team"), { recursive: true });
+    await writeFile(
+      join(nonStringOrder, ".agent-team", "config.json"),
+      JSON.stringify({
+        routing: {
+          providerOrder: ["family:grok", 42]
+        }
+      }),
+      "utf8"
+    );
+
+    await expect(loadAgentTeamConfig(nonStringOrder)).rejects.toThrow(
+      "routing.providerOrder[1] must be a non-empty string"
     );
   });
 

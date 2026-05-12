@@ -6,7 +6,11 @@ import { DEFAULT_AGENT_TEAM_CONFIG } from "../../src/core/config.js";
 import { AgentLifecycleManager } from "../../src/core/lifecycle.js";
 import { readMailboxRecords } from "../../src/core/state/mailbox-store.js";
 import { readRunSidecar, writeRunSidecar } from "../../src/core/state/run-store.js";
-import type { MailboxRecord, RunSidecar } from "../../src/core/types.js";
+import type {
+  AgentProviderDescriptor,
+  MailboxRecord,
+  RunSidecar
+} from "../../src/core/types.js";
 import type { AgentProviderRuntime } from "../../src/providers/index.js";
 import type {
   ProviderSessionDoneStatus,
@@ -203,6 +207,98 @@ describe("AgentLifecycleManager", () => {
       status: "running"
     });
     expect(starts).toEqual([`run_runtime_start:${workspace}:planner:read-only:1234`]);
+  });
+
+  it("uses provider order policy for automatic lifecycle selection", async () => {
+    const done = deferred<ProviderSessionDoneStatus>();
+    const handle = fakeHandle(done.promise);
+    const startedProviderIds: string[] = [];
+    const providers = [
+      {
+        id: "claude-code-cli",
+        displayName: "Claude Code CLI",
+        authMode: "subscription-oauth" as const,
+        capabilities: ["structuredOutput", "longContext", "sessionResume", "cancellation"],
+        available: true
+      },
+      {
+        id: "grok:session",
+        displayName: "Grok Session",
+        authMode: "api-key" as const,
+        capabilities: [
+          "structuredOutput",
+          "longContext",
+          "sessionResume",
+          "cancellation",
+          "reasoning"
+        ],
+        available: true
+      }
+    ] satisfies readonly AgentProviderDescriptor[];
+    const manager = new AgentLifecycleManager({
+      providers,
+      config: {
+        ...DEFAULT_AGENT_TEAM_CONFIG,
+        routing: {
+          rolePins: {},
+          providerOrder: ["family:grok"]
+        }
+      },
+      createRunId: () => "run_lifecycle_policy_order",
+      startSession(input) {
+        startedProviderIds.push(input.providerId ?? "");
+        return handle;
+      }
+    });
+
+    const result = await manager.startRun({
+      role: "architect",
+      task: "Review architecture",
+      cwd: workspace
+    });
+
+    expect(result).toMatchObject({
+      runId: "run_lifecycle_policy_order",
+      provider: "grok:session",
+      status: "running"
+    });
+    expect(startedProviderIds).toEqual(["grok:session"]);
+  });
+
+  it("fails closed when a lifecycle role pin lacks session capabilities", async () => {
+    const manager = new AgentLifecycleManager({
+      providers: [
+        {
+          id: "grok:grok-4.20-reasoning",
+          displayName: "Grok 4.20 Reasoning",
+          authMode: "api-key",
+          capabilities: ["structuredOutput", "longContext", "reasoning"],
+          available: true
+        }
+      ],
+      config: {
+        ...DEFAULT_AGENT_TEAM_CONFIG,
+        routing: {
+          rolePins: {
+            architect: "family:grok"
+          },
+          providerOrder: []
+        }
+      },
+      startSession: () => {
+        throw new Error("should not start incapable provider");
+      }
+    });
+
+    await expect(
+      manager.startRun({
+        role: "architect",
+        task: "Review architecture",
+        cwd: workspace
+      })
+    ).rejects.toThrow(
+      "No provider satisfies role architect; missing capabilities: sessionResume, cancellation"
+    );
   });
 
   it("rejects stateless providers for background lifecycle starts", async () => {
@@ -1054,6 +1150,7 @@ describe("AgentLifecycleManager", () => {
       config: {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
+        routing: { rolePins: {}, providerOrder: [] },
         providers: DEFAULT_AGENT_TEAM_CONFIG.providers
       },
       createRunId: () => "run_slice_1",
@@ -1121,6 +1218,7 @@ describe("AgentLifecycleManager", () => {
       config: {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
+        routing: { rolePins: {}, providerOrder: [] },
         providers: DEFAULT_AGENT_TEAM_CONFIG.providers
       },
       createRunId: () => "run_slice_failed",
@@ -1163,6 +1261,7 @@ describe("AgentLifecycleManager", () => {
       config: {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
+        routing: { rolePins: {}, providerOrder: [] },
         providers: DEFAULT_AGENT_TEAM_CONFIG.providers
       },
       createRunId: () => "run_slice_completed",
@@ -1228,6 +1327,7 @@ describe("AgentLifecycleManager", () => {
       config: {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
+        routing: { rolePins: {}, providerOrder: [] },
         providers: DEFAULT_AGENT_TEAM_CONFIG.providers
       },
       createRunId: () => "run_slice_clean",
@@ -1294,6 +1394,7 @@ describe("AgentLifecycleManager", () => {
       config: {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
+        routing: { rolePins: {}, providerOrder: [] },
         providers: DEFAULT_AGENT_TEAM_CONFIG.providers
       },
       createRunId: () => "run_slice_provider_failed",
@@ -1348,6 +1449,7 @@ describe("AgentLifecycleManager", () => {
       config: {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
+        routing: { rolePins: {}, providerOrder: [] },
         providers: DEFAULT_AGENT_TEAM_CONFIG.providers
       },
       createRunId: () => "run_slice_cancelled",
@@ -1393,6 +1495,7 @@ describe("AgentLifecycleManager", () => {
       config: {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
+        routing: { rolePins: {}, providerOrder: [] },
         providers: DEFAULT_AGENT_TEAM_CONFIG.providers
       },
       createRunId: () => "run_slice_cancel_inspect_failed",

@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { ProviderCapabilityError } from "../../src/core/errors.js";
-import { selectProvider } from "../../src/core/router.js";
+import {
+  ProviderCapabilityError,
+  ProviderNotFoundError
+} from "../../src/core/errors.js";
+import {
+  explainProviderSelection,
+  selectProvider
+} from "../../src/core/router.js";
 import type { AgentProviderDescriptor } from "../../src/core/types.js";
 import { listProviders } from "../../src/providers/index.js";
 
@@ -24,6 +30,43 @@ const toolProvider: AgentProviderDescriptor = {
     "cancellation",
     "workspaceIsolation"
   ],
+  available: true
+};
+
+const unavailableGrokProvider: AgentProviderDescriptor = {
+  id: "grok:offline",
+  displayName: "Grok Offline",
+  authMode: "api-key",
+  capabilities: ["structuredOutput", "longContext", "reasoning"],
+  model: "grok-offline",
+  available: false,
+  warnings: ["Grok profile offline is missing apiKeyEnv."]
+};
+
+const grokReasoningProvider: AgentProviderDescriptor = {
+  id: "grok:grok-4.20-reasoning",
+  displayName: "Grok 4.20 Reasoning",
+  authMode: "api-key",
+  capabilities: ["structuredOutput", "longContext", "reasoning"],
+  model: "grok-4.20",
+  available: true
+};
+
+const grokReviewProvider: AgentProviderDescriptor = {
+  id: "grok:grok-review",
+  displayName: "Grok Review",
+  authMode: "api-key",
+  capabilities: ["structuredOutput"],
+  model: "grok-review",
+  available: true
+};
+
+const ollamaArchitectProvider: AgentProviderDescriptor = {
+  id: "ollama-cloud:kimi-k2.6",
+  displayName: "Kimi K2.6",
+  authMode: "api-key",
+  capabilities: ["structuredOutput", "longContext"],
+  model: "kimi-k2.6",
   available: true
 };
 
@@ -56,6 +99,207 @@ describe("selectProvider", () => {
     expect(selected.id).toBe("tool-provider");
   });
 
+  it("explains exact request provider selection without bypassing capabilities", () => {
+    const explanation = explainProviderSelection({
+      roleId: "architect",
+      providers: [readonlyProvider, grokReasoningProvider],
+      requestedProviderId: "grok:grok-4.20-reasoning"
+    });
+
+    expect(explanation).toMatchObject({
+      ok: true,
+      selectedProviderId: "grok:grok-4.20-reasoning",
+      selector: {
+        source: "request",
+        value: "grok:grok-4.20-reasoning",
+        kind: "id"
+      },
+      requiredCapabilities: ["structuredOutput", "longContext"]
+    });
+    expect(explanation.candidates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          providerId: "grok:grok-4.20-reasoning",
+          eligible: true,
+          matchedSelector: true
+        })
+      ])
+    );
+  });
+
+  it("preserves not-found behavior for an exact requested provider that is unavailable", () => {
+    expect(() =>
+      selectProvider({
+        roleId: "architect",
+        providers: [unavailableGrokProvider, ollamaArchitectProvider],
+        requestedProviderId: "grok:offline"
+      })
+    ).toThrow(ProviderNotFoundError);
+
+    expect(
+      explainProviderSelection({
+        roleId: "architect",
+        providers: [unavailableGrokProvider, ollamaArchitectProvider],
+        requestedProviderId: "grok:offline"
+      }).candidates
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          providerId: "grok:offline",
+          matchedSelector: true,
+          eligible: false,
+          rejectionReason: "unavailable"
+        })
+      ])
+    );
+  });
+
+  it("explains family selectors and rejects family matches that miss role capabilities", () => {
+    const explanation = explainProviderSelection({
+      roleId: "architect",
+      providers: [grokReviewProvider, grokReasoningProvider, ollamaArchitectProvider],
+      requestedProviderId: "family:grok"
+    });
+
+    expect(explanation).toMatchObject({
+      ok: true,
+      selectedProviderId: "grok:grok-4.20-reasoning",
+      selector: {
+        source: "request",
+        value: "family:grok",
+        kind: "family"
+      }
+    });
+    expect(explanation.candidates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          providerId: "grok:grok-review",
+          matchedSelector: true,
+          eligible: false,
+          missingCapabilities: ["longContext"],
+          rejectionReason: "missing_capabilities"
+        }),
+        expect.objectContaining({
+          providerId: "grok:grok-4.20-reasoning",
+          matchedSelector: true,
+          eligible: true
+        })
+      ])
+    );
+  });
+
+  it("explains model and capability selectors while keeping role requirements mandatory", () => {
+    const byModel = explainProviderSelection({
+      roleId: "architect",
+      providers: [ollamaArchitectProvider, grokReasoningProvider],
+      requestedProviderId: "model:grok-4.20"
+    });
+    expect(byModel).toMatchObject({
+      ok: true,
+      selectedProviderId: "grok:grok-4.20-reasoning",
+      selector: { source: "request", kind: "model", value: "model:grok-4.20" }
+    });
+
+    const byCapability = explainProviderSelection({
+      roleId: "architect",
+      providers: [grokReviewProvider, grokReasoningProvider],
+      requestedProviderId: "capability:reasoning"
+    });
+    expect(byCapability).toMatchObject({
+      ok: true,
+      selectedProviderId: "grok:grok-4.20-reasoning",
+      selector: {
+        source: "request",
+        kind: "capability",
+        value: "capability:reasoning"
+      }
+    });
+    expect(byCapability.candidates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          providerId: "grok:grok-review",
+          matchedSelector: false,
+          eligible: false,
+          missingCapabilities: ["longContext"],
+          rejectionReason: "selector_mismatch"
+        })
+      ])
+    );
+  });
+
+  it("applies request selector before role pins and role pins before provider order", () => {
+    const providers = [readonlyProvider, ollamaArchitectProvider, grokReasoningProvider];
+
+    expect(
+      explainProviderSelection({
+        roleId: "architect",
+        providers,
+        requestedProviderId: "family:ollama-cloud",
+        routingPolicy: {
+          rolePins: { architect: "family:grok" },
+          providerOrder: ["family:grok"]
+        }
+      })
+    ).toMatchObject({
+      ok: true,
+      selectedProviderId: "ollama-cloud:kimi-k2.6",
+      selector: { source: "request", value: "family:ollama-cloud" }
+    });
+
+    expect(
+      explainProviderSelection({
+        roleId: "architect",
+        providers,
+        routingPolicy: {
+          rolePins: { architect: "family:grok" },
+          providerOrder: ["family:ollama-cloud"]
+        }
+      })
+    ).toMatchObject({
+      ok: true,
+      selectedProviderId: "grok:grok-4.20-reasoning",
+      selector: { source: "role-pin", value: "family:grok" }
+    });
+  });
+
+  it("uses provider order only among capable available providers", () => {
+    const explanation = explainProviderSelection({
+      roleId: "architect",
+      providers: [
+        ollamaArchitectProvider,
+        unavailableGrokProvider,
+        grokReviewProvider,
+        grokReasoningProvider
+      ],
+      routingPolicy: {
+        rolePins: {},
+        providerOrder: ["family:grok", "family:ollama-cloud"]
+      }
+    });
+
+    expect(explanation).toMatchObject({
+      ok: true,
+      selectedProviderId: "grok:grok-4.20-reasoning",
+      selector: { source: "provider-order", value: "family:grok" }
+    });
+    expect(explanation.candidates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          providerId: "grok:offline",
+          available: false,
+          eligible: false,
+          rejectionReason: "unavailable"
+        }),
+        expect.objectContaining({
+          providerId: "grok:grok-review",
+          eligible: false,
+          missingCapabilities: ["longContext"],
+          rejectionReason: "missing_capabilities"
+        })
+      ])
+    );
+  });
+
   it("does not advertise implementation capabilities by default", () => {
     const [provider] = listProviders();
 
@@ -75,6 +319,7 @@ describe("selectProvider", () => {
       config: {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
+        routing: { rolePins: {}, providerOrder: [] },
         providers: {
           openaiCompatible: {
             enabled: false,
@@ -126,6 +371,7 @@ describe("selectProvider", () => {
       config: {
         writeMode: { enabled: false, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
+        routing: { rolePins: {}, providerOrder: [] },
         providers: {
           openaiCompatible: {
             enabled: true,
@@ -187,6 +433,7 @@ describe("selectProvider", () => {
       config: {
         writeMode: { enabled: false, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
+        routing: { rolePins: {}, providerOrder: [] },
         providers: {
           openaiCompatible: {
             enabled: false,
@@ -274,6 +521,7 @@ describe("selectProvider", () => {
       config: {
         writeMode: { enabled: false, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
+        routing: { rolePins: {}, providerOrder: [] },
         providers: {
           openaiCompatible: {
             enabled: false,
@@ -334,6 +582,7 @@ describe("selectProvider", () => {
       config: {
         writeMode: { enabled: false, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
+        routing: { rolePins: {}, providerOrder: [] },
         providers: {
           openaiCompatible: {
             enabled: false,
@@ -380,6 +629,7 @@ describe("selectProvider", () => {
       config: {
         writeMode: { enabled: false, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
+        routing: { rolePins: {}, providerOrder: [] },
         providers: {
           openaiCompatible: {
             enabled: false,

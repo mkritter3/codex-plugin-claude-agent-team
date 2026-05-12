@@ -1,7 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { STATE_DIR } from "./state/paths.js";
-import type { AgentTeamConfig } from "./types.js";
+import { PROVIDER_CAPABILITIES } from "./types.js";
+import type { AgentTeamConfig, RoleId } from "./types.js";
+import { listRoles } from "./roles.js";
 
 export class AgentTeamConfigError extends Error {
   constructor(message: string) {
@@ -17,6 +19,10 @@ export const DEFAULT_AGENT_TEAM_CONFIG: AgentTeamConfig = {
   },
   auth: {
     allowApiKeyFallback: false
+  },
+  routing: {
+    rolePins: {},
+    providerOrder: []
   },
   providers: {
     openaiCompatible: {
@@ -78,6 +84,30 @@ function arrayField(input: unknown, key: string): readonly unknown[] {
 
 function readRequiredId(input: unknown, fallback: string): string {
   return readString(input) ?? fallback;
+}
+
+const ROLE_IDS = new Set<RoleId>(listRoles().map((role) => role.id));
+const PROVIDER_CAPABILITY_SET = new Set<string>(PROVIDER_CAPABILITIES);
+
+function assertRoutingSelector(selector: string): void {
+  const capabilityPrefix = "capability:";
+  if (selector.startsWith(capabilityPrefix)) {
+    const capability = selector.slice(capabilityPrefix.length);
+    if (!PROVIDER_CAPABILITY_SET.has(capability)) {
+      throw new AgentTeamConfigError(
+        `Routing selector ${selector} references unsupported capability ${capability}.`
+      );
+    }
+  }
+}
+
+function readRoutingSelector(input: unknown, context: string): string {
+  const selector = readString(input);
+  if (selector === undefined) {
+    throw new AgentTeamConfigError(`${context} must be a non-empty string.`);
+  }
+  assertRoutingSelector(selector);
+  return selector;
 }
 
 function assertSupportedProfileCapabilities(input: {
@@ -291,6 +321,32 @@ function parseGeminiProviderConfig(
   };
 }
 
+function parseRoutingConfig(
+  parsed: unknown
+): AgentTeamConfig["routing"] {
+  const routing = objectField(parsed, "routing");
+  const rolePinsInput = objectField(routing, "rolePins");
+  const rolePins: Partial<Record<RoleId, string>> = {};
+  for (const [roleId, selectorInput] of Object.entries(rolePinsInput)) {
+    if (!ROLE_IDS.has(roleId as RoleId)) {
+      throw new AgentTeamConfigError(`Invalid routing role pin: ${roleId}`);
+    }
+    rolePins[roleId as RoleId] = readRoutingSelector(
+      selectorInput,
+      `Routing selector for ${roleId}`
+    );
+  }
+
+  const providerOrder = arrayField(routing, "providerOrder").map((selectorInput, index) =>
+    readRoutingSelector(selectorInput, `routing.providerOrder[${index}]`)
+  );
+
+  return {
+    rolePins,
+    providerOrder
+  };
+}
+
 export async function loadAgentTeamConfig(
   workspaceRoot: string
 ): Promise<AgentTeamConfig> {
@@ -326,6 +382,7 @@ export async function loadAgentTeamConfig(
         DEFAULT_AGENT_TEAM_CONFIG.auth.allowApiKeyFallback
       )
     },
+    routing: parseRoutingConfig(parsed),
     providers: {
       openaiCompatible: parseOpenAICompatibleProviderConfig(providers),
       ollamaCloud: parseOllamaCloudProviderConfig(providers),

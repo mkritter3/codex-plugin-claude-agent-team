@@ -76,13 +76,13 @@ Per-request `provider` uses the same selector string and takes precedence over `
 
 ## L11 Quality Gates
 
-- [ ] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
-- [ ] TDD red proof is captured for new behavior.
-- [ ] Focused milestone tests are listed with expected red and green outcomes.
-- [ ] Full verification commands are listed.
-- [ ] Required edge cases from the matrix are explicitly selected.
-- [ ] Invariant scans are listed.
-- [ ] Live provider smoke is marked required or not required with rationale.
+- [x] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
+- [x] TDD red proof is captured for new behavior.
+- [x] Focused milestone tests are listed with expected red and green outcomes.
+- [x] Full verification commands are listed.
+- [x] Required edge cases from the matrix are explicitly selected.
+- [x] Invariant scans are listed.
+- [x] Live provider smoke is marked required or not required with rationale.
 
 Selected quality-gate rows:
 
@@ -119,7 +119,7 @@ Live provider smoke is not required for M38 because the milestone changes select
 - Modify: `tests/core/router.test.ts`
 - Modify: `tests/core/lifecycle-registry.test.ts`
 
-- [ ] **Step 1: Write failing config tests**
+- [x] **Step 1: Write failing config tests**
 
 Add tests that prove:
 
@@ -138,7 +138,7 @@ npm test -- tests/core/config.test.ts
 
 Expected red: `routing` config does not exist yet and invalid policy is not parsed or rejected.
 
-- [ ] **Step 2: Write failing router explanation tests**
+- [x] **Step 2: Write failing router explanation tests**
 
 Add tests that prove:
 
@@ -170,7 +170,7 @@ Expected red: router explanation APIs, selector parsing, and routing policy iden
 - Modify: `src/core/router.ts`
 - Modify: `src/core/lifecycle-registry.ts`
 
-- [ ] **Step 1: Add routing policy types**
+- [x] **Step 1: Add routing policy types**
 
 Add config types:
 
@@ -185,7 +185,7 @@ export interface ProviderRoutingPolicyConfig {
 
 Add `routing: ProviderRoutingPolicyConfig` to `AgentTeamConfig`.
 
-- [ ] **Step 2: Parse and validate routing config**
+- [x] **Step 2: Parse and validate routing config**
 
 Parse `.agent-team/config.json` top-level `routing`. Reject invalid role ids using the existing `RoleId` set. Reject empty selector strings. Reject `capability:<value>` when value is not in `PROVIDER_CAPABILITIES`. Reject non-string array items.
 
@@ -195,7 +195,7 @@ Run:
 npm test -- tests/core/config.test.ts
 ```
 
-- [ ] **Step 3: Add selector-aware explanation API**
+- [x] **Step 3: Add selector-aware explanation API**
 
 Add to `src/core/router.ts`:
 
@@ -213,7 +213,7 @@ Run:
 npm test -- tests/core/router.test.ts
 ```
 
-- [ ] **Step 4: Include routing policy in lifecycle identity**
+- [x] **Step 4: Include routing policy in lifecycle identity**
 
 Add `config.routing` to `configIdentity()` so lifecycle managers are recreated when role pins or provider order changes.
 
@@ -236,7 +236,7 @@ npm test -- tests/core/lifecycle-registry.test.ts
 - Modify: `tests/doctor.test.ts`
 - Modify: `tests/mcp/tools.test.ts`
 
-- [ ] **Step 1: Write failing dispatch and lifecycle policy tests**
+- [x] **Step 1: Write failing dispatch and lifecycle policy tests**
 
 Cover:
 
@@ -253,7 +253,7 @@ npm test -- tests/core/dispatch.test.ts tests/core/lifecycle.test.ts
 
 Expected red: dispatch/lifecycle do not pass routing policy into the router yet.
 
-- [ ] **Step 2: Wire shared policy into dispatch and lifecycle**
+- [x] **Step 2: Wire shared policy into dispatch and lifecycle**
 
 Pass `config.routing` into `selectProvider()` from:
 
@@ -268,7 +268,7 @@ Run:
 npm test -- tests/core/dispatch.test.ts tests/core/lifecycle.test.ts
 ```
 
-- [ ] **Step 3: Write and pass doctor explanation tests**
+- [x] **Step 3: Write and pass doctor explanation tests**
 
 Doctor should include selection explanation details in each `role-routing:<role>` check. Add tests for:
 
@@ -282,7 +282,7 @@ Run:
 npm test -- tests/doctor.test.ts
 ```
 
-- [ ] **Step 4: Update MCP schema wording without adding provider-specific fields**
+- [x] **Step 4: Update MCP schema wording without adding provider-specific fields**
 
 Change the public description for `provider` from "Preferred provider id." to "Preferred provider selector." Add tests that the schemas still expose a string field and do not add provider-family/model-specific object fields.
 
@@ -301,7 +301,7 @@ npm test -- tests/mcp/tools.test.ts
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-long-term-roadmap.md`
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-milestone-38.md`
 
-- [ ] **Step 1: Update user-facing docs**
+- [x] **Step 1: Update user-facing docs**
 
 Document:
 
@@ -312,11 +312,11 @@ Document:
 - multi-provider second opinions are modeled as multiple explicit runs, not automatic model comparison
 - no model-quality or benchmark claims are made by selection policy
 
-- [ ] **Step 2: Update roadmap and changelog**
+- [x] **Step 2: Update roadmap and changelog**
 
 Mark M38 complete only after proof is captured and move near-term recommendation to M39/M40/M41.
 
-- [ ] **Step 3: Run focused milestone tests**
+- [x] **Step 3: Run focused milestone tests**
 
 Run:
 
@@ -324,7 +324,7 @@ Run:
 npm test -- tests/core/config.test.ts tests/core/router.test.ts tests/core/lifecycle-registry.test.ts tests/core/dispatch.test.ts tests/core/lifecycle.test.ts tests/doctor.test.ts tests/mcp/tools.test.ts tests/docs/packaging.test.ts tests/docs/runbook.test.ts
 ```
 
-- [ ] **Step 4: Run full verification**
+- [x] **Step 4: Run full verification**
 
 Run:
 
@@ -336,7 +336,7 @@ npm run smoke:mcp-stdio
 npm run ci
 ```
 
-- [ ] **Step 5: Run invariant scans**
+- [x] **Step 5: Run invariant scans**
 
 Run:
 
@@ -348,15 +348,15 @@ rg "internal prompt|hidden instruction|generated agent definition|provider-speci
 rg "process.kill|SIGKILL|automatic cleanup|workspace_cleanup_removed|cleanupRunWorkspace" src tests docs README.md CHANGELOG.md
 ```
 
-- [ ] **Step 6: Mark plan complete and commit**
+- [x] **Step 6: Mark plan complete and commit**
 
 After all proof is captured, mark the L11 gates and task checkboxes complete in this plan, then commit the implementation branch.
 
 ## Verification Evidence
 
-- Baseline before implementation: pending.
-- Red proof: pending.
-- Focused milestone proof: pending.
-- Full proof: pending.
-- Packaged stdio smoke: pending.
-- Invariant scans: pending.
+- Baseline before implementation: `npm test` passed before implementation in the isolated worktree: 46 files, 349 tests.
+- Red proof: added config, router, lifecycle-registry, dispatch, lifecycle, doctor, and MCP schema tests first. They failed because `routing` config did not exist, `explainProviderSelection` did not exist, lifecycle identity ignored routing, dispatch/lifecycle did not pass routing policy, doctor lacked selection explanation details, and public MCP metadata still described `provider` as a provider id. A compatibility regression test for an exact requested provider that exists but is unavailable failed until the throwing wrapper preserved the prior `ProviderNotFoundError` behavior while keeping explanation evidence.
+- Focused milestone proof: `npm test -- tests/core/config.test.ts tests/core/router.test.ts tests/core/lifecycle-registry.test.ts tests/core/dispatch.test.ts tests/core/lifecycle.test.ts tests/doctor.test.ts tests/mcp/tools.test.ts tests/docs/packaging.test.ts tests/docs/runbook.test.ts` passed: 9 files, 177 tests.
+- Full proof: `npm run typecheck` passed; `npm test` passed: 46 files, 364 tests; `npm run build` passed.
+- Packaged stdio smoke: `npm run smoke:mcp-stdio` passed with `MCP stdio smoke passed.`
+- Invariant scans: auth/routing, permission/bypass, model-claim, prompt/schema leakage, and cleanup/process-kill scans were run. Matches were expected config/tests/docs guardrails, provider-local capability/auth descriptors, public README selector examples, existing Claude CLI permission guards, and existing lifecycle cleanup/cancellation paths. No new API-key fallback, public provider-specific MCP schema, hidden prompt exposure, provider ranking result, automatic cleanup shortcut, or process-kill shortcut was introduced by M38.

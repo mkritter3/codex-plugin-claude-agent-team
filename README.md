@@ -68,6 +68,26 @@ The default posture is read-only. Isolated implementation runs require explicit 
 
 Keep `requireIsolatedWorktree` enabled for write-capable roles. Retained implementation worktrees are review evidence until explicit cleanup.
 
+Provider selection policy is optional and capability-first. Request-level `provider` values and workspace routing config use the same neutral selector strings: exact provider ids such as `claude-code-cli`, families such as `family:grok`, model selectors such as `model:grok-4.20`, or capability selectors such as `capability:reasoning`.
+
+```json
+{
+  "routing": {
+    "rolePins": {
+      "architect": "family:grok",
+      "code-reviewer": "model:grok-4.20"
+    },
+    "providerOrder": [
+      "family:grok",
+      "family:ollama-cloud",
+      "claude-code-cli"
+    ]
+  }
+}
+```
+
+Per-request `provider` selectors take precedence over role pins, role pins take precedence over `providerOrder`, and every selection still has to satisfy the role's required capabilities. Multi-provider second opinions should be started as multiple explicit runs; routing policy does not synthesize provider rankings or preference judgments.
+
 OpenAI-compatible providers are disabled by default and never inferred from environment variables. To use the foundation adapter for synchronous read-only dispatch, opt in explicitly with provider-scoped endpoint/model/auth-env config and only the capabilities the endpoint can actually satisfy:
 
 ```json
@@ -129,7 +149,7 @@ Ollama Cloud profiles are an explicit OpenAI-compatible profile layer. They are 
 }
 ```
 
-Profile provider ids use `ollama-cloud:<profile-id>`, for example `ollama-cloud:kimi-k2.6`. Profiles support synchronous read-only dispatch only; run live smoke separately before making any real-provider readiness, model-quality, or long-context claims.
+Profile provider ids use `ollama-cloud:<profile-id>`, for example `ollama-cloud:kimi-k2.6`. Profiles support synchronous read-only dispatch only; run live smoke separately before making any real-provider readiness, provider performance, or long-context claims.
 
 Grok profiles are another explicit OpenAI-compatible profile layer. They are disabled by default, use provider-scoped auth env names, and route through profile ids such as `grok:grok-4.20-reasoning`:
 
@@ -157,7 +177,7 @@ Grok profiles are another explicit OpenAI-compatible profile layer. They are dis
 }
 ```
 
-Grok profiles support synchronous read-only chat-completions dispatch only. They do not support background sessions, live stdin, resume, cancellation, edits, tools, streaming, Responses API, image input, or workspace isolation in this plugin version. Run live smoke separately before making real-provider readiness, model-quality, provider-comparison, or practical long-context claims.
+Grok profiles support synchronous read-only chat-completions dispatch only. They do not support background sessions, live stdin, resume, cancellation, edits, tools, streaming, Responses API, image input, or workspace isolation in this plugin version. Run live smoke separately before making real-provider readiness, provider performance, provider ranking, or practical long-context claims.
 
 Gemini is a separate explicit adapter because its REST payloads are not OpenAI-compatible. It is disabled by default and supports synchronous read-only dispatch only:
 
@@ -180,7 +200,7 @@ Gemini is a separate explicit adapter because its REST payloads are not OpenAI-c
 }
 ```
 
-Gemini does not support background sessions, live stdin, resume, cancellation, edits, tools, streaming, Live API, file upload, multimodal inputs, or workspace isolation in this plugin version. Run live smoke separately before making real-provider readiness, model-quality, or practical long-context claims.
+Gemini does not support background sessions, live stdin, resume, cancellation, edits, tools, streaming, Live API, file upload, multimodal inputs, or workspace isolation in this plugin version. Run live smoke separately before making real-provider readiness, provider performance, or practical long-context claims.
 
 ## Auth And Doctor
 

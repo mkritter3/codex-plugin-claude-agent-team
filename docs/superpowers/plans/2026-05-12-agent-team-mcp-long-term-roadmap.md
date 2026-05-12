@@ -47,6 +47,7 @@ Completed through Milestone 36:
 - explicit Ollama Cloud profiles backed by the OpenAI-compatible runtime
 - explicitly configured Gemini adapter for synchronous read-only dispatch
 - explicit Grok profiles backed by the OpenAI-compatible runtime
+- capability-first provider selection policy with role pins, provider order, and routing explanations
 - end-to-end Claude team session runbook
 - README, changelog/versioning policy, license, and package/plugin metadata alignment
 
@@ -227,6 +228,8 @@ That gate requires:
 - The router can explain why a provider was selected or rejected.
 - No role is downgraded to a provider that lacks required capabilities.
 
+**Status:** Complete. Provider selectors support exact ids, families, models, and capabilities; request selectors override role pins, role pins override provider order, and doctor exposes selection explanations without public provider-specific MCP schema changes.
+
 ## V2 Product Maturity Milestones
 
 ### Milestone 39: Durable Team Records
@@ -292,8 +295,8 @@ V1.5 is complete when at least one non-Claude provider can be configured explici
 
 Implement the next milestones in this order:
 
-1. Milestone 38: Provider Selection Policy
-2. Milestone 39: Durable Team Records
-3. Milestone 40: Team Dashboard Surface
+1. Milestone 39: Durable Team Records
+2. Milestone 40: Team Dashboard Surface
+3. Milestone 41: Policy And Audit Controls
 
-This order moves from provider breadth into routing policy and operator usability without weakening the V1 control plane.
+This order moves from routing policy into durable team grouping, operator usability, and stronger audit controls without weakening the V1 control plane.

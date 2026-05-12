@@ -273,6 +273,7 @@ describe("runDoctor", () => {
       details: {
         writeMode: { enabled: false, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
+        routing: { rolePins: {}, providerOrder: [] },
         providers: {
           openaiCompatible: {
             enabled: false,
@@ -308,6 +309,63 @@ describe("runDoctor", () => {
     expect(report.checks.some((check) => check.id.startsWith("openai-compatible"))).toBe(
       false
     );
+    expect(report.checks.find((check) => check.id === "role-routing:planner")).toMatchObject({
+      status: "pass",
+      details: {
+        provider: "claude-code-cli",
+        selection: {
+          ok: true,
+          selectedProviderId: "claude-code-cli",
+          requiredCapabilities: ["structuredOutput"],
+          candidates: [
+            expect.objectContaining({
+              providerId: "claude-code-cli",
+              eligible: true
+            })
+          ]
+        }
+      }
+    });
+  });
+
+  it("fails role routing with selector evidence when a role pin is unroutable", async () => {
+    const workspace = await tempWorkspace();
+    await writeConfig(workspace, {
+      routing: {
+        rolePins: {
+          planner: "family:grok"
+        }
+      }
+    });
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: {},
+      ...cliFound()
+    });
+
+    expect(report.ok).toBe(false);
+    expect(report.checks.find((check) => check.id === "role-routing:planner")).toMatchObject({
+      status: "fail",
+      details: {
+        role: "planner",
+        selection: {
+          ok: false,
+          selector: {
+            source: "role-pin",
+            value: "family:grok",
+            kind: "family"
+          },
+          candidates: [
+            expect.objectContaining({
+              providerId: "claude-code-cli",
+              matchedSelector: false,
+              rejectionReason: "selector_mismatch"
+            })
+          ]
+        }
+      }
+    });
   });
 
   it("reports explicit OpenAI-compatible config and missing provider auth env", async () => {
