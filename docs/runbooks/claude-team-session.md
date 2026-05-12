@@ -20,6 +20,7 @@ npm run build
 npm run install:check
 npm run smoke:mcp-stdio
 npm run smoke:package
+npm run smoke:providers-live -- --dry-run --cwd /absolute/path/to/workspace --provider family:gemini
 npm run ci
 ```
 
@@ -123,6 +124,41 @@ npm run smoke:claude-live -- --confirm-live-provider-use --cwd /absolute/path/to
 ```
 
 The smoke uses Claude Code CLI subscription OAuth through the packaged MCP stdio runtime. Its sanitized report includes run ids, statuses, evidence paths, summary groups, dashboard counts, message status, wind-down status, and known limitations. It does not print private prompts, provider command details, provider session ids, process metadata, environment values, mailbox payloads, secrets, provider ranking claims, or comparative capability claims.
+
+## Opt-In Read-Only Provider Proof Smoke
+
+Use this proof only for explicitly configured non-Claude read-only providers. It is not part of CI and does not replace the Claude Code CLI subscription OAuth v1 path. It proves explicit read-only provider routing, dispatch evidence, dashboard evidence, and summary evidence only; it makes no provider comparison, ranking, score, or long-context claim.
+
+Inspect the public MCP flow without provider use:
+
+```bash
+npm run smoke:providers-live -- --dry-run --cwd /absolute/path/to/workspace --provider family:gemini
+```
+
+For a real local proof, configure the provider and policy first:
+
+```json
+{
+  "schemaVersion": 1,
+  "policy": {
+    "allowedRoles": ["code-reviewer"],
+    "allowedProviderSelectors": ["family:gemini"],
+    "allowWriteMode": false,
+    "allowedWorktreeRoots": [],
+    "liveSmokeEnabled": true,
+    "auditEnabled": true
+  }
+}
+```
+
+Then run the confirmed proof:
+
+```bash
+npm run build
+npm run smoke:providers-live -- --confirm-live-provider-use --cwd /absolute/path/to/workspace --provider family:gemini --concurrency 1
+```
+
+The provider proof uses packaged MCP stdio plus `agent_team_doctor`, `agent_team_list_providers`, `agent_team_dispatch`, `agent_team_dashboard`, and `agent_team_summary`. Its sanitized report includes provider selectors, selected provider ids, auth mode, run ids, sidecar/log paths, dashboard counts, summary groups, and known limitations. It does not print prompts, task text, provider endpoints, raw provider payloads, provider session ids, process metadata, command details, environment values, mailbox payloads, or secrets.
 
 ## Start A Team
 

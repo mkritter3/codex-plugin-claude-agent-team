@@ -23,6 +23,7 @@ All notable changes to this private local plugin are recorded here.
 - Added the Claude team session runbook and packaging hardening docs.
 - Added an opt-in live Claude team smoke harness with dry-run planning, `policy.liveSmokeEnabled` gating, packaged MCP stdio execution, and sanitized report output; it is not part of CI.
 - Added an install handoff preflight that validates the package/runtime surface and emits a sanitized absolute MCP config without provider calls.
+- Added an opt-in read-only provider proof smoke harness for explicitly configured non-Claude providers through packaged MCP stdio; it is not part of CI and makes no provider comparison, ranking, score, or long-context claim.
 
 ## Versioning Policy
 

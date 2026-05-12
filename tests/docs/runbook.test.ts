@@ -35,6 +35,7 @@ describe("Claude team session runbook", () => {
       "npm run smoke:mcp-stdio",
       "npm run smoke:package",
       "npm run smoke:claude-live",
+      "npm run smoke:providers-live",
       "npm run ci"
     ]) {
       expect(doc).toContain(text);
@@ -42,6 +43,9 @@ describe("Claude team session runbook", () => {
     expect(doc).toContain("opt-in live smoke");
     expect(doc).toContain("not part of CI");
     expect(doc).toContain("--confirm-live-provider-use");
+    expect(doc).toContain("--provider family:gemini");
+    expect(doc).toContain("explicit read-only provider routing");
+    expect(doc).toContain("no provider comparison, ranking, score, or long-context claim");
     expect(doc).toContain("policy.liveSmokeEnabled");
     expect(doc).toContain("sanitized report");
     expect(doc).toContain("absolute MCP config");

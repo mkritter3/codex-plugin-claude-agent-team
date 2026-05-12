@@ -43,13 +43,13 @@
 
 ## L11 Quality Gates
 
-- [ ] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
-- [ ] TDD red proof is captured for fail-closed confirmation, explicit provider selectors, dry-run report shape, package script/CI wiring, package contents, and docs.
-- [ ] Focused milestone tests are listed with expected red and green outcomes.
-- [ ] Full verification commands are listed.
-- [ ] Required edge cases selected: packaged runtime, docs/examples, CI script ordering, report redaction, missing provider selector, invalid concurrency, explicit confirmation, provider list evidence, public MCP boundary, and no live provider use in CI.
-- [ ] Invariant scans are listed.
-- [ ] Live provider smoke is optional operator proof and is not required for CI; it is required only before claiming non-Claude real-provider readiness beyond fixture mechanics.
+- [x] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
+- [x] TDD red proof is captured for fail-closed confirmation, explicit provider selectors, dry-run report shape, package script/CI wiring, package contents, and docs.
+- [x] Focused milestone tests are listed with expected red and green outcomes.
+- [x] Full verification commands are listed.
+- [x] Required edge cases selected: packaged runtime, docs/examples, CI script ordering, report redaction, missing provider selector, invalid concurrency, explicit confirmation, provider list evidence, public MCP boundary, and no live provider use in CI.
+- [x] Invariant scans are listed.
+- [x] Live provider smoke is optional operator proof and is not required for CI; it is required only before claiming non-Claude real-provider readiness beyond fixture mechanics.
 
 ## Contracts
 
@@ -165,7 +165,7 @@ Supported flags:
 - Create: `tests/live-smoke-readonly-providers.test.ts`
 - Create: `scripts/live-smoke-readonly-providers.mjs`
 
-- [ ] **Step 1: Add failing CLI tests**
+- [x] **Step 1: Add failing CLI tests**
 
 Add tests that prove fail-closed and dry-run behavior:
 
@@ -238,7 +238,7 @@ it("prints a sanitized dry-run provider proof plan without connecting to MCP", (
 });
 ```
 
-- [ ] **Step 2: Run red**
+- [x] **Step 2: Run red**
 
 Run:
 
@@ -248,7 +248,7 @@ npm test -- tests/live-smoke-readonly-providers.test.ts
 
 Expected red: `scripts/live-smoke-readonly-providers.mjs` does not exist.
 
-- [ ] **Step 3: Implement minimal dry-run CLI**
+- [x] **Step 3: Implement minimal dry-run CLI**
 
 Create `scripts/live-smoke-readonly-providers.mjs` with:
 
@@ -258,7 +258,7 @@ Create `scripts/live-smoke-readonly-providers.mjs` with:
 - fail-closed confirmation checks
 - no MCP imports beyond static imports needed for later live implementation
 
-- [ ] **Step 4: Run green**
+- [x] **Step 4: Run green**
 
 Run:
 
@@ -275,7 +275,7 @@ Expected green: fail-closed, explicit provider, and dry-run redaction tests pass
 - Modify: `scripts/live-smoke-readonly-providers.mjs`
 - Modify: `tests/live-smoke-readonly-providers.test.ts`
 
-- [ ] **Step 1: Add failing script-boundary tests**
+- [x] **Step 1: Add failing script-boundary tests**
 
 Add a script inspection test:
 
@@ -326,7 +326,7 @@ it("rejects invalid provider proof concurrency", () => {
 });
 ```
 
-- [ ] **Step 2: Run red**
+- [x] **Step 2: Run red**
 
 Run:
 
@@ -336,7 +336,7 @@ npm test -- tests/live-smoke-readonly-providers.test.ts
 
 Expected red: live MCP boundary and concurrency handling are not implemented.
 
-- [ ] **Step 3: Implement live proof path**
+- [x] **Step 3: Implement live proof path**
 
 Extend `scripts/live-smoke-readonly-providers.mjs` to:
 
@@ -361,7 +361,7 @@ Extend `scripts/live-smoke-readonly-providers.mjs` to:
 - call `agent_team_dashboard` and `agent_team_summary` only when at least one run id exists
 - emit no task text or prompt text in the final report
 
-- [ ] **Step 4: Run green**
+- [x] **Step 4: Run green**
 
 Run:
 
@@ -385,7 +385,7 @@ Expected green: dry-run, fail-closed, concurrency, and boundary tests pass.
 - Modify: `CHANGELOG.md`
 - Modify: `docs/runbooks/claude-team-session.md`
 
-- [ ] **Step 1: Add failing package/docs tests**
+- [x] **Step 1: Add failing package/docs tests**
 
 Extend package script tests:
 
@@ -413,7 +413,7 @@ expect(runbook).toContain("npm run smoke:providers-live");
 expect(runbook).toContain("--provider family:gemini");
 ```
 
-- [ ] **Step 2: Run red**
+- [x] **Step 2: Run red**
 
 Run:
 
@@ -423,7 +423,7 @@ npm test -- tests/live-smoke-readonly-providers.test.ts tests/package-scripts.te
 
 Expected red: package scripts, package smoke, and docs do not mention the provider proof harness.
 
-- [ ] **Step 3: Update package smoke and docs**
+- [x] **Step 3: Update package smoke and docs**
 
 Update docs with these exact examples:
 
@@ -443,7 +443,7 @@ State that the harness:
 - proves explicit read-only provider routing and evidence mechanics only
 - makes no benchmark, ranking, model-quality, or long-context claim
 
-- [ ] **Step 4: Run green**
+- [x] **Step 4: Run green**
 
 Run:
 
@@ -459,7 +459,7 @@ Expected green: provider proof harness is covered by focused script/package/docs
 
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-milestone-45.md`
 
-- [ ] **Step 1: Run focused tests**
+- [x] **Step 1: Run focused tests**
 
 Run:
 
@@ -467,7 +467,7 @@ Run:
 npm test -- tests/live-smoke-readonly-providers.test.ts tests/package-scripts.test.ts tests/package-smoke.test.ts tests/docs/packaging.test.ts tests/docs/runbook.test.ts
 ```
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -481,7 +481,7 @@ npm run smoke:package
 npm run ci
 ```
 
-- [ ] **Step 3: Run invariant scans**
+- [x] **Step 3: Run invariant scans**
 
 Run:
 
@@ -493,11 +493,11 @@ rg "internal prompt|hidden instruction|generated agent definition|provider-speci
 rg "process.kill|SIGKILL|automatic cleanup|workspace_cleanup_removed|cleanupRunWorkspace|auto-migrate|auto migrate|state-layout" src tests docs README.md CHANGELOG.md scripts
 ```
 
-- [ ] **Step 4: Update verification evidence**
+- [x] **Step 4: Update verification evidence**
 
 Record red proof, focused proof, full proof, package smoke, and invariant scan interpretation in this plan.
 
-- [ ] **Step 5: Commit implementation**
+- [x] **Step 5: Commit implementation**
 
 Run:
 
@@ -510,9 +510,18 @@ git commit -m "feat: add read-only provider proof smoke"
 
 ## Verification Evidence
 
-- Baseline before implementation: pending.
-- Red proof: pending.
-- Focused milestone proof: pending.
-- Full proof: pending.
-- Packaged smoke: pending.
-- Invariant scans: pending.
+- Baseline before implementation: `npm test` passed `56` files and `434` tests from the isolated M45 worktree before implementation edits.
+- Red proof:
+  - `npm test -- tests/live-smoke-readonly-providers.test.ts` failed while `scripts/live-smoke-readonly-providers.mjs` was absent.
+  - Focused package/docs tests failed while `smoke:providers-live`, package allowlist coverage, README, changelog, and runbook docs were absent.
+  - Docs wording guard failed when early prose used forbidden quality-claim phrasing; docs and tests were revised to state no provider comparison, ranking, score, or long-context claim.
+  - A proof-status regression test failed until failed dispatch results were compacted as `failed` instead of `completed`.
+- Focused milestone proof: `npm test -- tests/live-smoke-readonly-providers.test.ts tests/package-scripts.test.ts tests/package-smoke.test.ts tests/docs/packaging.test.ts tests/docs/runbook.test.ts` passed `5` files and `16` tests.
+- Full proof: `npm run typecheck`, `npm test` (`57` files, `440` tests), `npm run build`, and `npm run ci` passed in the isolated worktree.
+- Packaged smoke: `npm run install:check`, `npm run smoke:mcp-stdio`, and `npm run smoke:package` passed. One early parallel `install:check` attempt observed a build-order block while `dist/index.js` was being rebuilt; the sequential rerun passed with `status: ready`.
+- Invariant scans:
+  - Auth/fallback scan showed only expected existing provider config names, the new explicit `smoke:providers-live` script, and `explicit-provider-config`; no hidden API-key fallback path was introduced.
+  - Permission/bypass scan showed only existing Claude permission-policy guards/tests; the provider proof harness did not introduce bypass/edit/bare permission behavior.
+  - Claim scan showed existing guardrails plus the new M45 limitation language; no provider score, comparison, or long-context claim path was introduced.
+  - Prompt/schema leakage scan showed existing state/provider internals plus M45 redaction docs; the public report excludes prompts, task text, endpoints, raw payloads, session ids, process metadata, commands, environment values, and secrets.
+  - Cleanup/process scan showed existing lifecycle cleanup/process handling only; M45 did not add cleanup automation, process killing, or provider-specific lifecycle shortcuts.

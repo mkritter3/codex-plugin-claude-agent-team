@@ -36,6 +36,7 @@
     "smoke:mcp-stdio": "node scripts/smoke-mcp-stdio.mjs",
     "smoke:package": "node scripts/smoke-package.mjs",
     "smoke:claude-live": "node scripts/live-smoke-claude-team.mjs",
+    "smoke:providers-live": "node scripts/live-smoke-readonly-providers.mjs",
     "ci": "npm run typecheck && npm test && npm run build && npm run install:check && npm run smoke:mcp-stdio && npm run smoke:package"
   },
   "dependencies": {

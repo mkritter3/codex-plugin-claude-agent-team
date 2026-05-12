@@ -16,6 +16,7 @@ describe("packaging and install docs", () => {
       "npm run install:check",
       "npm run smoke:package",
       "npm run smoke:claude-live",
+      "npm run smoke:providers-live",
       "agent-team-mcp",
       "\"./dist/index.js\"",
       ".agent-team/config.json",
@@ -40,6 +41,9 @@ describe("packaging and install docs", () => {
     expect(readme).toContain("--confirm-live-provider-use");
     expect(readme).toContain("policy.liveSmokeEnabled");
     expect(readme).toContain("sanitized report");
+    expect(readme).toContain("--provider family:gemini");
+    expect(readme).toContain("explicit read-only provider routing");
+    expect(readme).toContain("no provider comparison, ranking, score, or long-context claim");
     expect(readme).toContain("absolute MCP config");
     expect(readme).toContain("does not call providers");
     expect(readme).toContain("read-only dashboard");
@@ -57,6 +61,7 @@ describe("packaging and install docs", () => {
     expect(changelog).toContain("Versioning Policy");
     expect(changelog).toContain("config schema and state layout compatibility checks");
     expect(changelog).toContain("opt-in live Claude team smoke harness");
+    expect(changelog).toContain("read-only provider proof smoke harness");
     expect(changelog).toContain("install handoff preflight");
     expect(changelog).toContain("policy and audit controls");
     expect(changelog).toContain("MCP tool surface changes");

@@ -32,6 +32,7 @@ npm run install:check
 npm run smoke:mcp-stdio
 npm run smoke:package
 npm run smoke:claude-live -- --dry-run --cwd /absolute/path/to/workspace
+npm run smoke:providers-live -- --dry-run --cwd /absolute/path/to/workspace --provider family:gemini
 ```
 
 The built executable is exposed as the `agent-team-mcp` package bin and points to `"./dist/index.js"`.
@@ -286,6 +287,40 @@ Then run the confirmed smoke after building the packaged runtime:
 npm run build
 npm run smoke:claude-live -- --confirm-live-provider-use --cwd /absolute/path/to/workspace
 ```
+
+## Opt-In Read-Only Provider Proof Smoke
+
+The provider proof smoke exercises explicitly configured non-Claude read-only providers through the packaged MCP stdio entrypoint and public read-only tools. It is not part of CI. It proves explicit read-only provider routing, dispatch evidence, dashboard evidence, and summary evidence only; it makes no provider comparison, ranking, score, or long-context claim.
+
+Inspect the planned flow without provider use:
+
+```bash
+npm run smoke:providers-live -- --dry-run --cwd /absolute/path/to/workspace --provider family:gemini
+```
+
+For a real local proof, the target workspace must explicitly configure the provider, allow the provider selector in policy, and set `policy.liveSmokeEnabled`:
+
+```json
+{
+  "schemaVersion": 1,
+  "policy": {
+    "allowedRoles": ["code-reviewer"],
+    "allowedProviderSelectors": ["family:gemini"],
+    "allowWriteMode": false,
+    "liveSmokeEnabled": true,
+    "auditEnabled": true
+  }
+}
+```
+
+Then run the confirmed proof after building the packaged runtime:
+
+```bash
+npm run build
+npm run smoke:providers-live -- --confirm-live-provider-use --cwd /absolute/path/to/workspace --provider family:gemini --concurrency 1
+```
+
+The sanitized report includes provider selectors, selected provider ids, auth mode, run ids, run statuses, sidecar/log evidence paths, dashboard counts, summary groups, and known limitations. It does not print private prompts, task text, provider endpoints, raw provider payloads, provider session ids, process metadata, command details, environment values, or secrets.
 
 ## Basic Workflow
 
