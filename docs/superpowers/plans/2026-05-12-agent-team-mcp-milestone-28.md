@@ -35,13 +35,13 @@
 
 ## L11 Quality Gates
 
-- [ ] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
-- [ ] TDD red proof is captured for new behavior.
-- [ ] Focused milestone tests are listed with expected red and green outcomes.
-- [ ] Full verification commands are listed.
-- [ ] Required edge cases from the matrix are explicitly selected.
-- [ ] Invariant scans are listed.
-- [ ] Live provider smoke is marked required or not required with rationale.
+- [x] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
+- [x] TDD red proof is captured for new behavior.
+- [x] Focused milestone tests are listed with expected red and green outcomes.
+- [x] Full verification commands are listed.
+- [x] Required edge cases from the matrix are explicitly selected.
+- [x] Invariant scans are listed.
+- [x] Live provider smoke is marked required or not required with rationale.
 
 Selected quality-gate rows:
 
@@ -79,7 +79,7 @@ Live provider smoke is not required for this milestone because the tool is a pro
 - Create: `src/core/wind-down-many.ts`
 - Create: `tests/core/wind-down-many.test.ts`
 
-- [ ] **Step 1: Write failing core tests**
+- [x] **Step 1: Write failing core tests**
 
 Create `tests/core/wind-down-many.test.ts` with tests for bounded concurrency, ordered results, partial failures, `StateCorruptionError` recovery, and recovery failure.
 
@@ -297,7 +297,7 @@ describe("windDownAgentRuns", () => {
 });
 ```
 
-- [ ] **Step 2: Run core tests red**
+- [x] **Step 2: Run core tests red**
 
 Run:
 
@@ -307,7 +307,7 @@ npm test -- tests/core/wind-down-many.test.ts
 
 Expected: FAIL because `src/core/wind-down-many.ts` does not exist.
 
-- [ ] **Step 3: Add wind-down-many types**
+- [x] **Step 3: Add wind-down-many types**
 
 In `src/core/types.ts`, add after `AgentMessageManyResult`:
 
@@ -361,7 +361,7 @@ export interface AgentWindDownManyResult {
 }
 ```
 
-- [ ] **Step 4: Implement core helper**
+- [x] **Step 4: Implement core helper**
 
 Create `src/core/wind-down-many.ts` with:
 
@@ -466,7 +466,7 @@ export async function windDownAgentRuns(
 }
 ```
 
-- [ ] **Step 5: Run focused core tests**
+- [x] **Step 5: Run focused core tests**
 
 Run:
 
@@ -477,7 +477,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit core helper**
+- [x] **Step 6: Commit core helper**
 
 ```bash
 git add src/core/types.ts src/core/wind-down-many.ts tests/core/wind-down-many.test.ts
@@ -491,7 +491,7 @@ git commit -m "feat: add batch wind-down core"
 - Modify: `src/mcp/tools.ts`
 - Modify: `tests/mcp/tools.test.ts`
 
-- [ ] **Step 1: Write failing MCP handler tests**
+- [x] **Step 1: Write failing MCP handler tests**
 
 Extend `tests/mcp/tools.test.ts` with tests proving:
 
@@ -551,7 +551,7 @@ expect(result.structuredContent).toMatchObject({
 });
 ```
 
-- [ ] **Step 2: Run MCP tests red**
+- [x] **Step 2: Run MCP tests red**
 
 Run:
 
@@ -561,7 +561,7 @@ npm test -- tests/mcp/tools.test.ts
 
 Expected: FAIL because `agent_team_wind_down_many` is unknown.
 
-- [ ] **Step 3: Register and parse the tool**
+- [x] **Step 3: Register and parse the tool**
 
 In `src/mcp/tools.ts`:
 
@@ -591,7 +591,7 @@ return jsonToolResult({
 
 Do not call `cancelRun`, `cleanupRunWorkspace`, `messageRun`, `replyRun`, provider APIs, `process.kill`, or direct mailbox writers in the batch tool.
 
-- [ ] **Step 4: Run focused MCP tests**
+- [x] **Step 4: Run focused MCP tests**
 
 Run:
 
@@ -602,7 +602,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit MCP tool**
+- [x] **Step 5: Commit MCP tool**
 
 ```bash
 git add src/mcp/tools.ts tests/mcp/tools.test.ts
@@ -618,7 +618,7 @@ git commit -m "feat: expose batch wind-down MCP tool"
 - Modify: `tests/package-runtime.test.ts`
 - Modify: `scripts/smoke-mcp-stdio.mjs`
 
-- [ ] **Step 1: Write failing schema/package tests**
+- [x] **Step 1: Write failing schema/package tests**
 
 Extend:
 
@@ -633,7 +633,7 @@ npm test -- tests/mcp/server.test.ts tests/package-runtime.test.ts
 
 Expected: FAIL because schema and smoke metadata are not registered yet.
 
-- [ ] **Step 2: Add MCP schema metadata**
+- [x] **Step 2: Add MCP schema metadata**
 
 In `src/mcp/schemas.ts`, add:
 
@@ -663,7 +663,7 @@ agent_team_wind_down_many: {
 
 The description must not mention Claude, provider internals, prompts, cancellation, process kill, or cleanup.
 
-- [ ] **Step 3: Update packaged stdio smoke**
+- [x] **Step 3: Update packaged stdio smoke**
 
 In `scripts/smoke-mcp-stdio.mjs`, add near the single-run wind-down/control assertions:
 
@@ -671,7 +671,7 @@ In `scripts/smoke-mcp-stdio.mjs`, add near the single-run wind-down/control asse
 assertToolRequires(tools.tools, "agent_team_wind_down_many", ["runs"]);
 ```
 
-- [ ] **Step 4: Run focused package tests**
+- [x] **Step 4: Run focused package tests**
 
 Run:
 
@@ -682,7 +682,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit metadata coverage**
+- [x] **Step 5: Commit metadata coverage**
 
 ```bash
 git add src/mcp/schemas.ts tests/mcp/server.test.ts tests/package-runtime.test.ts scripts/smoke-mcp-stdio.mjs
@@ -695,7 +695,7 @@ git commit -m "test: cover batch wind-down metadata"
 
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-milestone-28.md`
 
-- [ ] **Step 1: Run focused milestone tests**
+- [x] **Step 1: Run focused milestone tests**
 
 Run:
 
@@ -705,7 +705,7 @@ npm test -- tests/core/wind-down-many.test.ts tests/mcp/tools.test.ts tests/mcp/
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -719,7 +719,7 @@ npm run ci
 
 Expected: PASS.
 
-- [ ] **Step 3: Review boundary and safety invariants**
+- [x] **Step 3: Review boundary and safety invariants**
 
 Run:
 
@@ -733,7 +733,7 @@ rg "process.kill|SIGKILL|automatic cleanup|workspace_cleanup_removed|cleanupRunW
 
 Expected: batch wind-down is graceful lifecycle delegation, not an implicit provider fallback, benchmark harness, model-quality aggregator, bypass-permission path, message path, reply/resume path, cancellation path, process-kill path, or cleanup shortcut.
 
-- [ ] **Step 4: Commit final plan checkbox update**
+- [x] **Step 4: Commit final plan checkbox update**
 
 Mark completed checklist items in this file and commit:
 
@@ -742,7 +742,7 @@ git add docs/superpowers/plans/2026-05-12-agent-team-mcp-milestone-28.md
 git commit -m "docs: mark batch wind-down milestone complete"
 ```
 
-- [ ] **Step 5: Merge, push, and cleanup**
+- [x] **Step 5: Merge, push, and cleanup**
 
 From the main checkout:
 
