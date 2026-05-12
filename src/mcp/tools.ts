@@ -10,6 +10,7 @@ import { startAgentTeamInParallel } from "../core/parallel-start.js";
 import { listRoles } from "../core/roles.js";
 import { createRunId } from "../core/run-ids.js";
 import { recoverStateCorruption } from "../core/state/recovery.js";
+import { readAgentStatuses } from "../core/status-many.js";
 import type {
   AgentCleanupRequest,
   AgentCleanupResult,
@@ -22,6 +23,8 @@ import type {
   AgentReplyRequest,
   AgentReplyResult,
   AgentStartResult,
+  AgentStatusManyRequest,
+  AgentStatusManyRun,
   AgentTeamConfig,
   RoleId,
   RunSidecar
@@ -36,6 +39,7 @@ export const TOOL_NAMES = [
   "agent_team_reply",
   "agent_team_message",
   "agent_team_status",
+  "agent_team_status_many",
   "agent_team_cancel",
   "agent_team_wind_down",
   "agent_team_cleanup",
@@ -270,6 +274,76 @@ function parseParallelStartArgs(
   };
 }
 
+function parseStatusManyArgs(
+  args: Record<string, unknown>,
+  cwd: string
+): AgentStatusManyRequest | JsonToolResult {
+  if (!Array.isArray(args.runs) || args.runs.length === 0) {
+    return validationError("agent_team_status_many requires a non-empty runs array.");
+  }
+
+  const defaultCwd = readOptionalString(
+    args.cwd,
+    "agent_team_status_many cwd must be a string."
+  );
+  if (typeof defaultCwd === "object") {
+    return defaultCwd;
+  }
+
+  const concurrency = args.concurrency === undefined ? 8 : args.concurrency;
+  if (
+    typeof concurrency !== "number" ||
+    !Number.isInteger(concurrency) ||
+    concurrency < 1 ||
+    concurrency > 8
+  ) {
+    return validationError(
+      "agent_team_status_many concurrency must be an integer from 1 to 8."
+    );
+  }
+
+  const runs: AgentStatusManyRun[] = [];
+  for (const [index, value] of args.runs.entries()) {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      return validationError(`agent_team_status_many runs[${index}] must be an object.`);
+    }
+
+    const run = value as Record<string, unknown>;
+    if (typeof run.runId !== "string" || run.runId.trim().length === 0) {
+      return validationError(
+        `agent_team_status_many runs[${index}] requires a non-empty runId.`
+      );
+    }
+
+    const itemCwd = readOptionalString(
+      run.cwd,
+      `agent_team_status_many runs[${index}] cwd must be a string.`
+    );
+    if (typeof itemCwd === "object") {
+      return itemCwd;
+    }
+
+    const correlationId = readOptionalString(
+      run.correlationId,
+      `agent_team_status_many runs[${index}] correlationId must be a string.`
+    );
+    if (typeof correlationId === "object") {
+      return correlationId;
+    }
+
+    runs.push({
+      runId: run.runId,
+      cwd: itemCwd ?? defaultCwd ?? cwd,
+      ...(correlationId === undefined ? {} : { correlationId })
+    });
+  }
+
+  return {
+    runs,
+    concurrency
+  };
+}
+
 function parseMessageArgs(
   args: Record<string, unknown>,
   cwd: string
@@ -495,6 +569,21 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
                 runId
               )
             })
+        });
+      }
+
+      if (name === "agent_team_status_many") {
+        const parsed = parseStatusManyArgs(args, cwd());
+        if ("content" in parsed) {
+          return parsed;
+        }
+
+        return jsonToolResult({
+          ...(await readAgentStatuses(parsed, {
+            getStatus: async (workspaceRoot, runId) =>
+              (await lifecycleFor(workspaceRoot)).getStatus(workspaceRoot, runId),
+            recoverStateCorruption: async (input) => recoverStateCorruption(input)
+          }))
         });
       }
 

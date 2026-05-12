@@ -164,6 +164,54 @@ export interface AgentParallelStartResult {
   readonly runs: readonly AgentParallelStartRunResult[];
 }
 
+export interface AgentStatusManyRun {
+  readonly runId: string;
+  readonly cwd: string;
+  readonly correlationId?: string;
+}
+
+export interface AgentStatusManyRequest {
+  readonly runs: readonly AgentStatusManyRun[];
+  readonly concurrency: number;
+}
+
+export interface AgentStatusManyOk {
+  readonly status: "ok";
+  readonly index: number;
+  readonly runId: string;
+  readonly cwd: string;
+  readonly correlationId?: string;
+  readonly run: RunSidecar;
+}
+
+export interface AgentStatusManyFailed {
+  readonly status: "failed";
+  readonly index: number;
+  readonly runId: string;
+  readonly cwd: string;
+  readonly correlationId?: string;
+  readonly error: string;
+}
+
+export interface AgentStatusManyRecovered {
+  readonly status: "state_corrupt";
+  readonly index: number;
+  readonly runId: string;
+  readonly cwd: string;
+  readonly correlationId?: string;
+  readonly recovery: unknown;
+}
+
+export type AgentStatusManyItem =
+  | AgentStatusManyOk
+  | AgentStatusManyFailed
+  | AgentStatusManyRecovered;
+
+export interface AgentStatusManyResult {
+  readonly status: "ok" | "partial_failure";
+  readonly runs: readonly AgentStatusManyItem[];
+}
+
 export interface AgentControlResult {
   readonly runId: string;
   readonly status: RunStatus;

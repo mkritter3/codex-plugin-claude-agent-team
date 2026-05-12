@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { StateCorruptionError } from "../../src/core/errors.js";
+import { readMailboxRecords } from "../../src/core/state/mailbox-store.js";
 import { mailboxPath, runSidecarPath } from "../../src/core/state/paths.js";
 import { writeRunSidecar } from "../../src/core/state/run-store.js";
 import { createToolHandlers, handleToolCall, listToolNames } from "../../src/mcp/tools.js";
@@ -611,6 +612,250 @@ describe("MCP tool handlers", () => {
       status: "running",
       detached: true
     });
+  });
+
+  it("validates status_many args before invoking lifecycle", async () => {
+    let called = false;
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      lifecycle: {
+        async startRun() {
+          throw new Error("should not start");
+        },
+        async getStatus() {
+          called = true;
+          throw new Error("should not status");
+        },
+        async messageRun() {
+          throw new Error("should not message");
+        },
+        async replyRun() {
+          throw new Error("should not reply");
+        },
+        async cancelRun() {
+          throw new Error("should not cancel");
+        },
+        async windDownRun() {
+          throw new Error("should not wind down");
+        }
+      }
+    });
+
+    const invalidInputs: Record<string, unknown>[] = [
+      {},
+      { runs: [] },
+      { runs: [1] },
+      { runs: [{}] },
+      { runs: [{ runId: "" }] },
+      { runs: [{ runId: "run_1", cwd: 1 }] },
+      { runs: [{ runId: "run_1", correlationId: 1 }] },
+      { cwd: 1, runs: [{ runId: "run_1" }] },
+      { runs: [{ runId: "run_1" }], concurrency: 0 },
+      { runs: [{ runId: "run_1" }], concurrency: 9 },
+      { runs: [{ runId: "run_1" }], concurrency: 1.5 }
+    ];
+
+    for (const input of invalidInputs) {
+      const result = await handlers.handleToolCall("agent_team_status_many", input);
+      expect(result.structuredContent?.status).toBe("validation_error");
+    }
+    expect(called).toBe(false);
+  });
+
+  it("reads many statuses through the lifecycle registry with default and per-run cwd", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-status-many-"));
+    const otherWorkspace = await mkdtemp(join(tmpdir(), "agent-team-status-many-other-"));
+    const managerByCwd = new Map<string, string>();
+    const calls: string[] = [];
+    let managerCount = 0;
+    const handlers = createToolHandlers({
+      cwd: () => workspace,
+      lifecycleFactory: () => {
+        managerCount += 1;
+        const managerId = `manager_${managerCount}`;
+        return {
+          async startRun() {
+            throw new Error("should not start");
+          },
+          async getStatus(cwd, runId) {
+            managerByCwd.set(cwd, managerId);
+            calls.push(`${managerId}:${cwd}:${runId}`);
+            return {
+              runId,
+              role: "planner",
+              provider: "claude-code-cli",
+              status: "completed",
+              createdAt: "2026-05-11T00:00:00.000Z",
+              updatedAt: "2026-05-11T00:00:01.000Z",
+              capabilitiesUsed: ["structuredOutput"],
+              evidencePaths: []
+            };
+          },
+          async messageRun() {
+            throw new Error("should not message");
+          },
+          async replyRun() {
+            throw new Error("should not reply");
+          },
+          async cancelRun() {
+            throw new Error("should not cancel");
+          },
+          async windDownRun() {
+            throw new Error("should not wind down");
+          }
+        };
+      }
+    });
+
+    const result = await handlers.handleToolCall("agent_team_status_many", {
+      cwd: workspace,
+      concurrency: 2,
+      runs: [
+        { runId: "run_a", correlationId: "a" },
+        { runId: "run_b", cwd: otherWorkspace, correlationId: "b" },
+        { runId: "run_c" }
+      ]
+    });
+
+    expect(managerByCwd.get(workspace)).toBeDefined();
+    expect(managerByCwd.get(otherWorkspace)).toBeDefined();
+    expect(managerByCwd.get(workspace)).not.toBe(managerByCwd.get(otherWorkspace));
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        `${managerByCwd.get(workspace)}:${workspace}:run_a`,
+        `${managerByCwd.get(workspace)}:${workspace}:run_c`,
+        `${managerByCwd.get(otherWorkspace)}:${otherWorkspace}:run_b`
+      ])
+    );
+    expect(result.structuredContent).toMatchObject({
+      status: "ok",
+      runs: [
+        {
+          status: "ok",
+          index: 0,
+          runId: "run_a",
+          cwd: workspace,
+          correlationId: "a",
+          run: { runId: "run_a", status: "completed" }
+        },
+        {
+          status: "ok",
+          index: 1,
+          runId: "run_b",
+          cwd: otherWorkspace,
+          correlationId: "b",
+          run: { runId: "run_b", status: "completed" }
+        },
+        {
+          status: "ok",
+          index: 2,
+          runId: "run_c",
+          cwd: workspace,
+          run: { runId: "run_c", status: "completed" }
+        }
+      ]
+    });
+  });
+
+  it("recovers one corrupt status_many sidecar and still returns later statuses", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-status-many-corrupt-"));
+    const corruptPath = runSidecarPath(workspace, "run_corrupt_many");
+    await mkdir(join(workspace, ".agent-team", "runs"), { recursive: true });
+    await writeFile(corruptPath, "{ nope", "utf8");
+    await writeRunSidecar(workspace, {
+      runId: "run_ok_many",
+      role: "planner",
+      provider: "claude-code-cli",
+      status: "completed",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:00:01.000Z",
+      capabilitiesUsed: ["structuredOutput"],
+      evidencePaths: []
+    });
+    const handlers = createToolHandlers({ cwd: () => workspace });
+
+    const result = await handlers.handleToolCall("agent_team_status_many", {
+      runs: [
+        { runId: "run_corrupt_many", correlationId: "bad" },
+        { runId: "run_ok_many" }
+      ]
+    });
+
+    expect(result.structuredContent).toMatchObject({
+      status: "partial_failure",
+      runs: [
+        {
+          status: "state_corrupt",
+          index: 0,
+          runId: "run_corrupt_many",
+          cwd: workspace,
+          correlationId: "bad",
+          recovery: {
+            status: "state_corrupt",
+            runId: "run_corrupt_many",
+            operation: "agent_team_status_many",
+            kind: "json",
+            originalPath: corruptPath,
+            recovery: "archived",
+            interventionRequired: true
+          }
+        },
+        {
+          status: "ok",
+          index: 1,
+          runId: "run_ok_many",
+          cwd: workspace,
+          run: { status: "completed" }
+        }
+      ]
+    });
+    const archivePath = (
+      result.structuredContent?.runs as Array<{ recovery?: { archivePath?: string } }>
+    )[0]?.recovery?.archivePath as string;
+    expect(archivePath).toContain(join(".agent-team", "archive"));
+    await expect(readFile(archivePath, "utf8")).resolves.toBe("{ nope");
+  });
+
+  it("uses lifecycle reconciliation for status_many running sidecars without duplicate detach events", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-status-many-detached-"));
+    for (const runId of ["run_detached_a", "run_detached_b"]) {
+      await writeRunSidecar(workspace, {
+        runId,
+        role: "planner",
+        provider: "claude-code-cli",
+        status: "running",
+        createdAt: "2026-05-11T00:00:00.000Z",
+        updatedAt: "2026-05-11T00:00:01.000Z",
+        capabilitiesUsed: ["structuredOutput"],
+        evidencePaths: []
+      });
+    }
+    const handlers = createToolHandlers({ cwd: () => workspace });
+
+    await handlers.handleToolCall("agent_team_status_many", {
+      concurrency: 2,
+      runs: [{ runId: "run_detached_a" }, { runId: "run_detached_b" }]
+    });
+    const result = await handlers.handleToolCall("agent_team_status_many", {
+      concurrency: 2,
+      runs: [{ runId: "run_detached_a" }, { runId: "run_detached_b" }]
+    });
+
+    expect(result.structuredContent).toMatchObject({
+      status: "ok",
+      runs: [
+        { status: "ok", run: { runId: "run_detached_a", detached: true } },
+        { status: "ok", run: { runId: "run_detached_b", detached: true } }
+      ]
+    });
+    const eventsA = await readMailboxRecords(workspace, "run_detached_a", "events");
+    const eventsB = await readMailboxRecords(workspace, "run_detached_b", "events");
+    expect(
+      eventsA.filter((record) => record.messageType === "detached_handle_missing")
+    ).toHaveLength(1);
+    expect(
+      eventsB.filter((record) => record.messageType === "detached_handle_missing")
+    ).toHaveLength(1);
   });
 
   it("returns implementation handoff fields from persisted status sidecars", async () => {
@@ -1300,6 +1545,7 @@ describe("MCP tool handlers", () => {
       "agent_team_reply",
       "agent_team_message",
       "agent_team_status",
+      "agent_team_status_many",
       "agent_team_cancel",
       "agent_team_wind_down",
       "agent_team_cleanup",
