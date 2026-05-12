@@ -27,7 +27,7 @@ Codex should be able to stand up and manage an external AI agent team from insid
 
 ## Current Baseline
 
-Completed through Milestone 44:
+Completed through Milestone 44; Milestone 45 is planned:
 
 - package scaffold, MCP server, CI, stdio smoke, and schema coverage
 - provider-neutral roles, capabilities, router, config, and doctor
@@ -316,6 +316,22 @@ That gate requires:
 
 **Status:** Complete. `npm run install:check` validates package metadata, plugin manifest, local `.mcp.json`, built runtime, and packaged script contents without provider calls or credential reads. It emits a sanitized `ready` or `blocked` JSON report with ordered checks, an absolute `mcpServers.agent-team` config pointing at `dist/index.js`, and operator next steps; CI runs it after build and before stdio/package smoke, while docs and tests cover the install handoff.
 
+### Milestone 45: Read-Only Provider Proof Smoke
+
+**Goal:** Add an opt-in live smoke harness for explicitly configured non-Claude read-only providers through the packaged MCP boundary.
+
+**Success Criteria:**
+
+- `npm run smoke:providers-live` exists and is excluded from CI.
+- The command fails closed unless `--dry-run` or `--confirm-live-provider-use` is supplied.
+- At least one explicit `--provider <selector>` is required; provider selectors are not inferred from Claude subscription mode.
+- Dry-run emits a sanitized plan with provider selectors, public MCP tool flow, policy requirements, planned read-only roles, and known limitations.
+- Confirmed live execution uses packaged `dist/index.js` over MCP stdio and public tools: `agent_team_doctor`, `agent_team_list_providers`, `agent_team_dispatch`, `agent_team_dashboard`, and `agent_team_summary`.
+- Live execution requires `policy.liveSmokeEnabled === true`, preserves ordered per-selector results under bounded concurrency, and reports sidecar/log/evidence paths without prompts, secrets, provider session ids, endpoints, raw payloads, process ids, or command args.
+- The harness makes no benchmark, ranking, model-quality, reasoning, or practical long-context claim.
+
+**Status:** Planned. This is the next provider-proof expansion after M44 because OpenAI-compatible/Ollama Cloud/Gemini/Grok read-only adapters exist, but only Claude has an operator live smoke harness today.
+
 ## Definition Of Done For V1
 
 V1 is complete when Codex can reliably:
@@ -336,4 +352,4 @@ V1.5 is complete when at least one non-Claude provider can be configured explici
 
 ## Near-Term Recommendation
 
-Milestones 40 through 44 are complete. The current roadmap has reached the planned V2 product maturity baseline for durable team records, dashboard visibility, policy/audit controls, release/upgrade safety, an opt-in live Claude team smoke harness, and repeatable install handoff. The next implementation target should be selected from provider-proof expansion or operator ergonomics without weakening the Claude subscription-first v1 transport.
+Milestones 40 through 44 are complete and Milestone 45 is planned. The current roadmap has reached the planned V2 product maturity baseline for durable team records, dashboard visibility, policy/audit controls, release/upgrade safety, an opt-in live Claude team smoke harness, and repeatable install handoff. The next implementation target is Milestone 45 because explicitly configured non-Claude read-only providers need an operator proof harness before broader provider readiness claims are credible.
