@@ -32,10 +32,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "start": "tsx src/index.ts",
+    "install:check": "node scripts/install-check.mjs",
     "smoke:mcp-stdio": "node scripts/smoke-mcp-stdio.mjs",
     "smoke:package": "node scripts/smoke-package.mjs",
     "smoke:claude-live": "node scripts/live-smoke-claude-team.mjs",
-    "ci": "npm run typecheck && npm test && npm run build && npm run smoke:mcp-stdio && npm run smoke:package"
+    "ci": "npm run typecheck && npm test && npm run build && npm run install:check && npm run smoke:mcp-stdio && npm run smoke:package"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",

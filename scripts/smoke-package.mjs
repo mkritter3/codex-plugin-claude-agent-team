@@ -70,6 +70,8 @@ function main() {
     "CHANGELOG.md",
     "LICENSE",
     "docs/runbooks/claude-team-session.md",
+    "scripts/install-check.mjs",
+    "scripts/lib/install-preflight.mjs",
     "scripts/live-smoke-claude-team.mjs"
   ]) {
     assert(packedFiles.has(requiredPath), `packed artifact is missing ${requiredPath}.`);

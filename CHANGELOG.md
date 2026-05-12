@@ -22,6 +22,7 @@ All notable changes to this private local plugin are recorded here.
 - Added `npm run smoke:package` and included it in `npm run ci` to verify dry-run package contents and built MCP entrypoint wiring.
 - Added the Claude team session runbook and packaging hardening docs.
 - Added an opt-in live Claude team smoke harness with dry-run planning, `policy.liveSmokeEnabled` gating, packaged MCP stdio execution, and sanitized report output; it is not part of CI.
+- Added an install handoff preflight that validates the package/runtime surface and emits a sanitized absolute MCP config without provider calls.
 
 ## Versioning Policy
 

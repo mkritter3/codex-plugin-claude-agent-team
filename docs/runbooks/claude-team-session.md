@@ -17,12 +17,15 @@ Run these before changing installation or docs examples:
 
 ```bash
 npm run build
+npm run install:check
 npm run smoke:mcp-stdio
 npm run smoke:package
 npm run ci
 ```
 
 These commands are CI-safe. They verify package/runtime wiring and fixture behavior without starting a live Claude session.
+
+`npm run install:check` emits an absolute MCP config and ordered install checks. It does not call providers, read credentials, or start live runs.
 
 ## MCP Configuration Check
 
@@ -43,7 +46,10 @@ Build before using that entrypoint:
 
 ```bash
 npm run build
+npm run install:check
 ```
+
+Use the `mcpConfig` field from the install handoff report when the Codex client needs absolute paths instead of the repository-relative `.mcp.json`.
 
 ## Doctor Preflight
 
@@ -327,7 +333,7 @@ Do not overwrite state by hand. Preserve the archive and re-run the relevant rea
 
 ## Practical Session Checklist
 
-1. Run fixture-safe verification with `npm run build`, `npm run smoke:mcp-stdio`, `npm run smoke:package`, and `npm run ci`.
+1. Run fixture-safe verification with `npm run build`, `npm run install:check`, `npm run smoke:mcp-stdio`, `npm run smoke:package`, and `npm run ci`.
 2. Build the package before using the packaged MCP entrypoint.
 3. Run `agent_team_doctor` against the target workspace.
 4. Start a small team with `agent_team_start_parallel`.

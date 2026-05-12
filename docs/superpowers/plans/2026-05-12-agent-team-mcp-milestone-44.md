@@ -43,13 +43,13 @@
 
 ## L11 Quality Gates
 
-- [ ] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
-- [ ] TDD red proof is captured for install report shape, blocked status, package script/CI wiring, package contents, and docs.
-- [ ] Focused milestone tests are listed with expected red and green outcomes.
-- [ ] Full verification commands are listed.
-- [ ] Required edge cases selected: packaged runtime, docs/examples, CI script ordering, report redaction, missing built runtime, malformed server name, and package allowlist.
-- [ ] Invariant scans are listed.
-- [ ] Live provider smoke is not required because M44 validates install mechanics only and makes no real-provider claim.
+- [x] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
+- [x] TDD red proof is captured for install report shape, blocked status, package script/CI wiring, package contents, and docs.
+- [x] Focused milestone tests are listed with expected red and green outcomes.
+- [x] Full verification commands are listed.
+- [x] Required edge cases selected: packaged runtime, docs/examples, CI script ordering, report redaction, missing built runtime, malformed server name, and package allowlist.
+- [x] Invariant scans are listed.
+- [x] Live provider smoke is not required because M44 validates install mechanics only and makes no real-provider claim.
 
 ## Contracts
 
@@ -126,7 +126,7 @@ Blocked reports exit with code `1` and include the same sanitized shape with `st
 - Create: `tests/install-check.test.ts`
 - Create: `scripts/lib/install-preflight.mjs`
 
-- [ ] **Step 1: Add failing tests**
+- [x] **Step 1: Add failing tests**
 
 Add tests that import `scripts/lib/install-preflight.mjs` and assert:
 
@@ -166,7 +166,7 @@ await expect(
 ).rejects.toThrow("server name");
 ```
 
-- [ ] **Step 2: Run red**
+- [x] **Step 2: Run red**
 
 Run:
 
@@ -176,7 +176,7 @@ npm test -- tests/install-check.test.ts
 
 Expected red: `scripts/lib/install-preflight.mjs` does not exist.
 
-- [ ] **Step 3: Implement minimal helper**
+- [x] **Step 3: Implement minimal helper**
 
 Create `scripts/lib/install-preflight.mjs` with:
 
@@ -186,7 +186,7 @@ Create `scripts/lib/install-preflight.mjs` with:
 - sanitized `nextSteps`
 - `status: "ready"` only when all checks pass
 
-- [ ] **Step 4: Run green**
+- [x] **Step 4: Run green**
 
 Run:
 
@@ -205,7 +205,7 @@ Expected green: ready, blocked, invalid server name, and redaction tests pass.
 - Modify: `tests/package-scripts.test.ts`
 - Modify: `tests/install-check.test.ts`
 
-- [ ] **Step 1: Add failing CLI/script tests**
+- [x] **Step 1: Add failing CLI/script tests**
 
 Add tests proving:
 
@@ -237,7 +237,7 @@ expect(result.status).toBe(1);
 expect(JSON.parse(result.stdout).status).toBe("blocked");
 ```
 
-- [ ] **Step 2: Run red**
+- [x] **Step 2: Run red**
 
 Run:
 
@@ -247,11 +247,11 @@ npm test -- tests/install-check.test.ts tests/package-scripts.test.ts
 
 Expected red: CLI and package script are missing.
 
-- [ ] **Step 3: Implement CLI**
+- [x] **Step 3: Implement CLI**
 
 Create `scripts/install-check.mjs` that parses `--package-root` and `--server-name`, calls `buildInstallPreflightReport`, prints JSON to stdout, prints only fatal parsing errors to stderr, and exits `1` for blocked reports.
 
-- [ ] **Step 4: Run green**
+- [x] **Step 4: Run green**
 
 Run:
 
@@ -273,7 +273,7 @@ Expected green: CLI report and CI script ordering are correct.
 - Modify: `CHANGELOG.md`
 - Modify: `docs/runbooks/claude-team-session.md`
 
-- [ ] **Step 1: Add failing package/docs tests**
+- [x] **Step 1: Add failing package/docs tests**
 
 Extend package smoke tests to require:
 
@@ -292,7 +292,7 @@ expect(runbook).toContain("npm run install:check");
 expect(runbook).toContain("agent_team_doctor");
 ```
 
-- [ ] **Step 2: Run red**
+- [x] **Step 2: Run red**
 
 Run:
 
@@ -302,7 +302,7 @@ npm test -- tests/package-smoke.test.ts tests/docs/packaging.test.ts tests/docs/
 
 Expected red: package smoke and docs do not mention the install handoff.
 
-- [ ] **Step 3: Update package smoke and docs**
+- [x] **Step 3: Update package smoke and docs**
 
 Add `scripts/install-check.mjs` and `scripts/lib/install-preflight.mjs` to the package smoke required paths. Document:
 
@@ -313,7 +313,7 @@ npm run install:check
 
 State that the command emits an absolute MCP config, does not call providers, does not read credentials, and is safe for CI.
 
-- [ ] **Step 4: Run green**
+- [x] **Step 4: Run green**
 
 Run:
 
@@ -329,7 +329,7 @@ Expected green: install handoff is covered by package and docs tests.
 
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-milestone-44.md`
 
-- [ ] **Step 1: Run focused tests**
+- [x] **Step 1: Run focused tests**
 
 Run:
 
@@ -337,7 +337,7 @@ Run:
 npm test -- tests/install-check.test.ts tests/package-scripts.test.ts tests/package-smoke.test.ts tests/docs/packaging.test.ts tests/docs/runbook.test.ts
 ```
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -351,7 +351,7 @@ npm run smoke:package
 npm run ci
 ```
 
-- [ ] **Step 3: Run invariant scans**
+- [x] **Step 3: Run invariant scans**
 
 Run:
 
@@ -363,11 +363,11 @@ rg "internal prompt|hidden instruction|generated agent definition|provider-speci
 rg "process.kill|SIGKILL|automatic cleanup|workspace_cleanup_removed|cleanupRunWorkspace|auto-migrate|auto migrate|state-layout" src tests docs README.md CHANGELOG.md scripts
 ```
 
-- [ ] **Step 4: Update verification evidence**
+- [x] **Step 4: Update verification evidence**
 
 Record red proof, focused proof, full proof, package smoke, and invariant scan interpretation in this plan.
 
-- [ ] **Step 5: Commit implementation**
+- [x] **Step 5: Commit implementation**
 
 Run:
 
@@ -380,9 +380,9 @@ git commit -m "feat: add install handoff preflight"
 
 ## Verification Evidence
 
-- Baseline before implementation: pending.
-- Red proof: pending.
-- Focused milestone proof: pending.
-- Full proof: pending.
-- Packaged smoke: pending.
-- Invariant scans: pending.
+- Baseline before implementation: `npm test` passed 55 test files and 428 tests on the isolated worktree before M44 code changes.
+- Red proof: `npm test -- tests/install-check.test.ts` failed because `scripts/lib/install-preflight.mjs` did not exist. `npm test -- tests/install-check.test.ts tests/package-scripts.test.ts` then failed because `install:check` and `scripts/install-check.mjs` were missing. `npm test -- tests/package-smoke.test.ts tests/docs/packaging.test.ts tests/docs/runbook.test.ts` then failed because package smoke and docs did not cover the install handoff. A malformed `.mcp.json` regression test failed until the helper returned a sanitized blocked check instead of throwing.
+- Focused milestone proof: `npm test -- tests/install-check.test.ts tests/package-scripts.test.ts tests/package-smoke.test.ts tests/docs/packaging.test.ts tests/docs/runbook.test.ts` passed 5 test files and 16 tests.
+- Full proof: `npm run typecheck`, `npm test` (56 test files, 434 tests), `npm run build`, and a fresh post-documentation `npm run ci` all passed.
+- Packaged smoke: `npm run install:check` returned `status: "ready"` with ordered pass checks and an absolute `dist/index.js` MCP config. `npm run smoke:mcp-stdio` and `npm run smoke:package` passed.
+- Invariant scans: auth/fallback, permission/bypass, benchmark/model-quality, prompt/schema leakage, and cleanup/process scans were run across `src`, `tests`, `docs`, `README.md`, `CHANGELOG.md`, `package.json`, and `scripts`. Matches were expected historical guardrails/tests/docs, provider-local internals, existing lifecycle cleanup/process behavior, and the new fixture-safe `install:check` surface. M44 introduced no API-key fallback, bypass-permission path, live provider call, public provider-specific MCP schema, hidden prompt exposure, secret/session/payload leakage, benchmark/model-quality claim, automatic cleanup shortcut, or process-kill shortcut.

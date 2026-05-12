@@ -13,6 +13,7 @@ describe("packaging and install docs", () => {
       "Claude Code CLI subscription OAuth",
       "npm ci",
       "npm run build",
+      "npm run install:check",
       "npm run smoke:package",
       "npm run smoke:claude-live",
       "agent-team-mcp",
@@ -39,6 +40,8 @@ describe("packaging and install docs", () => {
     expect(readme).toContain("--confirm-live-provider-use");
     expect(readme).toContain("policy.liveSmokeEnabled");
     expect(readme).toContain("sanitized report");
+    expect(readme).toContain("absolute MCP config");
+    expect(readme).toContain("does not call providers");
     expect(readme).toContain("read-only dashboard");
     expect(readme).toContain("policy");
     expect(readme).toContain("allowedProviderSelectors");
@@ -54,6 +57,7 @@ describe("packaging and install docs", () => {
     expect(changelog).toContain("Versioning Policy");
     expect(changelog).toContain("config schema and state layout compatibility checks");
     expect(changelog).toContain("opt-in live Claude team smoke harness");
+    expect(changelog).toContain("install handoff preflight");
     expect(changelog).toContain("policy and audit controls");
     expect(changelog).toContain("MCP tool surface changes");
     expect(changelog).toContain("npm run smoke:package");

@@ -36,6 +36,8 @@ describe("package smoke gate", () => {
     expect(smokeScript).toContain('"CHANGELOG.md"');
     expect(smokeScript).toContain('"LICENSE"');
     expect(smokeScript).toContain('"docs/runbooks/claude-team-session.md"');
+    expect(smokeScript).toContain('"scripts/install-check.mjs"');
+    expect(smokeScript).toContain('"scripts/lib/install-preflight.mjs"');
     expect(smokeScript).toContain('"scripts/live-smoke-claude-team.mjs"');
     expect(smokeScript).toContain("mkdtempSync");
     expect(smokeScript).toContain("npm_config_cache");

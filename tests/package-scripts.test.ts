@@ -16,12 +16,18 @@ describe("package scripts", () => {
     expect(packageJson.scripts?.["smoke:claude-live"]).toBe(
       "node scripts/live-smoke-claude-team.mjs"
     );
+    expect(packageJson.scripts?.["install:check"]).toBe(
+      "node scripts/install-check.mjs"
+    );
     expect(packageJson.scripts?.ci).toBe(
-      "npm run typecheck && npm test && npm run build && npm run smoke:mcp-stdio && npm run smoke:package"
+      "npm run typecheck && npm test && npm run build && npm run install:check && npm run smoke:mcp-stdio && npm run smoke:package"
     );
     expect(packageJson.scripts?.ci).not.toContain("smoke:claude-live");
     const ci = packageJson.scripts?.ci ?? "";
     expect(ci.indexOf("npm run build")).toBeLessThan(
+      ci.indexOf("npm run install:check")
+    );
+    expect(ci.indexOf("npm run install:check")).toBeLessThan(
       ci.indexOf("npm run smoke:mcp-stdio")
     );
     expect(ci.indexOf("npm run smoke:mcp-stdio")).toBeLessThan(

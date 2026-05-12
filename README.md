@@ -28,12 +28,26 @@ From this private repository:
 ```bash
 npm ci
 npm run build
+npm run install:check
 npm run smoke:mcp-stdio
 npm run smoke:package
 npm run smoke:claude-live -- --dry-run --cwd /absolute/path/to/workspace
 ```
 
 The built executable is exposed as the `agent-team-mcp` package bin and points to `"./dist/index.js"`.
+
+`npm run install:check` prints a sanitized install handoff report. It validates package metadata, plugin metadata, local MCP config, the built runtime, and packaged install scripts; it does not call providers, read credentials, or start live runs. The report includes an absolute MCP config that can be added to the Codex MCP client configuration:
+
+```json
+{
+  "mcpServers": {
+    "agent-team": {
+      "command": "node",
+      "args": ["/absolute/path/to/codex-plugin-claude-agent-team/dist/index.js"]
+    }
+  }
+}
+```
 
 ## MCP Configuration
 
@@ -331,4 +345,4 @@ Every integrated change should pass:
 npm run ci
 ```
 
-`npm run ci` runs typecheck, tests, build, packaged stdio smoke, and package dry-run smoke in that order.
+`npm run ci` runs typecheck, tests, build, install handoff preflight, packaged stdio smoke, and package dry-run smoke in that order.
