@@ -19,7 +19,9 @@
     "README.md",
     "CHANGELOG.md",
     "LICENSE",
-    "docs/releases"
+    "docs/releases",
+    "docs/runbooks",
+    "scripts"
   ],
   "bin": {
     "agent-team-mcp": "./dist/index.js"
@@ -32,6 +34,7 @@
     "start": "tsx src/index.ts",
     "smoke:mcp-stdio": "node scripts/smoke-mcp-stdio.mjs",
     "smoke:package": "node scripts/smoke-package.mjs",
+    "smoke:claude-live": "node scripts/live-smoke-claude-team.mjs",
     "ci": "npm run typecheck && npm test && npm run build && npm run smoke:mcp-stdio && npm run smoke:package"
   },
   "dependencies": {

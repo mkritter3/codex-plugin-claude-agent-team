@@ -33,12 +33,16 @@ describe("Claude team session runbook", () => {
       "npm run build",
       "npm run smoke:mcp-stdio",
       "npm run smoke:package",
+      "npm run smoke:claude-live",
       "npm run ci"
     ]) {
       expect(doc).toContain(text);
     }
     expect(doc).toContain("opt-in live smoke");
     expect(doc).toContain("not part of CI");
+    expect(doc).toContain("--confirm-live-provider-use");
+    expect(doc).toContain("policy.liveSmokeEnabled");
+    expect(doc).toContain("sanitized report");
     expect(doc).toContain(".agent-team/audit/events.jsonl");
     expect(doc).toContain("allowedProviderSelectors");
     expect(doc).toContain("auditEnabled");

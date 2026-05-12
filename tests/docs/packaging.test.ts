@@ -14,6 +14,7 @@ describe("packaging and install docs", () => {
       "npm ci",
       "npm run build",
       "npm run smoke:package",
+      "npm run smoke:claude-live",
       "agent-team-mcp",
       "\"./dist/index.js\"",
       ".agent-team/config.json",
@@ -35,6 +36,9 @@ describe("packaging and install docs", () => {
     }
     expect(readme).toContain("opt-in live smoke");
     expect(readme).toContain("not part of CI");
+    expect(readme).toContain("--confirm-live-provider-use");
+    expect(readme).toContain("policy.liveSmokeEnabled");
+    expect(readme).toContain("sanitized report");
     expect(readme).toContain("read-only dashboard");
     expect(readme).toContain("policy");
     expect(readme).toContain("allowedProviderSelectors");
@@ -49,6 +53,7 @@ describe("packaging and install docs", () => {
     expect(changelog).toContain("0.1.0");
     expect(changelog).toContain("Versioning Policy");
     expect(changelog).toContain("config schema and state layout compatibility checks");
+    expect(changelog).toContain("opt-in live Claude team smoke harness");
     expect(changelog).toContain("policy and audit controls");
     expect(changelog).toContain("MCP tool surface changes");
     expect(changelog).toContain("npm run smoke:package");

@@ -30,6 +30,7 @@ npm ci
 npm run build
 npm run smoke:mcp-stdio
 npm run smoke:package
+npm run smoke:claude-live -- --dry-run --cwd /absolute/path/to/workspace
 ```
 
 The built executable is exposed as the `agent-team-mcp` package bin and points to `"./dist/index.js"`.
@@ -239,6 +240,38 @@ Gemini does not support background sessions, live stdin, resume, cancellation, e
 Before starting live runs, call `agent_team_doctor` for the target workspace. Doctor checks host readiness, package/runtime shape, writable state, git/worktree readiness when needed, provider health, auth posture, policy posture, and role routing.
 
 Do not route around doctor failures. Claude Code CLI subscription OAuth remains the intended v1 path.
+
+## Opt-In Live Claude Smoke
+
+The optional live smoke exercises the packaged MCP stdio entrypoint and public team tools against Claude Code CLI subscription OAuth. It is not part of CI, makes no provider ranking or comparative capability claim, and emits a sanitized report with run ids, statuses, evidence paths, summary groups, and dashboard counts instead of private prompts or provider implementation details.
+
+Inspect the planned flow without provider use:
+
+```bash
+npm run smoke:claude-live -- --dry-run --cwd /absolute/path/to/workspace
+```
+
+To permit a real local smoke, the target workspace must opt in with `policy.liveSmokeEnabled`:
+
+```json
+{
+  "schemaVersion": 1,
+  "policy": {
+    "allowedRoles": ["planner", "code-reviewer"],
+    "allowedProviderSelectors": ["claude-code-cli"],
+    "allowWriteMode": false,
+    "liveSmokeEnabled": true,
+    "auditEnabled": true
+  }
+}
+```
+
+Then run the confirmed smoke after building the packaged runtime:
+
+```bash
+npm run build
+npm run smoke:claude-live -- --confirm-live-provider-use --cwd /absolute/path/to/workspace
+```
 
 ## Basic Workflow
 

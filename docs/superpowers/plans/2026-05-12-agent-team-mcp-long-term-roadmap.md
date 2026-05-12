@@ -27,7 +27,7 @@ Codex should be able to stand up and manage an external AI agent team from insid
 
 ## Current Baseline
 
-Completed through Milestone 41:
+Completed through Milestone 43:
 
 - package scaffold, MCP server, CI, stdio smoke, and schema coverage
 - provider-neutral roles, capabilities, router, config, and doctor
@@ -51,6 +51,9 @@ Completed through Milestone 41:
 - optional durable team records under `.agent-team/teams/` for grouping related run ids without replacing per-run sidecars
 - `agent_team_dashboard` read-only dashboard/report surface for team or explicit run refs
 - provider-neutral policy and audit controls for roles, providers, write mode, retained worktree roots, live-smoke posture, doctor posture, and sanitized `.agent-team/audit/events.jsonl` records
+- config schema and state layout compatibility checks
+- package dry-run smoke and release/upgrade docs
+- opt-in live Claude team smoke harness through the packaged MCP boundary
 - end-to-end Claude team session runbook
 - README, changelog/versioning policy, license, and package/plugin metadata alignment
 
@@ -296,6 +299,8 @@ That gate requires:
 - The report includes provider id/auth mode, run ids, roles, status/verdict/evidence paths, and known limitations without prompts, secrets, provider session ids, command internals, or environment values.
 - Fixture-safe tests prove the command is opt-in, excluded from CI, redacted, and wired to the public MCP tool flow.
 
+**Status:** Complete. `npm run smoke:claude-live` now has a dry-run plan, fails closed without `--confirm-live-provider-use`, checks `policy.liveSmokeEnabled` after doctor before live execution, drives the packaged `dist/index.js` MCP stdio boundary through public team tools, waits on bounded status polling, and emits a sanitized report. The command stays out of CI while focused tests, full tests, packaged smokes, invariant scans, and `npm run ci` prove fixture-safe behavior.
+
 ## Definition Of Done For V1
 
 V1 is complete when Codex can reliably:
@@ -316,4 +321,4 @@ V1.5 is complete when at least one non-Claude provider can be configured explici
 
 ## Near-Term Recommendation
 
-Milestones 40, 41, and 42 are complete. The current roadmap has reached the planned V2 product maturity baseline for durable team records, dashboard visibility, policy/audit controls, and release/upgrade safety. The next implementation target is Milestone 43 because live-provider evidence is the highest-risk remaining gap before making real Claude subscription workflow claims. Later post-M43 planning can choose among install UX, expanded provider capability proofs, or a local operator UI.
+Milestones 40 through 43 are complete. The current roadmap has reached the planned V2 product maturity baseline for durable team records, dashboard visibility, policy/audit controls, release/upgrade safety, and an opt-in live Claude team smoke harness. The next implementation target should be selected among install UX, expanded provider capability proofs, or a local operator UI.

@@ -68,7 +68,9 @@ function main() {
     ".codex-plugin/plugin.json",
     "README.md",
     "CHANGELOG.md",
-    "LICENSE"
+    "LICENSE",
+    "docs/runbooks/claude-team-session.md",
+    "scripts/live-smoke-claude-team.mjs"
   ]) {
     assert(packedFiles.has(requiredPath), `packed artifact is missing ${requiredPath}.`);
   }

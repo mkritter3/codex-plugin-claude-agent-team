@@ -20,7 +20,9 @@ describe("package smoke gate", () => {
       "README.md",
       "CHANGELOG.md",
       "LICENSE",
-      "docs/releases"
+      "docs/releases",
+      "docs/runbooks",
+      "scripts"
     ]);
     expect(packageJson.scripts?.["smoke:package"]).toBe(
       "node scripts/smoke-package.mjs"
@@ -33,6 +35,8 @@ describe("package smoke gate", () => {
     expect(smokeScript).toContain('"README.md"');
     expect(smokeScript).toContain('"CHANGELOG.md"');
     expect(smokeScript).toContain('"LICENSE"');
+    expect(smokeScript).toContain('"docs/runbooks/claude-team-session.md"');
+    expect(smokeScript).toContain('"scripts/live-smoke-claude-team.mjs"');
     expect(smokeScript).toContain("mkdtempSync");
     expect(smokeScript).toContain("npm_config_cache");
     expect(smokeScript).toContain("rmSync");

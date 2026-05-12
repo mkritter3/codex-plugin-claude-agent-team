@@ -87,6 +87,37 @@ This section is the opt-in live smoke. It is not part of CI because it uses loca
 
 Use a small, disposable workspace task first. Keep the requested roles read-only unless you intentionally enable isolated implementation mode in `.agent-team/config.json`.
 
+Inspect the public MCP tool flow without provider use:
+
+```bash
+npm run smoke:claude-live -- --dry-run --cwd /absolute/path/to/workspace
+```
+
+For a real local smoke, the target workspace must explicitly set `policy.liveSmokeEnabled`:
+
+```json
+{
+  "schemaVersion": 1,
+  "policy": {
+    "allowedRoles": ["planner", "code-reviewer"],
+    "allowedProviderSelectors": ["claude-code-cli"],
+    "allowWriteMode": false,
+    "allowedWorktreeRoots": [],
+    "liveSmokeEnabled": true,
+    "auditEnabled": true
+  }
+}
+```
+
+Then run the confirmed smoke:
+
+```bash
+npm run build
+npm run smoke:claude-live -- --confirm-live-provider-use --cwd /absolute/path/to/workspace
+```
+
+The smoke uses Claude Code CLI subscription OAuth through the packaged MCP stdio runtime. Its sanitized report includes run ids, statuses, evidence paths, summary groups, dashboard counts, message status, wind-down status, and known limitations. It does not print private prompts, provider command details, provider session ids, process metadata, environment values, mailbox payloads, secrets, provider ranking claims, or comparative capability claims.
+
 ## Start A Team
 
 Use `agent_team_start_parallel` to start a bounded team:

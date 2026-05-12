@@ -42,13 +42,13 @@
 
 ## L11 Quality Gates
 
-- [ ] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
-- [ ] TDD red proof is captured for live-smoke opt-in guards, package script exclusion from CI, dry-run output, and docs.
-- [ ] Focused milestone tests are listed with expected red and green outcomes.
-- [ ] Full verification commands are listed.
-- [ ] Required edge cases selected: docs/examples, packaged runtime, auth posture, public MCP boundary, report redaction, and live-smoke policy gating.
-- [ ] Invariant scans are listed.
-- [ ] Live provider smoke is not run in CI; the new command is itself an operator-run live smoke harness and is marked opt-in.
+- [x] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
+- [x] TDD red proof is captured for live-smoke opt-in guards, package script exclusion from CI, dry-run output, and docs.
+- [x] Focused milestone tests are listed with expected red and green outcomes.
+- [x] Full verification commands are listed.
+- [x] Required edge cases selected: docs/examples, packaged runtime, auth posture, public MCP boundary, report redaction, and live-smoke policy gating.
+- [x] Invariant scans are listed.
+- [x] Live provider smoke is not run in CI; the new command is itself an operator-run live smoke harness and is marked opt-in.
 
 ## Contracts
 
@@ -110,7 +110,7 @@ The report must not include prompt text, task text, provider session ids, raw ma
 - Create: `tests/live-smoke-claude-team.test.ts`
 - Modify: `tests/package-scripts.test.ts`
 
-- [ ] **Step 1: Add failing tests**
+- [x] **Step 1: Add failing tests**
 
 Add tests proving:
 
@@ -133,7 +133,7 @@ expect(result.stderr).toContain("--confirm-live-provider-use");
 expect(result.stderr).toContain("--dry-run");
 ```
 
-- [ ] **Step 2: Run red**
+- [x] **Step 2: Run red**
 
 Run:
 
@@ -143,11 +143,11 @@ npm test -- tests/live-smoke-claude-team.test.ts tests/package-scripts.test.ts
 
 Expected red: script and package command do not exist.
 
-- [ ] **Step 3: Implement minimal guard**
+- [x] **Step 3: Implement minimal guard**
 
 Create `scripts/live-smoke-claude-team.mjs` with argument parsing, `--dry-run`, `--cwd`, and `--confirm-live-provider-use`. Without dry-run or confirmation, print a concise error to stderr and exit with code `1`.
 
-- [ ] **Step 4: Run green**
+- [x] **Step 4: Run green**
 
 Run:
 
@@ -166,7 +166,7 @@ Expected green: package script exists, CI excludes it, and unconfirmed execution
 - Modify: `scripts/live-smoke-claude-team.mjs`
 - Modify: `tests/live-smoke-claude-team.test.ts`
 
-- [ ] **Step 1: Add failing core tests**
+- [x] **Step 1: Add failing core tests**
 
 Add tests proving `buildClaudeLiveSmokeDryRunReport({ workspaceRoot })` returns:
 
@@ -186,7 +186,7 @@ Assert serialized output does not match:
 /prompt|task|providerSessionId|payload|secret|process id|command args|ANTHROPIC_API_KEY|ANTHROPIC_AUTH_TOKEN/i
 ```
 
-- [ ] **Step 2: Run red**
+- [x] **Step 2: Run red**
 
 Run:
 
@@ -196,11 +196,11 @@ npm test -- tests/core/live-smoke.test.ts
 
 Expected red: core live-smoke planner does not exist.
 
-- [ ] **Step 3: Implement core planner**
+- [x] **Step 3: Implement core planner**
 
 Create `src/core/live-smoke.ts` with constants for provider/auth mode/tool flow, planned read-only roles, policy requirement, known limitations, and a `buildClaudeLiveSmokeDryRunReport` function. Keep it pure and provider-neutral at the orchestration boundary; Claude-specific values are report metadata for this concrete harness, not MCP schema.
 
-- [ ] **Step 4: Run green**
+- [x] **Step 4: Run green**
 
 Run:
 
@@ -217,7 +217,7 @@ Expected green: core dry-run report is parseable and sanitized.
 - Modify: `scripts/live-smoke-claude-team.mjs`
 - Modify: `tests/live-smoke-claude-team.test.ts`
 
-- [ ] **Step 1: Add failing dry-run script tests**
+- [x] **Step 1: Add failing dry-run script tests**
 
 Add a test that runs:
 
@@ -239,7 +239,7 @@ Assert serialized output does not match:
 /prompt|task|providerSessionId|payload|secret|process id|command args|ANTHROPIC_API_KEY|ANTHROPIC_AUTH_TOKEN/i
 ```
 
-- [ ] **Step 2: Run red**
+- [x] **Step 2: Run red**
 
 Run:
 
@@ -249,11 +249,11 @@ npm test -- tests/live-smoke-claude-team.test.ts
 
 Expected red: dry-run JSON does not exist yet.
 
-- [ ] **Step 3: Implement dry-run JSON**
+- [x] **Step 3: Implement dry-run JSON**
 
 Make the script import the built or source-compatible core report contract through a small local copy of the report constants if direct TypeScript imports are unavailable at script runtime. The runtime script must emit the same sanitized report shape as `src/core/live-smoke.ts` and must not connect to MCP in `--dry-run`.
 
-- [ ] **Step 4: Run green**
+- [x] **Step 4: Run green**
 
 Run:
 
@@ -270,7 +270,7 @@ Expected green: dry-run report is parseable and sanitized.
 - Modify: `scripts/live-smoke-claude-team.mjs`
 - Modify: `tests/live-smoke-claude-team.test.ts`
 
-- [ ] **Step 1: Add failing script-shape tests**
+- [x] **Step 1: Add failing script-shape tests**
 
 Add text-level assertions that the script:
 
@@ -286,7 +286,7 @@ Add text-level assertions that the script:
 - checks `liveSmokeEnabled`
 - does not contain `runClaudePrint`, `startClaudeBackgroundSession`, `requireProviderRuntime`, or `createDefaultLifecycleRegistry`
 
-- [ ] **Step 2: Run red**
+- [x] **Step 2: Run red**
 
 Run:
 
@@ -296,7 +296,7 @@ npm test -- tests/live-smoke-claude-team.test.ts
 
 Expected red: script does not call the public MCP flow yet.
 
-- [ ] **Step 3: Implement live MCP flow**
+- [x] **Step 3: Implement live MCP flow**
 
 Implement the confirmed path using `StdioClientTransport({ command: "node", args: [runtimePath], cwd: repoRoot })`. Use a small read-only team:
 
@@ -319,7 +319,7 @@ runs: [
 
 Use `timeoutMs` from `--timeout-ms` with a conservative default of `120000`, `concurrency: 2`, and status polling bounded by `--max-wait-ms`.
 
-- [ ] **Step 4: Run green**
+- [x] **Step 4: Run green**
 
 Run:
 
@@ -340,7 +340,7 @@ Expected green: script shape proves packaged MCP boundary and public tool flow.
 - Modify: `docs/runbooks/claude-team-session.md`
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-long-term-roadmap.md`
 
-- [ ] **Step 1: Add failing docs tests**
+- [x] **Step 1: Add failing docs tests**
 
 Require docs to mention:
 
@@ -351,7 +351,7 @@ Require docs to mention:
 - `sanitized report`
 - `Claude Code CLI subscription OAuth`
 
-- [ ] **Step 2: Run red**
+- [x] **Step 2: Run red**
 
 Run:
 
@@ -361,7 +361,7 @@ npm test -- tests/docs/packaging.test.ts tests/docs/runbook.test.ts
 
 Expected red: docs do not describe the M43 live harness.
 
-- [ ] **Step 3: Update docs**
+- [x] **Step 3: Update docs**
 
 Add concise operator instructions showing:
 
@@ -381,7 +381,7 @@ Document that `.agent-team/config.json` must set:
 }
 ```
 
-- [ ] **Step 4: Run green**
+- [x] **Step 4: Run green**
 
 Run:
 
@@ -397,7 +397,7 @@ Expected green: docs explain opt-in live smoke without making provider-quality c
 
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-milestone-43.md`
 
-- [ ] **Step 1: Run focused tests**
+- [x] **Step 1: Run focused tests**
 
 Run:
 
@@ -405,7 +405,7 @@ Run:
 npm test -- tests/core/live-smoke.test.ts tests/live-smoke-claude-team.test.ts tests/package-scripts.test.ts tests/docs/packaging.test.ts tests/docs/runbook.test.ts
 ```
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -418,7 +418,7 @@ npm run smoke:package
 npm run ci
 ```
 
-- [ ] **Step 3: Run invariant scans**
+- [x] **Step 3: Run invariant scans**
 
 Run:
 
@@ -430,11 +430,11 @@ rg "internal prompt|hidden instruction|generated agent definition|provider-speci
 rg "process.kill|SIGKILL|automatic cleanup|workspace_cleanup_removed|cleanupRunWorkspace|auto-migrate|auto migrate|state-layout" src tests docs README.md CHANGELOG.md scripts
 ```
 
-- [ ] **Step 4: Update verification evidence**
+- [x] **Step 4: Update verification evidence**
 
 Record red proof, focused proof, full proof, packaged smoke, and invariant scan interpretation in this plan.
 
-- [ ] **Step 5: Commit implementation**
+- [x] **Step 5: Commit implementation**
 
 Run:
 
@@ -447,9 +447,22 @@ git commit -m "feat: add opt-in live Claude team smoke harness"
 
 ## Verification Evidence
 
-- Baseline before implementation: pending.
-- Red proof: pending.
-- Focused milestone proof: pending.
-- Full proof: pending.
-- Packaged smoke: pending.
-- Invariant scans: pending.
+- Baseline before implementation: `npm test` passed with 53 test files and 423 tests before M43 implementation work.
+- Red proof:
+  - `npm test -- tests/live-smoke-claude-team.test.ts tests/package-scripts.test.ts` failed before the package script and guard script existed.
+  - `npm test -- tests/core/live-smoke.test.ts` failed before `src/core/live-smoke.ts` existed.
+  - `npm test -- tests/live-smoke-claude-team.test.ts` failed before dry-run JSON, public MCP client wiring, and bounded `--max-wait-ms` status polling existed.
+  - `npm test -- tests/docs/packaging.test.ts tests/docs/runbook.test.ts` failed before README/runbook/changelog documented the opt-in live smoke.
+- Focused milestone proof: `npm test -- tests/core/live-smoke.test.ts tests/live-smoke-claude-team.test.ts tests/package-scripts.test.ts tests/package-smoke.test.ts tests/docs/packaging.test.ts tests/docs/runbook.test.ts` passed with 6 files and 15 tests.
+- Full proof:
+  - `npm run typecheck` passed.
+  - `npm test` passed with 55 test files and 428 tests.
+  - `npm run build` passed.
+  - `npm run ci` passed; it ran typecheck, all 428 tests, build, packaged stdio smoke, and package dry-run smoke.
+- Packaged smoke:
+  - `npm run smoke:mcp-stdio` passed with `MCP stdio smoke passed.`
+  - `npm run smoke:package` passed with `Package smoke passed.`
+  - `npm run smoke:claude-live -- --dry-run --cwd /tmp` passed and emitted `liveProviderUse: false`, `provider: "claude-code-cli"`, `authMode: "subscription-oauth"`, the public tool flow, the confirmation flag, the policy requirement, read-only planned roles, and sanitized limitations.
+  - `node scripts/live-smoke-claude-team.mjs` exited `1` with the fail-closed confirmation/dry-run guidance.
+- Invariant scans: auth/fallback, permission/bypass, model-claim, prompt/schema leakage, and cleanup/process scans were run. Matches were expected historical guardrails, tests, docs, provider-local internals, and pre-existing cleanup/process behavior. M43 introduced no API-key fallback, no bypass-permission path, no public provider-specific MCP schema, no prompt/session/payload leakage in the live-smoke report, no unsupported provider-ranking claim, no live provider use in CI, no automatic cleanup shortcut, and no process-kill shortcut.
+- Subagent review: Hooke reviewed the diff read-only and found no blocking issues around public MCP/schema leakage, opt-in live execution, package allowlist, provider-neutral boundaries, or unsupported claim surfaces.
