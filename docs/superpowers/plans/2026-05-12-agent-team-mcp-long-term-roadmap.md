@@ -284,6 +284,18 @@ That gate requires:
 
 **Status:** Complete. Config schema version `1` is parsed fail-closed, state layout version `1` is inspected read-only through doctor, future/corrupt layout markers fail doctor with actionable details, `npm run smoke:package` verifies dry-run package contents with an isolated npm cache, and `docs/releases/0.1.0.md` documents tool surface, provider compatibility, config schema, state layout, and migration posture.
 
+### Milestone 43: Opt-In Live Claude Team Smoke Harness
+
+**Goal:** Add a repeatable operator-run live smoke harness for the Claude Code CLI subscription-backed team path without putting live provider usage in CI.
+
+**Success Criteria:**
+
+- Live smoke refuses to run unless explicitly confirmed and workspace policy enables `liveSmokeEnabled`.
+- The harness uses the packaged MCP stdio boundary, not provider internals.
+- It runs doctor, starts a small read-only Claude team, inspects status/dashboard/summary evidence, sends one batch message, requests wind-down, and emits a sanitized report.
+- The report includes provider id/auth mode, run ids, roles, status/verdict/evidence paths, and known limitations without prompts, secrets, provider session ids, command internals, or environment values.
+- Fixture-safe tests prove the command is opt-in, excluded from CI, redacted, and wired to the public MCP tool flow.
+
 ## Definition Of Done For V1
 
 V1 is complete when Codex can reliably:
@@ -304,4 +316,4 @@ V1.5 is complete when at least one non-Claude provider can be configured explici
 
 ## Near-Term Recommendation
 
-Milestones 40, 41, and 42 are complete. The current roadmap has reached the planned V2 product maturity baseline for durable team records, dashboard visibility, policy/audit controls, and release/upgrade safety. The next planning step should define post-M42 milestones only after choosing the next product direction, such as install UX, a real live-provider smoke harness, expanded provider capability proofs, or a local operator UI.
+Milestones 40, 41, and 42 are complete. The current roadmap has reached the planned V2 product maturity baseline for durable team records, dashboard visibility, policy/audit controls, and release/upgrade safety. The next implementation target is Milestone 43 because live-provider evidence is the highest-risk remaining gap before making real Claude subscription workflow claims. Later post-M43 planning can choose among install UX, expanded provider capability proofs, or a local operator UI.
