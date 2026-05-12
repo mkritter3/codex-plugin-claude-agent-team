@@ -12,6 +12,7 @@ import type {
 import { claudeCodeCliRuntime } from "./claude-code-cli/runtime.js";
 import { openAICompatibleRuntime } from "./openai-compatible/runtime.js";
 import { isOllamaCloudProviderId } from "./ollama-cloud/config.js";
+import { isGrokProviderId } from "./grok/config.js";
 import { geminiRuntime } from "./gemini/runtime.js";
 
 export interface AgentProviderRuntime {
@@ -45,7 +46,7 @@ export function getProviderRuntime(
   providerId: string,
   options: ProviderRuntimeRegistryOptions = {}
 ): AgentProviderRuntime | undefined {
-  if (isOllamaCloudProviderId(providerId)) {
+  if (isOllamaCloudProviderId(providerId) || isGrokProviderId(providerId)) {
     return getProviderRuntime("openai-compatible", options);
   }
   return listProviderRuntimes(options).find((runtime) => runtime.id === providerId);

@@ -15,6 +15,7 @@ import {
   openAICompatibleProvider
 } from "../../src/providers/openai-compatible/runtime.js";
 import { listOllamaCloudProviders } from "../../src/providers/ollama-cloud/config.js";
+import { listGrokProviders } from "../../src/providers/grok/config.js";
 import {
   createGeminiRuntime,
   geminiProvider
@@ -105,6 +106,32 @@ function geminiConfig(): AgentTeamConfig {
           longContext: true,
           reasoning: false
         }
+      }
+    }
+  } as AgentTeamConfig;
+}
+
+function grokConfig(): AgentTeamConfig {
+  return {
+    ...DEFAULT_AGENT_TEAM_CONFIG,
+    providers: {
+      ...DEFAULT_AGENT_TEAM_CONFIG.providers,
+      grok: {
+        enabled: true,
+        profiles: [
+          {
+            id: "grok-4.20-reasoning",
+            baseUrl: "https://api.x.ai/v1",
+            model: "grok-4.20",
+            apiKeyEnv: "XAI_API_KEY",
+            displayName: "Grok 4.20 Reasoning",
+            capabilities: {
+              structuredOutput: true,
+              longContext: true,
+              reasoning: true
+            }
+          }
+        ]
       }
     }
   } as AgentTeamConfig;
@@ -310,6 +337,78 @@ describe("dispatchReadOnlyAgent", () => {
       provider: "ollama-cloud:kimi-k2.6",
       providerSessionId: "chatcmpl_kimi_dispatch"
     });
+  });
+
+  it("dispatches through a selected Grok profile provider id", async () => {
+    const config = grokConfig();
+    const runtime = createOpenAICompatibleRuntime({
+      fetch: async () =>
+        new Response(
+          JSON.stringify({
+            id: "chatcmpl_grok_dispatch",
+            choices: [{ message: { content: shipText } }]
+          }),
+          { status: 200 }
+        )
+    });
+
+    const result = await dispatchReadOnlyAgent(
+      {
+        role: "planner",
+        task: "Review plan",
+        cwd: workspace,
+        provider: "grok:grok-4.20-reasoning"
+      },
+      {
+        config,
+        providers: listGrokProviders(config),
+        runtimes: [runtime],
+        createRunId: () => "run_grok_reasoning",
+        env: { XAI_API_KEY: "secret-token" }
+      }
+    );
+
+    expect(result).toMatchObject({
+      status: "completed",
+      provider: "grok:grok-4.20-reasoning",
+      verdict: { status: "SHIP" }
+    });
+    await expect(readRunSidecar(workspace, "run_grok_reasoning")).resolves.toMatchObject({
+      provider: "grok:grok-4.20-reasoning",
+      providerSessionId: "chatcmpl_grok_dispatch"
+    });
+  });
+
+  it("records Grok profile dispatch failures as sidecar evidence", async () => {
+    const config = grokConfig();
+    const runtime = createOpenAICompatibleRuntime({
+      fetch: async () => new Response(JSON.stringify({ choices: [] }), { status: 200 })
+    });
+
+    const result = await dispatchReadOnlyAgent(
+      {
+        role: "planner",
+        task: "Review plan",
+        cwd: workspace,
+        provider: "grok:grok-4.20-reasoning"
+      },
+      {
+        config,
+        providers: listGrokProviders(config),
+        runtimes: [runtime],
+        createRunId: () => "run_grok_failed",
+        env: { XAI_API_KEY: "secret-token" }
+      }
+    );
+
+    expect(result).toMatchObject({
+      status: "failed",
+      provider: "grok:grok-4.20-reasoning",
+      verdict: { status: "BLOCKED" }
+    });
+    await expect(readFile(runLogPath(workspace, "run_grok_failed"), "utf8")).resolves.toContain(
+      "OpenAI-compatible response did not contain assistant text."
+    );
   });
 
   it("dispatches through explicitly configured Gemini runtime", async () => {

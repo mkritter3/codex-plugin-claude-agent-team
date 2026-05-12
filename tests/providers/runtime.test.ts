@@ -42,6 +42,12 @@ describe("provider runtime registry", () => {
     expect(runtime?.id).toBe("openai-compatible");
   });
 
+  it("aliases Grok profile provider ids to the OpenAI-compatible runtime", () => {
+    const runtime = getProviderRuntime("grok:grok-4.20-reasoning");
+
+    expect(runtime?.id).toBe("openai-compatible");
+  });
+
   it("fails closed when a selected provider has no runtime", () => {
     expect(() => requireProviderRuntime("missing-provider")).toThrow(
       "No provider runtime registered for missing-provider."

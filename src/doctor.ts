@@ -220,6 +220,10 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
             enabled: config.providers.ollamaCloud.enabled,
             profileCount: config.providers.ollamaCloud.profiles.length
           },
+          grok: {
+            enabled: config.providers.grok.enabled,
+            profileCount: config.providers.grok.profiles.length
+          },
           gemini: {
             enabled: config.providers.gemini.enabled,
             hasBaseUrl: config.providers.gemini.baseUrl !== undefined,

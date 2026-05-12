@@ -191,6 +191,80 @@ describe("loadAgentTeamConfig", () => {
     });
   });
 
+  it("loads explicit Grok profiles without inferring env fallback", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-config-"));
+    await mkdir(join(workspace, ".agent-team"), { recursive: true });
+    await writeFile(
+      join(workspace, ".agent-team", "config.json"),
+      JSON.stringify({
+        providers: {
+          grok: {
+            enabled: true,
+            profiles: [
+              {
+                id: "grok-4.20-reasoning",
+                baseUrl: "https://api.x.ai/v1",
+                model: "grok-4.20",
+                apiKeyEnv: "XAI_API_KEY",
+                displayName: "Grok 4.20 Reasoning",
+                capabilities: {
+                  structuredOutput: true,
+                  longContext: true,
+                  reasoning: true
+                }
+              },
+              {
+                id: "grok-review",
+                baseUrl: "https://api.x.ai/v1",
+                model: "grok-review",
+                apiKeyEnv: "GROK_API_KEY",
+                displayName: "Grok Review",
+                capabilities: {
+                  structuredOutput: true
+                }
+              }
+            ]
+          }
+        }
+      }),
+      "utf8"
+    );
+
+    await expect(loadAgentTeamConfig(workspace)).resolves.toMatchObject({
+      providers: {
+        grok: {
+          enabled: true,
+          profiles: [
+            {
+              id: "grok-4.20-reasoning",
+              baseUrl: "https://api.x.ai/v1",
+              model: "grok-4.20",
+              apiKeyEnv: "XAI_API_KEY",
+              displayName: "Grok 4.20 Reasoning",
+              capabilities: {
+                structuredOutput: true,
+                longContext: true,
+                reasoning: true
+              }
+            },
+            {
+              id: "grok-review",
+              baseUrl: "https://api.x.ai/v1",
+              model: "grok-review",
+              apiKeyEnv: "GROK_API_KEY",
+              displayName: "Grok Review",
+              capabilities: {
+                structuredOutput: true,
+                longContext: false,
+                reasoning: false
+              }
+            }
+          ]
+        }
+      }
+    });
+  });
+
   it("rejects unsupported Ollama Cloud profile capabilities and duplicate ids", async () => {
     const unsupported = await mkdtemp(join(tmpdir(), "agent-team-config-"));
     await mkdir(join(unsupported, ".agent-team"), { recursive: true });
@@ -293,6 +367,57 @@ describe("loadAgentTeamConfig", () => {
 
     await expect(loadAgentTeamConfig(workspace)).rejects.toThrow(
       "Gemini provider does not support capability sessionResume"
+    );
+  });
+
+  it("rejects unsupported Grok profile capabilities and duplicate ids", async () => {
+    const unsupported = await mkdtemp(join(tmpdir(), "agent-team-config-"));
+    await mkdir(join(unsupported, ".agent-team"), { recursive: true });
+    await writeFile(
+      join(unsupported, ".agent-team", "config.json"),
+      JSON.stringify({
+        providers: {
+          grok: {
+            enabled: true,
+            profiles: [
+              {
+                id: "grok",
+                baseUrl: "https://api.x.ai/v1",
+                model: "grok-4.20",
+                apiKeyEnv: "XAI_API_KEY",
+                capabilities: { structuredOutput: true, edits: true }
+              }
+            ]
+          }
+        }
+      }),
+      "utf8"
+    );
+
+    await expect(loadAgentTeamConfig(unsupported)).rejects.toThrow(
+      "Grok profile grok does not support capability edits"
+    );
+
+    const duplicate = await mkdtemp(join(tmpdir(), "agent-team-config-"));
+    await mkdir(join(duplicate, ".agent-team"), { recursive: true });
+    await writeFile(
+      join(duplicate, ".agent-team", "config.json"),
+      JSON.stringify({
+        providers: {
+          grok: {
+            enabled: true,
+            profiles: [
+              { id: "grok", capabilities: { structuredOutput: true } },
+              { id: "grok", capabilities: { structuredOutput: true } }
+            ]
+          }
+        }
+      }),
+      "utf8"
+    );
+
+    await expect(loadAgentTeamConfig(duplicate)).rejects.toThrow(
+      "Duplicate Grok profile id: grok"
     );
   });
 

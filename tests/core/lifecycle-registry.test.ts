@@ -12,6 +12,8 @@ function config(input: {
   readonly ollamaModel?: string;
   readonly geminiEnabled?: boolean;
   readonly geminiModel?: string;
+  readonly grokEnabled?: boolean;
+  readonly grokModel?: string;
 } = {}): AgentTeamConfig {
   return {
     writeMode: {
@@ -58,6 +60,25 @@ function config(input: {
           longContext: input.geminiEnabled ?? false,
           reasoning: false
         }
+      },
+      grok: {
+        enabled: input.grokEnabled ?? false,
+        profiles:
+          input.grokEnabled === true
+            ? [
+                {
+                  id: "grok-4.20-reasoning",
+                  baseUrl: "https://api.x.ai/v1",
+                  model: input.grokModel ?? "grok-4.20",
+                  apiKeyEnv: "XAI_API_KEY",
+                  capabilities: {
+                    structuredOutput: true,
+                    longContext: true,
+                    reasoning: true
+                  }
+                }
+              ]
+            : []
       }
     }
   };
@@ -112,6 +133,12 @@ describe("LifecycleRegistry", () => {
       registry.get("/repo", config({ geminiEnabled: true, geminiModel: "gemini-2.5-pro" }))
     ).not.toBe(
       registry.get("/repo", config({ geminiEnabled: true, geminiModel: "gemini-2.5-flash" }))
+    );
+    expect(registry.get("/repo", config({ grokEnabled: true }))).not.toBe(baseline);
+    expect(
+      registry.get("/repo", config({ grokEnabled: true, grokModel: "grok-review" }))
+    ).not.toBe(
+      registry.get("/repo", config({ grokEnabled: true, grokModel: "grok-4.20" }))
     );
   });
 });

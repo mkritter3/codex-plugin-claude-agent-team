@@ -47,13 +47,13 @@
 
 ## L11 Quality Gates
 
-- [ ] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
-- [ ] TDD red proof is captured for new behavior.
-- [ ] Focused milestone tests are listed with expected red and green outcomes.
-- [ ] Full verification commands are listed.
-- [ ] Required edge cases from the matrix are explicitly selected.
-- [ ] Invariant scans are listed.
-- [ ] Live provider smoke is marked required or not required with rationale.
+- [x] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
+- [x] TDD red proof is captured for new behavior.
+- [x] Focused milestone tests are listed with expected red and green outcomes.
+- [x] Full verification commands are listed.
+- [x] Required edge cases from the matrix are explicitly selected.
+- [x] Invariant scans are listed.
+- [x] Live provider smoke is marked required or not required with rationale.
 
 Selected quality-gate rows:
 
@@ -102,7 +102,7 @@ Official API notes used for adapter shape:
 - Create: `tests/providers/grok/config.test.ts`
 - Modify: `tests/providers/runtime.test.ts`
 
-- [ ] **Step 1: Write failing config and descriptor tests**
+- [x] **Step 1: Write failing config and descriptor tests**
 
 Cover:
 
@@ -124,7 +124,7 @@ npm test -- tests/core/config.test.ts tests/core/lifecycle-registry.test.ts test
 
 Expected red: Grok config/provider modules do not exist yet and `providers.grok` is not parsed.
 
-- [ ] **Step 2: Write failing router tests**
+- [x] **Step 2: Write failing router tests**
 
 Cover:
 
@@ -154,7 +154,7 @@ Expected red: Grok descriptors do not exist yet.
 - Modify: `src/doctor.ts`
 - Modify: `tests/doctor.test.ts`
 
-- [ ] **Step 1: Add provider-neutral Grok config types**
+- [x] **Step 1: Add provider-neutral Grok config types**
 
 Add `providers.grok` with:
 
@@ -169,15 +169,15 @@ Add `providers.grok` with:
 - profile `capabilities.longContext`
 - profile `capabilities.reasoning`
 
-- [ ] **Step 2: Add Grok parser and descriptor builder**
+- [x] **Step 2: Add Grok parser and descriptor builder**
 
 Create `src/providers/grok/config.ts` for profile descriptor helpers. Keep ids stable as `grok:<profile-id>`, reject duplicate profile ids and unsupported capabilities, and sanitize warnings so no secrets, internal prompts, provider implementation details, or command internals are exposed.
 
-- [ ] **Step 3: Add runtime registry aliasing**
+- [x] **Step 3: Add runtime registry aliasing**
 
 Allow provider ids `grok:<profile-id>` to resolve to the OpenAI-compatible runtime while preserving the bundled runtime list.
 
-- [ ] **Step 4: Add doctor Grok health visibility**
+- [x] **Step 4: Add doctor Grok health visibility**
 
 Doctor must report missing profile endpoint/model/auth env clearly and must not treat `XAI_API_KEY`, `GROK_API_KEY`, or any provider-scoped Grok env as a Claude subscription fallback.
 
@@ -196,7 +196,7 @@ npm test -- tests/core/config.test.ts tests/core/lifecycle-registry.test.ts test
 - Modify: `tests/core/dispatch.test.ts`
 - Modify: `tests/core/lifecycle.test.ts`
 
-- [ ] **Step 1: Write failing runtime and dispatch tests**
+- [x] **Step 1: Write failing runtime and dispatch tests**
 
 Cover:
 
@@ -217,7 +217,7 @@ npm test -- tests/providers/openai-compatible/runtime.test.ts tests/core/dispatc
 
 Expected red: OpenAI-compatible runtime does not resolve `grok` provider ids yet.
 
-- [ ] **Step 2: Implement Grok endpoint resolution in the OpenAI-compatible runtime**
+- [x] **Step 2: Implement Grok endpoint resolution in the OpenAI-compatible runtime**
 
 Resolve selected endpoint from `input.providerId`:
 
@@ -226,7 +226,7 @@ Resolve selected endpoint from `input.providerId`:
 - `grok:<profile-id>` uses matching `providers.grok.profiles[]`
 - unknown provider ids fail closed
 
-- [ ] **Step 3: Preserve OpenAI-compatible request shape**
+- [x] **Step 3: Preserve OpenAI-compatible request shape**
 
 Grok requests must continue to use:
 
@@ -250,7 +250,7 @@ npm test -- tests/providers/openai-compatible/runtime.test.ts tests/core/dispatc
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-long-term-roadmap.md`
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-milestone-37.md`
 
-- [ ] **Step 1: Update user-facing docs**
+- [x] **Step 1: Update user-facing docs**
 
 Document:
 
@@ -261,11 +261,11 @@ Document:
 - no edit/session/tool/streaming/responses-api/image support is claimed
 - live provider smoke is opt-in before any real-model readiness or model-quality claim
 
-- [ ] **Step 2: Update roadmap and changelog**
+- [x] **Step 2: Update roadmap and changelog**
 
 Mark M37 complete only after proof is captured and move near-term recommendation to M38/M39/M40.
 
-- [ ] **Step 3: Run focused milestone tests**
+- [x] **Step 3: Run focused milestone tests**
 
 Run:
 
@@ -273,7 +273,7 @@ Run:
 npm test -- tests/core/config.test.ts tests/core/router.test.ts tests/core/lifecycle-registry.test.ts tests/core/lifecycle.test.ts tests/core/dispatch.test.ts tests/providers/runtime.test.ts tests/providers/grok/config.test.ts tests/providers/openai-compatible/runtime.test.ts tests/doctor.test.ts tests/docs/packaging.test.ts tests/docs/runbook.test.ts tests/mcp/tools.test.ts
 ```
 
-- [ ] **Step 4: Run full verification**
+- [x] **Step 4: Run full verification**
 
 Run:
 
@@ -285,7 +285,7 @@ npm run smoke:mcp-stdio
 npm run ci
 ```
 
-- [ ] **Step 5: Run invariant scans**
+- [x] **Step 5: Run invariant scans**
 
 Run:
 
@@ -298,15 +298,16 @@ rg "baseUrl|apiKey|apiKeyEnv|Authorization|Bearer|XAI|GROK" src tests docs READM
 rg "process.kill|SIGKILL|automatic cleanup|workspace_cleanup_removed|cleanupRunWorkspace" src tests docs README.md CHANGELOG.md
 ```
 
-- [ ] **Step 6: Mark plan complete and commit**
+- [x] **Step 6: Mark plan complete and commit**
 
 After all proof is captured, mark the L11 gates and task checkboxes complete in this plan, then commit the implementation branch.
 
 ## Verification Evidence
 
-- Baseline before implementation: pending.
-- Red proof: pending.
-- Focused milestone proof: pending.
-- Full proof: pending.
-- Packaged stdio smoke: pending.
-- Invariant scans: pending.
+- Baseline before implementation: `npm test` passed before implementation with 45 test files and 334 tests.
+- Red proof: `npm test -- tests/core/config.test.ts tests/core/router.test.ts tests/core/lifecycle-registry.test.ts tests/core/dispatch.test.ts tests/providers/runtime.test.ts tests/providers/grok/config.test.ts tests/providers/openai-compatible/runtime.test.ts tests/doctor.test.ts` failed as expected before implementation on missing `src/providers/grok/config.js`, absent Grok config parsing, absent provider descriptors, absent runtime aliasing, absent lifecycle identity, absent doctor checks, and absent OpenAI-compatible Grok endpoint resolution.
+- Focused milestone proof: the same focused command passed after implementation with 8 files and 94 tests. Expanded focused proof also passed with 12 files and 191 tests, including lifecycle, docs, and MCP tool coverage.
+- Full proof: `npm run typecheck`, `npm test`, and `npm run build` passed. Full test suite passed with 46 files and 349 tests.
+- Packaged stdio smoke: `npm run smoke:mcp-stdio` passed with `MCP stdio smoke passed.`
+- CI proof: `npm run ci` passed, including typecheck, full tests, build, and packaged stdio smoke.
+- Invariant scans: auth/fallback, permission/bypass, benchmark/model-quality, prompt/schema leakage, endpoint/auth-secret, and cleanup/process-kill scans were run. Matches were expected guardrails, provider-local Grok config/runtime/tests/docs, placeholder endpoint/env examples, or pre-existing Claude/lifecycle cleanup behavior; no public provider-specific MCP schema, Claude API-key fallback, benchmark/model-quality claim, hidden prompt leakage, secret value, or new cleanup/process-kill shortcut was introduced.

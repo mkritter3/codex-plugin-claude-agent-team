@@ -61,6 +61,32 @@ function ollamaConfig(input: { readonly enabled?: boolean } = {}): AgentTeamConf
   } as AgentTeamConfig;
 }
 
+function grokConfig(input: { readonly enabled?: boolean } = {}): AgentTeamConfig {
+  return {
+    ...DEFAULT_AGENT_TEAM_CONFIG,
+    providers: {
+      ...DEFAULT_AGENT_TEAM_CONFIG.providers,
+      grok: {
+        enabled: input.enabled ?? true,
+        profiles: [
+          {
+            id: "grok-4.20-reasoning",
+            baseUrl: "https://api.x.ai/v1",
+            model: "grok-4.20",
+            apiKeyEnv: "XAI_API_KEY",
+            displayName: "Grok 4.20 Reasoning",
+            capabilities: {
+              structuredOutput: true,
+              longContext: true,
+              reasoning: true
+            }
+          }
+        ]
+      }
+    }
+  } as AgentTeamConfig;
+}
+
 function response(body: unknown, init: { readonly status?: number } = {}): Response {
   return new Response(JSON.stringify(body), {
     status: init.status ?? 200,
@@ -262,6 +288,84 @@ describe("OpenAI-compatible runtime", () => {
     ).resolves.toMatchObject({
       ok: false,
       stderr: "Ollama Cloud provider is disabled."
+    });
+  });
+
+  it("resolves Grok profile endpoint, model, and auth env from provider id", async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const runtime = createOpenAICompatibleRuntime({
+      fetch: async (url, init) => {
+        calls.push({ url: String(url), init: init ?? {} });
+        return response({
+          id: "chatcmpl_grok",
+          choices: [{ message: { content: "grok fixture text" } }]
+        });
+      }
+    });
+
+    const result = await runtime.runPrint({
+      providerId: "grok:grok-4.20-reasoning",
+      prompt: "Review this plan.",
+      cwd: "/tmp/project",
+      roleId: "planner",
+      executionPolicy: "read-only",
+      config: grokConfig(),
+      env: { XAI_API_KEY: "secret-token" }
+    });
+
+    expect(result).toMatchObject({
+      ok: true,
+      sessionId: "chatcmpl_grok",
+      text: "grok fixture text"
+    });
+    expect(calls[0]?.url).toBe("https://api.x.ai/v1/chat/completions");
+    expect(calls[0]?.init.headers).toMatchObject({
+      Authorization: "Bearer secret-token"
+    });
+    expect(JSON.parse(String(calls[0]?.init.body))).toMatchObject({
+      model: "grok-4.20"
+    });
+  });
+
+  it("fails closed when a Grok provider id has no matching profile", async () => {
+    const runtime = createOpenAICompatibleRuntime({
+      fetch: async () => {
+        throw new Error("should not call network");
+      }
+    });
+
+    await expect(
+      runtime.runPrint({
+        providerId: "grok:missing",
+        prompt: "Review",
+        cwd: "/tmp/project",
+        config: grokConfig(),
+        env: { XAI_API_KEY: "secret-token" }
+      })
+    ).resolves.toMatchObject({
+      ok: false,
+      stderr: "Grok profile not found for provider grok:missing."
+    });
+  });
+
+  it("fails closed when a Grok provider id is requested while profiles are disabled", async () => {
+    const runtime = createOpenAICompatibleRuntime({
+      fetch: async () => {
+        throw new Error("should not call network");
+      }
+    });
+
+    await expect(
+      runtime.runPrint({
+        providerId: "grok:grok-4.20-reasoning",
+        prompt: "Review",
+        cwd: "/tmp/project",
+        config: grokConfig({ enabled: false }),
+        env: { XAI_API_KEY: "secret-token" }
+      })
+    ).resolves.toMatchObject({
+      ok: false,
+      stderr: "Grok provider is disabled."
     });
   });
 });

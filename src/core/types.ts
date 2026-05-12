@@ -81,6 +81,20 @@ export interface OllamaCloudProviderConfig {
   readonly profiles: readonly OllamaCloudProfileConfig[];
 }
 
+export interface GrokProfileConfig {
+  readonly id: string;
+  readonly baseUrl?: string;
+  readonly model?: string;
+  readonly apiKeyEnv?: string;
+  readonly displayName?: string;
+  readonly capabilities: OpenAICompatibleProviderCapabilitiesConfig;
+}
+
+export interface GrokProviderConfig {
+  readonly enabled: boolean;
+  readonly profiles: readonly GrokProfileConfig[];
+}
+
 export interface GeminiProviderConfig {
   readonly enabled: boolean;
   readonly baseUrl?: string;
@@ -93,6 +107,7 @@ export interface GeminiProviderConfig {
 export interface AgentTeamProviderConfig {
   readonly openaiCompatible: OpenAICompatibleProviderConfig;
   readonly ollamaCloud: OllamaCloudProviderConfig;
+  readonly grok: GrokProviderConfig;
   readonly gemini: GeminiProviderConfig;
 }
 

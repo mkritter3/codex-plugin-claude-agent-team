@@ -46,6 +46,7 @@ Completed through Milestone 36:
 - explicitly configured OpenAI-compatible provider foundation for synchronous read-only dispatch
 - explicit Ollama Cloud profiles backed by the OpenAI-compatible runtime
 - explicitly configured Gemini adapter for synchronous read-only dispatch
+- explicit Grok profiles backed by the OpenAI-compatible runtime
 - end-to-end Claude team session runbook
 - README, changelog/versioning policy, license, and package/plugin metadata alignment
 
@@ -213,6 +214,8 @@ That gate requires:
 - Role routing remains provider-neutral.
 - Live smoke is opt-in.
 
+**Status:** Complete. Grok profiles are explicit config only, expose conservative read-only capabilities, route through dynamic `grok:<profile-id>` provider ids, and reuse the OpenAI-compatible runtime without public MCP schema changes.
+
 ### Milestone 38: Provider Selection Policy
 
 **Goal:** Add richer routing policy so Codex can request provider families, model preferences, or multi-provider second opinions safely.
@@ -289,8 +292,8 @@ V1.5 is complete when at least one non-Claude provider can be configured explici
 
 Implement the next milestones in this order:
 
-1. Milestone 37: Grok Adapter
-2. Milestone 38: Provider Selection Policy
-3. Milestone 39: Durable Team Records
+1. Milestone 38: Provider Selection Policy
+2. Milestone 39: Durable Team Records
+3. Milestone 40: Team Dashboard Surface
 
-This order finishes the V1 control plane before adding provider breadth.
+This order moves from provider breadth into routing policy and operator usability without weakening the V1 control plane.

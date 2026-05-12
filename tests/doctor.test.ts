@@ -288,6 +288,10 @@ describe("runDoctor", () => {
             enabled: false,
             profileCount: 0
           },
+          grok: {
+            enabled: false,
+            profileCount: 0
+          },
           gemini: {
             enabled: false,
             hasBaseUrl: false,
@@ -457,6 +461,92 @@ describe("runDoctor", () => {
     ).toMatchObject({
       status: "pass",
       details: { env: "GLM_API_KEY", present: true }
+    });
+    expect(report.checks.find((check) => check.id === "auth-precedence")).toMatchObject({
+      status: "pass"
+    });
+  });
+
+  it("reports explicit Grok profile config and missing provider auth env", async () => {
+    const workspace = await tempWorkspace();
+    await writeConfig(workspace, {
+      providers: {
+        grok: {
+          enabled: true,
+          profiles: [
+            {
+              id: "grok-4.20-reasoning",
+              baseUrl: "https://api.x.ai/v1",
+              model: "grok-4.20",
+              apiKeyEnv: "XAI_API_KEY",
+              capabilities: { structuredOutput: true, longContext: true, reasoning: true }
+            }
+          ]
+        }
+      }
+    });
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: {},
+      ...cliFound()
+    });
+
+    expect(report.ok).toBe(false);
+    expect(
+      report.checks.find((check) => check.id === "grok:grok-4.20-reasoning:config")
+    ).toMatchObject({
+      status: "pass",
+      details: {
+        providerId: "grok:grok-4.20-reasoning",
+        hasBaseUrl: true,
+        hasModel: true,
+        hasApiKeyEnv: true
+      }
+    });
+    expect(
+      report.checks.find((check) => check.id === "grok:grok-4.20-reasoning:auth-env")
+    ).toMatchObject({
+      status: "fail",
+      message: "Grok profile grok-4.20-reasoning auth env XAI_API_KEY is missing.",
+      details: { env: "XAI_API_KEY", present: false }
+    });
+    expect(report.checks.find((check) => check.id === "auth-precedence")).toMatchObject({
+      status: "pass"
+    });
+  });
+
+  it("does not treat provider-scoped Grok API keys as Claude fallback", async () => {
+    const workspace = await tempWorkspace();
+    await writeConfig(workspace, {
+      providers: {
+        grok: {
+          enabled: true,
+          profiles: [
+            {
+              id: "grok-4.20-reasoning",
+              baseUrl: "https://api.x.ai/v1",
+              model: "grok-4.20",
+              apiKeyEnv: "XAI_API_KEY",
+              capabilities: { structuredOutput: true, longContext: true }
+            }
+          ]
+        }
+      }
+    });
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: { XAI_API_KEY: "secret-token" },
+      ...cliFound()
+    });
+
+    expect(report.ok).toBe(true);
+    expect(
+      report.checks.find((check) => check.id === "grok:grok-4.20-reasoning:auth-env")
+    ).toMatchObject({
+      status: "pass",
+      details: { env: "XAI_API_KEY", present: true }
     });
     expect(report.checks.find((check) => check.id === "auth-precedence")).toMatchObject({
       status: "pass"

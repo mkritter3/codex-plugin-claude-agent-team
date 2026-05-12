@@ -131,6 +131,34 @@ Ollama Cloud profiles are an explicit OpenAI-compatible profile layer. They are 
 
 Profile provider ids use `ollama-cloud:<profile-id>`, for example `ollama-cloud:kimi-k2.6`. Profiles support synchronous read-only dispatch only; run live smoke separately before making any real-provider readiness, model-quality, or long-context claims.
 
+Grok profiles are another explicit OpenAI-compatible profile layer. They are disabled by default, use provider-scoped auth env names, and route through profile ids such as `grok:grok-4.20-reasoning`:
+
+```json
+{
+  "providers": {
+    "grok": {
+      "enabled": true,
+      "profiles": [
+        {
+          "id": "grok-4.20-reasoning",
+          "baseUrl": "https://api.x.ai/v1",
+          "model": "grok-4.20",
+          "apiKeyEnv": "XAI_API_KEY",
+          "displayName": "Grok 4.20 Reasoning",
+          "capabilities": {
+            "structuredOutput": true,
+            "longContext": true,
+            "reasoning": true
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+Grok profiles support synchronous read-only chat-completions dispatch only. They do not support background sessions, live stdin, resume, cancellation, edits, tools, streaming, Responses API, image input, or workspace isolation in this plugin version. Run live smoke separately before making real-provider readiness, model-quality, provider-comparison, or practical long-context claims.
+
 Gemini is a separate explicit adapter because its REST payloads are not OpenAI-compatible. It is disabled by default and supports synchronous read-only dispatch only:
 
 ```json
@@ -200,7 +228,7 @@ Treat these as first-class records:
 
 Before adding a new provider adapter, add a fixture-backed suite with `describeProviderRuntimeConformance` from `tests/providers/conformance/runtime-conformance.ts`. The harness proves provider runtime mechanics, routing capability gates, health shape, session handles, resume metadata, cancellation hooks, and structured result boundaries without live-provider calls or quality claims.
 
-The OpenAI-compatible foundation adapter is the generic base for future explicit profiles such as Ollama Cloud, Gemini-compatible gateways, or other OpenAI-compatible endpoints. Profiles should be added without changing the public MCP schema and without claiming edit/session/long-context behavior until a provider-specific milestone proves it.
+The OpenAI-compatible foundation adapter is the generic base for future explicit profiles such as Ollama Cloud, Grok, Gemini-compatible gateways, or other OpenAI-compatible endpoints. Profiles should be added without changing the public MCP schema and without claiming edit/session/long-context behavior until a provider-specific milestone proves it.
 
 ## Release Gate
 

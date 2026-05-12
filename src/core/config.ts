@@ -31,6 +31,10 @@ export const DEFAULT_AGENT_TEAM_CONFIG: AgentTeamConfig = {
       enabled: false,
       profiles: []
     },
+    grok: {
+      enabled: false,
+      profiles: []
+    },
     gemini: {
       enabled: false,
       capabilities: {
@@ -204,6 +208,51 @@ function parseOllamaCloudProviderConfig(
   };
 }
 
+function parseGrokProviderConfig(
+  providers: Record<string, unknown>
+): AgentTeamConfig["providers"]["grok"] {
+  const grok = objectField(providers, "grok");
+  const seenIds = new Set<string>();
+  const profiles = arrayField(grok, "profiles").map((profile, index) => {
+    const profileObject = typeof profile === "object" && profile !== null
+      ? (profile as Record<string, unknown>)
+      : {};
+    const profileId = readRequiredId(profileObject.id, `profile-${index + 1}`);
+    if (seenIds.has(profileId)) {
+      throw new AgentTeamConfigError(`Duplicate Grok profile id: ${profileId}`);
+    }
+    seenIds.add(profileId);
+    const capabilities = objectField(profileObject, "capabilities");
+    assertSupportedProfileCapabilities({
+      providerName: "Grok",
+      profileId,
+      capabilities
+    });
+    const baseUrl = readString(profileObject.baseUrl);
+    const model = readString(profileObject.model);
+    const apiKeyEnv = readString(profileObject.apiKeyEnv);
+    const displayName = readString(profileObject.displayName);
+
+    return {
+      id: profileId,
+      ...(baseUrl === undefined ? {} : { baseUrl }),
+      ...(model === undefined ? {} : { model }),
+      ...(apiKeyEnv === undefined ? {} : { apiKeyEnv }),
+      ...(displayName === undefined ? {} : { displayName }),
+      capabilities: {
+        structuredOutput: readBoolean(capabilities.structuredOutput, false),
+        longContext: readBoolean(capabilities.longContext, false),
+        reasoning: readBoolean(capabilities.reasoning, false)
+      }
+    };
+  });
+
+  return {
+    enabled: readBoolean(grok.enabled, DEFAULT_AGENT_TEAM_CONFIG.providers.grok.enabled),
+    profiles
+  };
+}
+
 function parseGeminiProviderConfig(
   providers: Record<string, unknown>
 ): AgentTeamConfig["providers"]["gemini"] {
@@ -280,6 +329,7 @@ export async function loadAgentTeamConfig(
     providers: {
       openaiCompatible: parseOpenAICompatibleProviderConfig(providers),
       ollamaCloud: parseOllamaCloudProviderConfig(providers),
+      grok: parseGrokProviderConfig(providers),
       gemini: parseGeminiProviderConfig(providers)
     }
   };

@@ -16,6 +16,10 @@ import {
   resolveOllamaCloudProfile
 } from "../ollama-cloud/config.js";
 import {
+  GROK_PROVIDER_PREFIX,
+  resolveGrokProfile
+} from "../grok/config.js";
+import {
   OPENAI_COMPATIBLE_PROVIDER_ID,
   openAICompatibleDescriptor,
   openAICompatibleProvider,
@@ -32,7 +36,7 @@ export interface OpenAICompatibleRuntimeOptions {
 export { openAICompatibleProvider };
 
 interface ResolvedEndpoint {
-  readonly kind: "openai-compatible" | "ollama-cloud";
+  readonly kind: "openai-compatible" | "ollama-cloud" | "grok";
   readonly providerId: string;
   readonly displayName: string;
   readonly baseUrl?: string;
@@ -78,6 +82,25 @@ function resolveEndpoint(
     };
   }
 
+  if (providerId?.startsWith(`${GROK_PROVIDER_PREFIX}:`) === true) {
+    if (!config.providers.grok.enabled) {
+      return "Grok provider is disabled.";
+    }
+    const profile = resolveGrokProfile(config, providerId);
+    if (profile === undefined) {
+      return `Grok profile not found for provider ${providerId}.`;
+    }
+    return {
+      kind: "grok",
+      providerId,
+      displayName: profile.displayName ?? profile.id,
+      ...(profile.baseUrl === undefined ? {} : { baseUrl: profile.baseUrl }),
+      ...(profile.model === undefined ? {} : { model: profile.model }),
+      ...(profile.apiKeyEnv === undefined ? {} : { apiKeyEnv: profile.apiKeyEnv }),
+      structuredOutput: profile.capabilities.structuredOutput
+    };
+  }
+
   if (providerId !== undefined && providerId !== OPENAI_COMPATIBLE_PROVIDER_ID) {
     return `OpenAI-compatible runtime cannot resolve provider ${providerId}.`;
   }
@@ -95,9 +118,13 @@ function resolveEndpoint(
 }
 
 function endpointLabel(endpoint: ResolvedEndpoint): string {
-  return endpoint.kind === "ollama-cloud"
-    ? `Ollama Cloud profile ${endpoint.displayName}`
-    : "OpenAI-compatible provider";
+  if (endpoint.kind === "ollama-cloud") {
+    return `Ollama Cloud profile ${endpoint.displayName}`;
+  }
+  if (endpoint.kind === "grok") {
+    return `Grok profile ${endpoint.displayName}`;
+  }
+  return "OpenAI-compatible provider";
 }
 
 function extractAssistantText(body: unknown): string | undefined {
@@ -288,18 +315,18 @@ export function createOpenAICompatibleRuntime(
       }
       const checks: ProviderHealthCheck[] = [];
       const configCheckId =
-        endpoint.kind === "ollama-cloud"
-          ? `${endpoint.providerId}:config`
-          : "openai-compatible-config";
+        endpoint.kind === "openai-compatible"
+          ? "openai-compatible-config"
+          : `${endpoint.providerId}:config`;
       const authCheckId =
-        endpoint.kind === "ollama-cloud"
-          ? `${endpoint.providerId}:auth-env`
-          : "openai-compatible-auth-env";
+        endpoint.kind === "openai-compatible"
+          ? "openai-compatible-auth-env"
+          : `${endpoint.providerId}:auth-env`;
       const configExplicit =
         endpoint.baseUrl !== undefined &&
         endpoint.model !== undefined &&
         endpoint.apiKeyEnv !== undefined &&
-        (endpoint.kind === "ollama-cloud" || config.providers.openaiCompatible.enabled);
+        (endpoint.kind !== "openai-compatible" || config.providers.openaiCompatible.enabled);
 
       checks.push({
         id: configCheckId,

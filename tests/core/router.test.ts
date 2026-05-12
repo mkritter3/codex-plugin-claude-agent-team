@@ -88,6 +88,10 @@ describe("selectProvider", () => {
             enabled: false,
             profiles: []
           },
+          grok: {
+            enabled: false,
+            profiles: []
+          },
           gemini: {
             enabled: false,
             capabilities: {
@@ -136,6 +140,10 @@ describe("selectProvider", () => {
             }
           },
           ollamaCloud: {
+            enabled: false,
+            profiles: []
+          },
+          grok: {
             enabled: false,
             profiles: []
           },
@@ -215,6 +223,10 @@ describe("selectProvider", () => {
               }
             ]
           },
+          grok: {
+            enabled: false,
+            profiles: []
+          },
           gemini: {
             enabled: false,
             capabilities: {
@@ -275,6 +287,10 @@ describe("selectProvider", () => {
             enabled: false,
             profiles: []
           },
+          grok: {
+            enabled: false,
+            profiles: []
+          },
           gemini: {
             enabled: true,
             baseUrl: "https://generativelanguage.googleapis.com/v1beta",
@@ -331,6 +347,10 @@ describe("selectProvider", () => {
             enabled: false,
             profiles: []
           },
+          grok: {
+            enabled: false,
+            profiles: []
+          },
           gemini: {
             enabled: true,
             baseUrl: "https://generativelanguage.googleapis.com/v1beta",
@@ -351,6 +371,93 @@ describe("selectProvider", () => {
         roleId: "architect",
         providers,
         requestedProviderId: "gemini"
+      })
+    ).toThrow(ProviderCapabilityError);
+  });
+
+  it("routes requested Grok profiles only through declared read-only capabilities", () => {
+    const providers = listProviders({
+      config: {
+        writeMode: { enabled: false, requireIsolatedWorktree: true },
+        auth: { allowApiKeyFallback: false },
+        providers: {
+          openaiCompatible: {
+            enabled: false,
+            capabilities: {
+              structuredOutput: false,
+              longContext: false,
+              reasoning: false
+            }
+          },
+          ollamaCloud: {
+            enabled: false,
+            profiles: []
+          },
+          gemini: {
+            enabled: false,
+            capabilities: {
+              structuredOutput: false,
+              longContext: false,
+              reasoning: false
+            }
+          },
+          grok: {
+            enabled: true,
+            profiles: [
+              {
+                id: "grok-4.20-reasoning",
+                baseUrl: "https://api.x.ai/v1",
+                model: "grok-4.20",
+                apiKeyEnv: "XAI_API_KEY",
+                capabilities: {
+                  structuredOutput: true,
+                  longContext: true,
+                  reasoning: true
+                }
+              },
+              {
+                id: "grok-review",
+                baseUrl: "https://api.x.ai/v1",
+                model: "grok-review",
+                apiKeyEnv: "GROK_API_KEY",
+                capabilities: {
+                  structuredOutput: true,
+                  longContext: false,
+                  reasoning: false
+                }
+              }
+            ]
+          }
+        }
+      }
+    });
+
+    expect(
+      selectProvider({
+        roleId: "planner",
+        providers,
+        requestedProviderId: "grok:grok-review"
+      }).id
+    ).toBe("grok:grok-review");
+    expect(
+      selectProvider({
+        roleId: "architect",
+        providers,
+        requestedProviderId: "grok:grok-4.20-reasoning"
+      }).id
+    ).toBe("grok:grok-4.20-reasoning");
+    expect(() =>
+      selectProvider({
+        roleId: "architect",
+        providers,
+        requestedProviderId: "grok:grok-review"
+      })
+    ).toThrow(ProviderCapabilityError);
+    expect(() =>
+      selectProvider({
+        roleId: "slice-implementer",
+        providers,
+        requestedProviderId: "grok:grok-4.20-reasoning"
       })
     ).toThrow(ProviderCapabilityError);
   });
