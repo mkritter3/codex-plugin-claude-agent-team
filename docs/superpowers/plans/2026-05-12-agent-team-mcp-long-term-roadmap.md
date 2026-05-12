@@ -59,6 +59,10 @@ Completed through Milestone 45:
 - opt-in read-only provider proof smoke harness through the packaged MCP boundary
 - README, changelog/versioning policy, license, and package/plugin metadata alignment
 
+In progress:
+
+- Milestone 46 real Claude call reliability hardening for honest terminal-state reporting, MCP request-timeout alignment, and evidence-preserving failure cleanup in the opt-in Claude live smoke.
+
 ## Roadmap Shape
 
 The remaining work is split into three finish lines:
@@ -333,6 +337,19 @@ That gate requires:
 
 **Status:** Complete. `npm run smoke:providers-live` now provides a fail-closed dry-run and opt-in live harness for explicitly selected non-Claude read-only providers. It drives the packaged `dist/index.js` MCP stdio boundary through public doctor, provider listing, dispatch, dashboard, and summary tools; requires `policy.liveSmokeEnabled` before live use; preserves ordered per-selector evidence under bounded concurrency; stays out of CI; and emits a sanitized report without prompts, secrets, provider session ids, endpoints, raw payloads, process ids, command args, or provider quality claims.
 
+### Milestone 46: Real Claude Call Reliability Hardening
+
+**Goal:** Harden the Claude Code CLI subscription-backed live path so real operator smoke reports only true terminal success, aligns MCP request timeouts with provider timeouts, and preserves cancellation/cleanup evidence on bounded failures.
+
+**Success Criteria:**
+
+- `winding-down`, `running`, `pending`, `awaiting-input`, detached, missing, and unknown run states are never treated as successful live-smoke completion.
+- Live smoke report status is `completed` only when tracked Claude runs complete successfully through the packaged MCP boundary.
+- SDK `client.callTool` request timeouts are explicitly configured for live calls that may outlast the default MCP timeout.
+- Failed or nonterminal live smoke attempts request graceful wind-down, record explicit cancellation intent for lingering runs, and emit sanitized failure evidence.
+- The harness continues to use `dist/index.js` and public MCP tools only; it does not call provider internals or the Claude CLI directly.
+- Live Claude proof remains opt-in and excluded from CI.
+
 ## Definition Of Done For V1
 
 V1 is complete when Codex can reliably:
@@ -353,4 +370,4 @@ V1.5 is complete when at least one non-Claude provider can be configured explici
 
 ## Near-Term Recommendation
 
-Milestones 40 through 45 are complete. The current roadmap has reached the planned V2 product maturity baseline for durable team records, dashboard visibility, policy/audit controls, release/upgrade safety, an opt-in live Claude team smoke harness, repeatable install handoff, and explicit read-only provider proof. The next implementation target should move from proving individual provider routing mechanics toward the remaining product-quality surfaces: richer operator recovery, clearer install ergonomics, or the next roadmap extension for provider-neutral team orchestration.
+Milestones 40 through 45 are complete, and Milestone 46 is in progress. The current roadmap has reached the planned V2 product maturity baseline for durable team records, dashboard visibility, policy/audit controls, release/upgrade safety, an opt-in live Claude team smoke harness, repeatable install handoff, and explicit read-only provider proof. The next implementation target is real-call reliability hardening for the Claude subscription-backed path before moving into richer operator recovery, clearer install ergonomics, or the next roadmap extension for provider-neutral team orchestration.
