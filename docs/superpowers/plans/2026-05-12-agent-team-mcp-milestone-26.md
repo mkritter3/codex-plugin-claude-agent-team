@@ -48,7 +48,7 @@
 - Modify: `src/mcp/tools.ts`
 - Modify: `tests/mcp/tools.test.ts`
 
-- [ ] **Step 1: Write failing MCP batch-status tests**
+- [x] **Step 1: Write failing MCP batch-status tests**
 
 Add tests proving:
 
@@ -67,7 +67,7 @@ npm test -- tests/mcp/tools.test.ts
 
 Expected: FAIL because `agent_team_status_many` is not registered yet.
 
-- [ ] **Step 2: Add status-many types**
+- [x] **Step 2: Add status-many types**
 
 In `src/core/types.ts`, add:
 
@@ -121,7 +121,7 @@ export interface AgentStatusManyResult {
 }
 ```
 
-- [ ] **Step 3: Implement bounded status-many helper**
+- [x] **Step 3: Implement bounded status-many helper**
 
 In `src/core/status-many.ts`, export:
 
@@ -148,7 +148,7 @@ Implementation requirements:
 - map other thrown errors to `{ status: "failed", index, runId, cwd, correlationId?, error }`
 - return top-level `partial_failure` when any item is not `ok`
 
-- [ ] **Step 4: Register and parse the tool**
+- [x] **Step 4: Register and parse the tool**
 
 In `src/mcp/tools.ts`:
 
@@ -168,7 +168,7 @@ In `src/mcp/tools.ts`:
   - using `lifecycleFor(itemCwd).getStatus(itemCwd, runId)` inside the supplied `getStatus` dependency so workspace-specific config and lifecycle registry identity remain unchanged
   - calling `recoverStateCorruption({ workspaceRoot: itemCwd, runId, operation: "agent_team_status_many", error })` inside the supplied recovery dependency
 
-- [ ] **Step 5: Run focused MCP tests**
+- [x] **Step 5: Run focused MCP tests**
 
 Run:
 
@@ -179,7 +179,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/core/types.ts src/core/status-many.ts src/mcp/tools.ts tests/mcp/tools.test.ts
@@ -194,7 +194,7 @@ git commit -m "feat: add batch status MCP tool"
 - Modify: `tests/package-runtime.test.ts`
 - Modify: `scripts/smoke-mcp-stdio.mjs`
 
-- [ ] **Step 1: Write failing schema/package tests**
+- [x] **Step 1: Write failing schema/package tests**
 
 Add tests proving:
 
@@ -210,7 +210,7 @@ npm test -- tests/mcp/server.test.ts tests/package-runtime.test.ts
 
 Expected: FAIL because schema and smoke metadata are not registered yet.
 
-- [ ] **Step 2: Add MCP schema metadata**
+- [x] **Step 2: Add MCP schema metadata**
 
 In `src/mcp/schemas.ts`, add:
 
@@ -236,7 +236,7 @@ agent_team_status_many: {
 }
 ```
 
-- [ ] **Step 3: Update smoke metadata assertion**
+- [x] **Step 3: Update smoke metadata assertion**
 
 In `scripts/smoke-mcp-stdio.mjs`, add:
 
@@ -246,7 +246,7 @@ assertToolRequires(tools.tools, "agent_team_status_many", ["runs"]);
 
 near the existing `agent_team_status` assertion.
 
-- [ ] **Step 4: Run focused package tests**
+- [x] **Step 4: Run focused package tests**
 
 Run:
 
@@ -257,7 +257,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/mcp/schemas.ts tests/mcp/server.test.ts tests/package-runtime.test.ts scripts/smoke-mcp-stdio.mjs
@@ -269,7 +269,7 @@ git commit -m "test: cover batch status metadata"
 **Files:**
 - Modify only if verification finds issues.
 
-- [ ] **Step 1: Run focused milestone tests**
+- [x] **Step 1: Run focused milestone tests**
 
 Run:
 
@@ -279,7 +279,7 @@ npm test -- tests/mcp/tools.test.ts tests/mcp/server.test.ts tests/package-runti
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -293,7 +293,7 @@ npm run ci
 
 Expected: PASS.
 
-- [ ] **Step 3: Review boundary and safety invariants**
+- [x] **Step 3: Review boundary and safety invariants**
 
 Run:
 
@@ -304,7 +304,7 @@ rg "allowApiKeyFallback|benchmark|embedding|mock LLM|bypassPermissions|process.k
 
 Expected: batch status is read-only observability over lifecycle status, not an implicit provider fallback, benchmark harness, model-quality aggregator, bypass-permission path, process-kill path, control shortcut, or cleanup shortcut.
 
-- [ ] **Step 4: Commit final plan checkbox update**
+- [x] **Step 4: Commit final plan checkbox update**
 
 Mark completed checklist items in this file and commit the update.
 
