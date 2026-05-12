@@ -24,13 +24,13 @@
 
 ## L11 Quality Gates
 
-- [ ] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
-- [ ] TDD red proof is captured for new behavior.
-- [ ] Focused milestone tests are listed with expected red and green outcomes.
-- [ ] Full verification commands are listed.
-- [ ] Required edge cases from the matrix are explicitly selected.
-- [ ] Invariant scans are listed.
-- [ ] Live provider smoke is marked required or not required with rationale.
+- [x] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
+- [x] TDD red proof is captured for new behavior.
+- [x] Focused milestone tests are listed with expected red and green outcomes.
+- [x] Full verification commands are listed.
+- [x] Required edge cases from the matrix are explicitly selected.
+- [x] Invariant scans are listed.
+- [x] Live provider smoke is marked required or not required with rationale.
 
 Selected quality-gate rows:
 
@@ -72,7 +72,7 @@ Live provider smoke is not required for this milestone because `agent_team_messa
 - Modify: `src/core/types.ts`
 - Add: `tests/core/message-many.test.ts`
 
-- [ ] **Step 1: Write failing core batch-message tests**
+- [x] **Step 1: Write failing core batch-message tests**
 
 Add `tests/core/message-many.test.ts` with tests proving:
 
@@ -89,7 +89,7 @@ npm test -- tests/core/message-many.test.ts
 
 Expected: FAIL because `src/core/message-many.ts` does not exist yet.
 
-- [ ] **Step 2: Add batch-message types**
+- [x] **Step 2: Add batch-message types**
 
 In `src/core/types.ts`, add:
 
@@ -145,7 +145,7 @@ export interface AgentMessageManyResult {
 }
 ```
 
-- [ ] **Step 3: Implement bounded batch-message helper**
+- [x] **Step 3: Implement bounded batch-message helper**
 
 In `src/core/message-many.ts`, export:
 
@@ -172,7 +172,7 @@ Implementation requirements:
 - map other thrown errors to `{ status: "failed", index, runId, cwd, correlationId?, error }`
 - return top-level `partial_failure` when any item is not `ok`
 
-- [ ] **Step 4: Run focused core tests**
+- [x] **Step 4: Run focused core tests**
 
 Run:
 
@@ -183,7 +183,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit core helper**
+- [x] **Step 5: Commit core helper**
 
 ```bash
 git add src/core/types.ts src/core/message-many.ts tests/core/message-many.test.ts
@@ -196,7 +196,7 @@ git commit -m "feat: add batch message core"
 - Modify: `src/mcp/tools.ts`
 - Modify: `tests/mcp/tools.test.ts`
 
-- [ ] **Step 1: Write failing MCP batch-message tests**
+- [x] **Step 1: Write failing MCP batch-message tests**
 
 Add tests proving:
 
@@ -218,7 +218,7 @@ npm test -- tests/mcp/tools.test.ts
 
 Expected: FAIL because `agent_team_message_many` is not registered yet.
 
-- [ ] **Step 2: Register and parse the tool**
+- [x] **Step 2: Register and parse the tool**
 
 In `src/mcp/tools.ts`:
 
@@ -243,7 +243,7 @@ In `src/mcp/tools.ts`:
   - using `lifecycleFor(item.cwd).messageRun(item)` inside the supplied `messageRun` dependency so workspace-specific config and lifecycle registry identity remain unchanged
   - calling `recoverStateCorruption({ workspaceRoot: item.cwd, runId, operation: "agent_team_message_many", error })` inside the supplied recovery dependency
 
-- [ ] **Step 3: Run focused MCP tests**
+- [x] **Step 3: Run focused MCP tests**
 
 Run:
 
@@ -254,7 +254,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 4: Commit MCP tool**
+- [x] **Step 4: Commit MCP tool**
 
 ```bash
 git add src/mcp/tools.ts tests/mcp/tools.test.ts
@@ -269,7 +269,7 @@ git commit -m "feat: expose batch message MCP tool"
 - Modify: `tests/package-runtime.test.ts`
 - Modify: `scripts/smoke-mcp-stdio.mjs`
 
-- [ ] **Step 1: Write failing schema/package tests**
+- [x] **Step 1: Write failing schema/package tests**
 
 Add tests proving:
 
@@ -285,7 +285,7 @@ npm test -- tests/mcp/server.test.ts tests/package-runtime.test.ts
 
 Expected: FAIL because schema and smoke metadata are not registered yet.
 
-- [ ] **Step 2: Add MCP schema metadata**
+- [x] **Step 2: Add MCP schema metadata**
 
 In `src/mcp/schemas.ts`, add:
 
@@ -315,7 +315,7 @@ agent_team_message_many: {
 }
 ```
 
-- [ ] **Step 3: Update smoke metadata assertion**
+- [x] **Step 3: Update smoke metadata assertion**
 
 In `scripts/smoke-mcp-stdio.mjs`, add:
 
@@ -325,7 +325,7 @@ assertToolRequires(tools.tools, "agent_team_message_many", ["messages"]);
 
 near the existing `agent_team_message` assertion.
 
-- [ ] **Step 4: Run focused package tests**
+- [x] **Step 4: Run focused package tests**
 
 Run:
 
@@ -336,7 +336,7 @@ npm run typecheck
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit metadata coverage**
+- [x] **Step 5: Commit metadata coverage**
 
 ```bash
 git add src/mcp/schemas.ts tests/mcp/server.test.ts tests/package-runtime.test.ts scripts/smoke-mcp-stdio.mjs
@@ -348,7 +348,7 @@ git commit -m "test: cover batch message metadata"
 **Files:**
 - Modify only if verification finds issues.
 
-- [ ] **Step 1: Run focused milestone tests**
+- [x] **Step 1: Run focused milestone tests**
 
 Run:
 
@@ -358,7 +358,7 @@ npm test -- tests/core/message-many.test.ts tests/mcp/tools.test.ts tests/mcp/se
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -372,7 +372,7 @@ npm run ci
 
 Expected: PASS.
 
-- [ ] **Step 3: Review boundary and safety invariants**
+- [x] **Step 3: Review boundary and safety invariants**
 
 Run:
 
@@ -386,7 +386,7 @@ rg "process.kill|SIGKILL|automatic cleanup|workspace_cleanup_removed|cleanupRunW
 
 Expected: batch message is messaging-only lifecycle delegation, not an implicit provider fallback, benchmark harness, model-quality aggregator, bypass-permission path, reply/resume path, cancellation path, wind-down path, process-kill path, or cleanup shortcut.
 
-- [ ] **Step 4: Commit final plan checkbox update**
+- [x] **Step 4: Commit final plan checkbox update**
 
 Mark completed checklist items in this file and commit the update.
 
