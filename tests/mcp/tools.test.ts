@@ -3029,9 +3029,8 @@ describe("MCP tool handlers", () => {
       await readFile(new URL("../../.codex-plugin/plugin.json", import.meta.url), "utf8")
     ) as { interface?: { defaultPrompt?: readonly string[] } };
 
-    expect(plugin.interface?.defaultPrompt).toContain(
-      "Start an isolated slice-implementer run for this bounded task."
-    );
+    expect(plugin.interface?.defaultPrompt).toContain("Start a bounded Claude agent team.");
+    expect(plugin.interface?.defaultPrompt?.length).toBeLessThanOrEqual(3);
   });
 
   it("runs the shared CI script in GitHub CI", async () => {

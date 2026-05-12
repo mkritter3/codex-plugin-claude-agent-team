@@ -56,6 +56,9 @@ describe("package runtime contract", () => {
       repository?: string;
       license?: string;
       mcpServers?: string;
+      interface?: {
+        defaultPrompt?: readonly string[];
+      };
     }>("../.codex-plugin/plugin.json");
     const mcpJson = await readJson<{
       mcpServers?: Record<string, { command?: string; args?: readonly string[] }>;
@@ -75,6 +78,11 @@ describe("package runtime contract", () => {
     expect(packageJson.keywords).toEqual(["codex", "mcp", "agents", "claude-code"]);
     expect(packageJson.codexPlugin).toBe(".codex-plugin/plugin.json");
     expect(pluginJson.mcpServers).toBe("./.mcp.json");
+    expect(pluginJson.interface?.defaultPrompt).toBeDefined();
+    expect(pluginJson.interface?.defaultPrompt?.length).toBeLessThanOrEqual(3);
+    for (const prompt of pluginJson.interface?.defaultPrompt ?? []) {
+      expect(prompt.length).toBeLessThanOrEqual(128);
+    }
     expect(packageJson.bin?.["agent-team-mcp"]).toBe("./dist/index.js");
     expect(mcpJson.mcpServers?.["agent-team"]).toEqual({
       command: "node",

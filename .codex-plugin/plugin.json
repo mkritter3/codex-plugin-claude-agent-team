@@ -21,9 +21,8 @@
     "websiteURL": "https://github.com/mkritter3/codex-plugin-claude-agent-team",
     "defaultPrompt": [
       "Ask Claude to review this diff.",
-      "Start an isolated slice-implementer run for this bounded task.",
-      "Run an agent-team doctor check.",
-      "List available agent roles."
+      "Start a bounded Claude agent team.",
+      "Run an agent-team doctor check."
     ],
     "brandColor": "#111827"
   }
