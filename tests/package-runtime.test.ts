@@ -55,6 +55,9 @@ describe("package runtime contract", () => {
     expect(smokeScript).toContain(
       'assertToolRequires(tools.tools, "agent_team_message", ["runId", "message"])'
     );
+    expect(smokeScript).toContain(
+      'assertToolRequires(tools.tools, "agent_team_message_many", ["messages"])'
+    );
     expect(smokeScript).not.toContain("tsx");
     expect(smokeScript).not.toContain(join("src", "index.ts"));
   });

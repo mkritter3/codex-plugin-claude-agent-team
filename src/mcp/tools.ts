@@ -9,6 +9,7 @@ import {
 import { startAgentTeamInParallel } from "../core/parallel-start.js";
 import { listRoles } from "../core/roles.js";
 import { createRunId } from "../core/run-ids.js";
+import { sendAgentMessages } from "../core/message-many.js";
 import { recoverStateCorruption } from "../core/state/recovery.js";
 import { readAgentStatuses } from "../core/status-many.js";
 import type {
@@ -16,6 +17,8 @@ import type {
   AgentCleanupResult,
   AgentControlResult,
   AgentDispatchRequest,
+  AgentMessageManyItemRequest,
+  AgentMessageManyRequest,
   AgentMessageRequest,
   AgentMessageResult,
   AgentParallelStartRequest,
@@ -38,6 +41,7 @@ export const TOOL_NAMES = [
   "agent_team_start_parallel",
   "agent_team_reply",
   "agent_team_message",
+  "agent_team_message_many",
   "agent_team_status",
   "agent_team_status_many",
   "agent_team_cancel",
@@ -373,6 +377,101 @@ function parseMessageArgs(
   };
 }
 
+function parseMessageManyArgs(
+  args: Record<string, unknown>,
+  cwd: string
+): AgentMessageManyRequest | JsonToolResult {
+  if (!Array.isArray(args.messages) || args.messages.length === 0) {
+    return validationError("agent_team_message_many requires a non-empty messages array.");
+  }
+
+  const defaultCwd = readOptionalString(
+    args.cwd,
+    "agent_team_message_many cwd must be a string."
+  );
+  if (typeof defaultCwd === "object") {
+    return defaultCwd;
+  }
+
+  const concurrency = args.concurrency === undefined ? 8 : args.concurrency;
+  if (
+    typeof concurrency !== "number" ||
+    !Number.isInteger(concurrency) ||
+    concurrency < 1 ||
+    concurrency > 8
+  ) {
+    return validationError(
+      "agent_team_message_many concurrency must be an integer from 1 to 8."
+    );
+  }
+
+  const messages: AgentMessageManyItemRequest[] = [];
+  const seenTargets = new Set<string>();
+  for (const [index, value] of args.messages.entries()) {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      return validationError(`agent_team_message_many messages[${index}] must be an object.`);
+    }
+
+    const item = value as Record<string, unknown>;
+    if (typeof item.runId !== "string" || item.runId.trim().length === 0) {
+      return validationError(
+        `agent_team_message_many messages[${index}] requires a non-empty runId.`
+      );
+    }
+    if (typeof item.message !== "string" || item.message.trim().length === 0) {
+      return validationError(
+        `agent_team_message_many messages[${index}] requires a non-empty message.`
+      );
+    }
+
+    const itemCwd = readOptionalString(
+      item.cwd,
+      `agent_team_message_many messages[${index}] cwd must be a string.`
+    );
+    if (typeof itemCwd === "object") {
+      return itemCwd;
+    }
+
+    const messageType = readOptionalString(
+      item.messageType,
+      `agent_team_message_many messages[${index}] messageType must be a string.`
+    );
+    if (typeof messageType === "object") {
+      return messageType;
+    }
+
+    const correlationId = readOptionalString(
+      item.correlationId,
+      `agent_team_message_many messages[${index}] correlationId must be a string.`
+    );
+    if (typeof correlationId === "object") {
+      return correlationId;
+    }
+
+    const resolvedCwd = itemCwd ?? defaultCwd ?? cwd;
+    const targetKey = `${resolvedCwd}\0${item.runId}`;
+    if (seenTargets.has(targetKey)) {
+      return validationError(
+        `agent_team_message_many messages[${index}] duplicates target ${item.runId}.`
+      );
+    }
+    seenTargets.add(targetKey);
+
+    messages.push({
+      runId: item.runId,
+      cwd: resolvedCwd,
+      message: item.message,
+      ...(messageType === undefined ? {} : { messageType }),
+      ...(correlationId === undefined ? {} : { correlationId })
+    });
+  }
+
+  return {
+    messages,
+    concurrency
+  };
+}
+
 function parseReplyArgs(
   args: Record<string, unknown>,
   cwd: string
@@ -532,6 +631,21 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
           operation: name,
           action: async () =>
             jsonToolResult({ ...(await (await lifecycleFor(parsed.cwd)).messageRun(parsed)) })
+        });
+      }
+
+      if (name === "agent_team_message_many") {
+        const parsed = parseMessageManyArgs(args, cwd());
+        if ("content" in parsed) {
+          return parsed;
+        }
+
+        return jsonToolResult({
+          ...(await sendAgentMessages(parsed, {
+            messageRun: async (request) =>
+              (await lifecycleFor(request.cwd)).messageRun(request),
+            recoverStateCorruption: async (input) => recoverStateCorruption(input)
+          }))
         });
       }
 

@@ -72,6 +72,7 @@ async function main() {
     assertToolRequires(tools.tools, "agent_team_start", ["role", "task"]);
     assertToolRequires(tools.tools, "agent_team_start_parallel", ["runs"]);
     assertToolRequires(tools.tools, "agent_team_message", ["runId", "message"]);
+    assertToolRequires(tools.tools, "agent_team_message_many", ["messages"]);
     assertToolRequires(tools.tools, "agent_team_status", ["runId"]);
     assertToolRequires(tools.tools, "agent_team_status_many", ["runs"]);
     assertObjectSchema(tools.tools, "agent_team_list_roles");

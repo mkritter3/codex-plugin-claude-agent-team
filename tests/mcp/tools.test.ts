@@ -1018,6 +1018,317 @@ describe("MCP tool handlers", () => {
     });
   });
 
+  it("validates message_many args before invoking lifecycle", async () => {
+    let called = false;
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      lifecycle: {
+        async startRun() {
+          throw new Error("should not start");
+        },
+        async getStatus() {
+          throw new Error("should not status");
+        },
+        async messageRun() {
+          called = true;
+          throw new Error("should not message");
+        },
+        async replyRun() {
+          throw new Error("should not reply");
+        },
+        async cancelRun() {
+          throw new Error("should not cancel");
+        },
+        async windDownRun() {
+          throw new Error("should not wind down");
+        }
+      }
+    });
+
+    const invalidInputs: Record<string, unknown>[] = [
+      {},
+      { messages: [] },
+      { messages: [1] },
+      { messages: [{}] },
+      { messages: [{ runId: "", message: "hi" }] },
+      { messages: [{ runId: "run_1" }] },
+      { messages: [{ runId: "run_1", message: "" }] },
+      { messages: [{ runId: "run_1", message: "hi", cwd: 1 }] },
+      { messages: [{ runId: "run_1", message: "hi", messageType: "" }] },
+      { messages: [{ runId: "run_1", message: "hi", correlationId: 1 }] },
+      { cwd: "", messages: [{ runId: "run_1", message: "hi" }] },
+      { messages: [{ runId: "run_1", message: "hi" }], concurrency: 0 },
+      { messages: [{ runId: "run_1", message: "hi" }], concurrency: 9 },
+      { messages: [{ runId: "run_1", message: "hi" }], concurrency: 1.5 },
+      {
+        messages: [
+          { runId: "run_1", message: "first" },
+          { runId: "run_1", message: "second" }
+        ]
+      }
+    ];
+
+    for (const input of invalidInputs) {
+      const result = await handlers.handleToolCall("agent_team_message_many", input);
+      expect(result.structuredContent?.status).toBe("validation_error");
+    }
+    expect(called).toBe(false);
+  });
+
+  it("sends many messages through the lifecycle registry with default and per-message cwd", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-message-many-"));
+    const otherWorkspace = await mkdtemp(join(tmpdir(), "agent-team-message-many-other-"));
+    const managerByCwd = new Map<string, string>();
+    const calls: string[] = [];
+    let managerCount = 0;
+    const handlers = createToolHandlers({
+      cwd: () => workspace,
+      lifecycleFactory: () => {
+        managerCount += 1;
+        const managerId = `manager_${managerCount}`;
+        return {
+          async startRun() {
+            throw new Error("should not start");
+          },
+          async getStatus() {
+            throw new Error("should not status");
+          },
+          async messageRun(request) {
+            managerByCwd.set(request.cwd, managerId);
+            calls.push(`${managerId}:${request.cwd}:${request.runId}:${request.message}`);
+            return {
+              runId: request.runId,
+              status:
+                request.runId === "run_b" ? "delivered_live" : "recorded_for_resume",
+              record: {
+                sequence: 1,
+                runId: request.runId,
+                role: "planner",
+                provider: "claude-code-cli",
+                messageType: request.messageType ?? "user_message",
+                createdAt: "2026-05-11T00:02:00.000Z",
+                correlationId: request.correlationId ?? request.runId,
+                contentHash: "hash",
+                payload: { message: request.message }
+              },
+              message:
+                request.runId === "run_b"
+                  ? "Message delivered live."
+                  : "Message recorded for resume."
+            };
+          },
+          async replyRun() {
+            throw new Error("should not reply");
+          },
+          async cancelRun() {
+            throw new Error("should not cancel");
+          },
+          async windDownRun() {
+            throw new Error("should not wind down");
+          }
+        };
+      }
+    });
+
+    const result = await handlers.handleToolCall("agent_team_message_many", {
+      cwd: workspace,
+      concurrency: 2,
+      messages: [
+        { runId: "run_a", message: "first", correlationId: "a" },
+        {
+          runId: "run_b",
+          cwd: otherWorkspace,
+          message: "second",
+          messageType: "evidence",
+          correlationId: "b"
+        },
+        { runId: "run_c", message: "third" }
+      ]
+    });
+
+    expect(managerByCwd.get(workspace)).toBeDefined();
+    expect(managerByCwd.get(otherWorkspace)).toBeDefined();
+    expect(managerByCwd.get(workspace)).not.toBe(managerByCwd.get(otherWorkspace));
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        `${managerByCwd.get(workspace)}:${workspace}:run_a:first`,
+        `${managerByCwd.get(workspace)}:${workspace}:run_c:third`,
+        `${managerByCwd.get(otherWorkspace)}:${otherWorkspace}:run_b:second`
+      ])
+    );
+    expect(result.structuredContent).toMatchObject({
+      status: "ok",
+      messages: [
+        {
+          status: "ok",
+          index: 0,
+          runId: "run_a",
+          cwd: workspace,
+          correlationId: "a",
+          result: { runId: "run_a", status: "recorded_for_resume" }
+        },
+        {
+          status: "ok",
+          index: 1,
+          runId: "run_b",
+          cwd: otherWorkspace,
+          correlationId: "b",
+          result: {
+            runId: "run_b",
+            status: "delivered_live",
+            record: { messageType: "evidence" }
+          }
+        },
+        {
+          status: "ok",
+          index: 2,
+          runId: "run_c",
+          cwd: workspace,
+          result: { runId: "run_c", status: "recorded_for_resume" }
+        }
+      ]
+    });
+  });
+
+  it("returns partial failures from message_many without dropping later messages", async () => {
+    const attempted: string[] = [];
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      lifecycle: {
+        async startRun() {
+          throw new Error("should not start");
+        },
+        async getStatus() {
+          throw new Error("should not status");
+        },
+        async messageRun(request) {
+          attempted.push(request.runId);
+          if (request.runId === "run_bad") {
+            throw new Error("message failed");
+          }
+          return {
+            runId: request.runId,
+            status: "recorded_for_resume",
+            record: {
+              sequence: 1,
+              runId: request.runId,
+              role: "planner",
+              provider: "claude-code-cli",
+              messageType: "user_message",
+              createdAt: "2026-05-11T00:02:00.000Z",
+              correlationId: request.correlationId ?? request.runId,
+              contentHash: "hash",
+              payload: { message: request.message }
+            },
+            message: "Message recorded for resume."
+          };
+        },
+        async replyRun() {
+          throw new Error("should not reply");
+        },
+        async cancelRun() {
+          throw new Error("should not cancel");
+        },
+        async windDownRun() {
+          throw new Error("should not wind down");
+        }
+      }
+    });
+
+    const result = await handlers.handleToolCall("agent_team_message_many", {
+      concurrency: 1,
+      messages: [
+        { runId: "run_ok_1", message: "first" },
+        { runId: "run_bad", message: "bad", correlationId: "bad" },
+        { runId: "run_ok_2", message: "third" }
+      ]
+    });
+
+    expect(attempted).toEqual(["run_ok_1", "run_bad", "run_ok_2"]);
+    expect(result.structuredContent).toMatchObject({
+      status: "partial_failure",
+      messages: [
+        { status: "ok", index: 0, runId: "run_ok_1" },
+        {
+          status: "failed",
+          index: 1,
+          runId: "run_bad",
+          cwd: "/repo",
+          correlationId: "bad",
+          error: "message failed"
+        },
+        { status: "ok", index: 2, runId: "run_ok_2" }
+      ]
+    });
+  });
+
+  it("recovers one corrupt message_many mailbox and still returns later message results", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-message-many-corrupt-"));
+    for (const runId of ["run_corrupt_many_message", "run_ok_many_message"]) {
+      await writeRunSidecar(workspace, {
+        runId,
+        role: "planner",
+        provider: "claude-code-cli",
+        status: "running",
+        createdAt: "2026-05-11T00:00:00.000Z",
+        updatedAt: "2026-05-11T00:00:01.000Z",
+        capabilitiesUsed: ["structuredOutput"],
+        evidencePaths: []
+      });
+    }
+    const inboxPath = mailboxPath(workspace, "run_corrupt_many_message", "inbox");
+    await mkdir(join(workspace, ".agent-team", "mailboxes", "run_corrupt_many_message"), {
+      recursive: true
+    });
+    await writeFile(inboxPath, "{\"bad\"\n", "utf8");
+    const handlers = createToolHandlers({ cwd: () => workspace });
+
+    const result = await handlers.handleToolCall("agent_team_message_many", {
+      messages: [
+        {
+          runId: "run_corrupt_many_message",
+          message: "bad",
+          correlationId: "bad"
+        },
+        { runId: "run_ok_many_message", message: "ok" }
+      ]
+    });
+
+    expect(result.structuredContent).toMatchObject({
+      status: "partial_failure",
+      messages: [
+        {
+          status: "state_corrupt",
+          index: 0,
+          runId: "run_corrupt_many_message",
+          cwd: workspace,
+          correlationId: "bad",
+          recovery: {
+            status: "state_corrupt",
+            runId: "run_corrupt_many_message",
+            operation: "agent_team_message_many",
+            kind: "jsonl",
+            originalPath: inboxPath,
+            recovery: "archived",
+            interventionRequired: true
+          }
+        },
+        {
+          status: "ok",
+          index: 1,
+          runId: "run_ok_many_message",
+          cwd: workspace,
+          result: { status: "recorded_for_resume" }
+        }
+      ]
+    });
+    const archivePath = (
+      result.structuredContent?.messages as Array<{ recovery?: { archivePath?: string } }>
+    )[0]?.recovery?.archivePath as string;
+    expect(archivePath).toContain(join(".agent-team", "archive"));
+    await expect(readFile(archivePath, "utf8")).resolves.toBe("{\"bad\"\n");
+  });
+
   it("archives corrupt mailboxes and returns a recovery result from reply", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "agent-team-corrupt-reply-"));
     await writeRunSidecar(workspace, {
@@ -1544,6 +1855,7 @@ describe("MCP tool handlers", () => {
       "agent_team_start_parallel",
       "agent_team_reply",
       "agent_team_message",
+      "agent_team_message_many",
       "agent_team_status",
       "agent_team_status_many",
       "agent_team_cancel",

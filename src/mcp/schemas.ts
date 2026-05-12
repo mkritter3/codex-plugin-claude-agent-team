@@ -67,6 +67,20 @@ const messageInputSchema = {
   correlationId
 };
 
+const messageManyItemInputSchema = z.object({
+  runId,
+  cwd,
+  message,
+  messageType,
+  correlationId
+});
+
+const messageManyInputSchema = {
+  messages: z.array(messageManyItemInputSchema).min(1),
+  cwd,
+  concurrency: z.number().int().min(1).max(8).optional()
+};
+
 const statusInputSchema = {
   runId,
   cwd
@@ -125,6 +139,11 @@ export const TOOL_METADATA_BY_NAME = {
     title: "Message Agent Session",
     description: "Record or deliver an in-flight message to a run.",
     inputSchema: messageInputSchema
+  },
+  agent_team_message_many: {
+    title: "Message Agent Sessions",
+    description: "Record or deliver in-flight messages to multiple runs with bounded concurrency.",
+    inputSchema: messageManyInputSchema
   },
   agent_team_status: {
     title: "Get Agent Status",
