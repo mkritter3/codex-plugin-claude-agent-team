@@ -98,6 +98,18 @@ const statusManyInputSchema = {
   concurrency: z.number().int().min(1).max(8).optional()
 };
 
+const summaryRunInputSchema = z.object({
+  runId,
+  cwd,
+  correlationId
+});
+
+const summaryInputSchema = {
+  runs: z.array(summaryRunInputSchema).min(1),
+  cwd,
+  concurrency: z.number().int().min(1).max(8).optional()
+};
+
 const cleanupInputSchema = {
   runId,
   cwd,
@@ -166,6 +178,11 @@ export const TOOL_METADATA_BY_NAME = {
     title: "Get Agent Statuses",
     description: "Read current durable state for multiple runs with bounded concurrency.",
     inputSchema: statusManyInputSchema
+  },
+  agent_team_summary: {
+    title: "Summarize Agent Team",
+    description: "Read grouped operational state and evidence pointers for multiple runs.",
+    inputSchema: summaryInputSchema
   },
   agent_team_cancel: {
     title: "Cancel Agent Session",

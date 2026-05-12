@@ -3,7 +3,10 @@ import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { StateCorruptionError } from "../../src/core/errors.js";
-import { readMailboxRecords } from "../../src/core/state/mailbox-store.js";
+import {
+  appendMailboxRecord,
+  readMailboxRecords
+} from "../../src/core/state/mailbox-store.js";
 import { mailboxPath, runSidecarPath } from "../../src/core/state/paths.js";
 import { writeRunSidecar } from "../../src/core/state/run-store.js";
 import { createToolHandlers, handleToolCall, listToolNames } from "../../src/mcp/tools.js";
@@ -856,6 +859,217 @@ describe("MCP tool handlers", () => {
     expect(
       eventsB.filter((record) => record.messageType === "detached_handle_missing")
     ).toHaveLength(1);
+  });
+
+  it("validates summary args before durable-state reads", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-summary-invalid-"));
+    const handlers = createToolHandlers({ cwd: () => workspace });
+
+    const invalidInputs: Record<string, unknown>[] = [
+      {},
+      { runs: [] },
+      { runs: [1] },
+      { runs: [{}] },
+      { runs: [{ runId: "" }] },
+      { runs: [{ runId: "run_1", cwd: 1 }] },
+      { runs: [{ runId: "run_1", correlationId: "" }] },
+      { cwd: "", runs: [{ runId: "run_1" }] },
+      { runs: [{ runId: "run_1" }], concurrency: 0 },
+      { runs: [{ runId: "run_1" }], concurrency: 9 },
+      { runs: [{ runId: "run_1" }], concurrency: 1.5 },
+      {
+        runs: [{ runId: "run_1" }, { runId: "run_1" }]
+      },
+      {
+        runs: [{ runId: "run_1" }, { runId: "run_1", cwd: `${workspace}/.` }]
+      }
+    ];
+
+    for (const input of invalidInputs) {
+      const result = await handlers.handleToolCall("agent_team_summary", input);
+      expect(result.structuredContent?.status).toBe("validation_error");
+    }
+  });
+
+  it("returns a read-only team summary from persisted sidecars and mailboxes", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-summary-"));
+    const otherWorkspace = await mkdtemp(join(tmpdir(), "agent-team-summary-other-"));
+    await writeRunSidecar(workspace, {
+      runId: "run_active_summary",
+      role: "slice-implementer",
+      provider: "claude-code-cli",
+      status: "running",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:01:00.000Z",
+      capabilitiesUsed: ["structuredOutput", "workspaceIsolation"],
+      evidencePaths: [join(workspace, ".agent-team", "logs", "run_active_summary.diff.patch")],
+      detached: true,
+      executionCwd: join(workspace, ".worktrees", "run_active_summary"),
+      workspaceRetention: "retain-until-integrated",
+      workspaceCleanup: "retained",
+      workspaceDiffPath: join(workspace, ".agent-team", "logs", "run_active_summary.diff.patch"),
+      changedFiles: ["src/core/team-summary.ts"],
+      verdict: {
+        status: "SHIP",
+        summary: "ready",
+        requiredChanges: [],
+        evidence: ["tests"],
+        risks: [],
+        warnings: [],
+        raw: "status: SHIP"
+      }
+    });
+    await writeRunSidecar(otherWorkspace, {
+      runId: "run_waiting_summary",
+      role: "planner",
+      provider: "claude-code-cli",
+      status: "awaiting-input",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:02:00.000Z",
+      capabilitiesUsed: ["structuredOutput"],
+      evidencePaths: [],
+      pendingOutboxRequest: {
+        id: "ask_1",
+        sequence: 1,
+        messageType: "clarification_request",
+        correlationId: "ask",
+        createdAt: "2026-05-11T00:02:00.000Z",
+        payload: { question: "Which file?" }
+      }
+    });
+    await appendMailboxRecord(workspace, "run_active_summary", "events", {
+      role: "slice-implementer",
+      provider: "claude-code-cli",
+      messageType: "detached_handle_missing",
+      correlationId: "event_1",
+      payload: { message: "detached" },
+      createdAt: "2026-05-11T00:01:00.000Z"
+    });
+    const handlers = createToolHandlers({ cwd: () => workspace });
+
+    const result = await handlers.handleToolCall("agent_team_summary", {
+      cwd: workspace,
+      concurrency: 2,
+      runs: [
+        { runId: "run_active_summary", correlationId: "active" },
+        { runId: "run_waiting_summary", cwd: otherWorkspace, correlationId: "waiting" }
+      ]
+    });
+
+    expect(result.structuredContent).toMatchObject({
+      status: "ok",
+      groups: {
+        running: ["run_active_summary"],
+        awaitingInput: ["run_waiting_summary"],
+        detached: ["run_active_summary"],
+        retainedWorktree: ["run_active_summary"]
+      },
+      runs: [
+        {
+          status: "ok",
+          index: 0,
+          runId: "run_active_summary",
+          cwd: workspace,
+          correlationId: "active",
+          run: {
+            role: "slice-implementer",
+            status: "running",
+            operationalState: "running",
+            detached: true,
+            retainedWorktree: true
+          },
+          evidence: {
+            sidecarPath: runSidecarPath(workspace, "run_active_summary"),
+            workspaceDiffPath: join(workspace, ".agent-team", "logs", "run_active_summary.diff.patch"),
+            changedFiles: ["src/core/team-summary.ts"],
+            verdict: { status: "SHIP" },
+            mailboxes: {
+              events: {
+                path: mailboxPath(workspace, "run_active_summary", "events"),
+                count: 1,
+                lastSequence: 1
+              }
+            }
+          }
+        },
+        {
+          status: "ok",
+          index: 1,
+          runId: "run_waiting_summary",
+          cwd: otherWorkspace,
+          correlationId: "waiting",
+          run: {
+            status: "awaiting-input",
+            operationalState: "awaitingInput",
+            pendingOutboxRequest: { id: "ask_1" }
+          }
+        }
+      ]
+    });
+  });
+
+  it("recovers one corrupt summary mailbox and still returns later summaries", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-summary-corrupt-"));
+    for (const runId of ["run_corrupt_summary", "run_ok_summary"]) {
+      await writeRunSidecar(workspace, {
+        runId,
+        role: "planner",
+        provider: "claude-code-cli",
+        status: "completed",
+        createdAt: "2026-05-11T00:00:00.000Z",
+        updatedAt: "2026-05-11T00:01:00.000Z",
+        capabilitiesUsed: ["structuredOutput"],
+        evidencePaths: []
+      });
+    }
+    const eventsPath = mailboxPath(workspace, "run_corrupt_summary", "events");
+    await mkdir(join(workspace, ".agent-team", "mailboxes", "run_corrupt_summary"), {
+      recursive: true
+    });
+    await writeFile(eventsPath, "{\"bad\"\n", "utf8");
+    const handlers = createToolHandlers({ cwd: () => workspace });
+
+    const result = await handlers.handleToolCall("agent_team_summary", {
+      runs: [
+        { runId: "run_corrupt_summary", correlationId: "bad" },
+        { runId: "run_ok_summary" }
+      ]
+    });
+
+    expect(result.structuredContent).toMatchObject({
+      status: "partial_failure",
+      groups: { terminal: ["run_ok_summary"] },
+      runs: [
+        {
+          status: "state_corrupt",
+          index: 0,
+          runId: "run_corrupt_summary",
+          cwd: workspace,
+          correlationId: "bad",
+          recovery: {
+            status: "state_corrupt",
+            runId: "run_corrupt_summary",
+            operation: "agent_team_summary",
+            kind: "jsonl",
+            originalPath: eventsPath,
+            recovery: "archived",
+            interventionRequired: true
+          }
+        },
+        {
+          status: "ok",
+          index: 1,
+          runId: "run_ok_summary",
+          cwd: workspace,
+          run: { operationalState: "terminal" }
+        }
+      ]
+    });
+    const archivePath = (
+      result.structuredContent?.runs as Array<{ recovery?: { archivePath?: string } }>
+    )[0]?.recovery?.archivePath as string;
+    expect(archivePath).toContain(join(".agent-team", "archive"));
+    await expect(readFile(archivePath, "utf8")).resolves.toBe("{\"bad\"\n");
   });
 
   it("returns implementation handoff fields from persisted status sidecars", async () => {
@@ -2133,6 +2347,7 @@ describe("MCP tool handlers", () => {
       "agent_team_message_many",
       "agent_team_status",
       "agent_team_status_many",
+      "agent_team_summary",
       "agent_team_cancel",
       "agent_team_wind_down",
       "agent_team_wind_down_many",

@@ -212,6 +212,117 @@ export interface AgentStatusManyResult {
   readonly runs: readonly AgentStatusManyItem[];
 }
 
+export interface AgentTeamSummaryRunRequest {
+  readonly runId: string;
+  readonly cwd: string;
+  readonly correlationId?: string;
+}
+
+export interface AgentTeamSummaryRequest {
+  readonly runs: readonly AgentTeamSummaryRunRequest[];
+  readonly concurrency: number;
+}
+
+export type AgentTeamSummaryOperationalState =
+  | "running"
+  | "awaitingInput"
+  | "windingDown"
+  | "terminal";
+
+export interface AgentTeamSummaryGroups {
+  readonly running: readonly string[];
+  readonly awaitingInput: readonly string[];
+  readonly windingDown: readonly string[];
+  readonly terminal: readonly string[];
+  readonly failed: readonly string[];
+  readonly detached: readonly string[];
+  readonly cleanupBlocked: readonly string[];
+  readonly retainedWorktree: readonly string[];
+}
+
+export interface AgentTeamSummaryMailboxEvidence {
+  readonly path: string;
+  readonly count: number;
+  readonly lastSequence?: number;
+}
+
+export interface AgentTeamSummaryEvidence {
+  readonly sidecarPath: string;
+  readonly mailboxes: Record<MailboxKind, AgentTeamSummaryMailboxEvidence>;
+  readonly logPath?: string;
+  readonly transcriptPath?: string;
+  readonly workspaceDiffPath?: string;
+  readonly workspaceStatus?: readonly string[];
+  readonly evidencePaths?: readonly string[];
+  readonly changedFiles?: readonly string[];
+  readonly verdict?: ParsedVerdict;
+}
+
+export interface AgentTeamSummaryRunState {
+  readonly runId: string;
+  readonly role: RoleId;
+  readonly provider: string;
+  readonly status: RunStatus;
+  readonly operationalState: AgentTeamSummaryOperationalState;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+  readonly detached: boolean;
+  readonly retainedWorktree: boolean;
+  readonly cleanupBlocked: boolean;
+  readonly detachedAt?: string;
+  readonly sourceCwd?: string;
+  readonly executionCwd?: string;
+  readonly workspaceBranchName?: string;
+  readonly workspaceBaseRef?: string;
+  readonly workspaceIsolation?: "git-worktree";
+  readonly workspaceRetention?: "retain-until-integrated";
+  readonly workspaceCleanup?: "retained" | "removed";
+  readonly workspaceStatus?: readonly string[];
+  readonly awaitingInputSince?: string;
+  readonly pendingOutboxRequest?: AgentOutboxRequestEvidence;
+  readonly outboxRequestIds?: readonly string[];
+  readonly warnings?: readonly string[];
+}
+
+export interface AgentTeamSummaryOk {
+  readonly status: "ok";
+  readonly index: number;
+  readonly runId: string;
+  readonly cwd: string;
+  readonly correlationId?: string;
+  readonly run: AgentTeamSummaryRunState;
+  readonly evidence: AgentTeamSummaryEvidence;
+}
+
+export interface AgentTeamSummaryFailed {
+  readonly status: "failed";
+  readonly index: number;
+  readonly runId: string;
+  readonly cwd: string;
+  readonly correlationId?: string;
+  readonly error: string;
+}
+
+export interface AgentTeamSummaryRecovered {
+  readonly status: "state_corrupt";
+  readonly index: number;
+  readonly runId: string;
+  readonly cwd: string;
+  readonly correlationId?: string;
+  readonly recovery: unknown;
+}
+
+export type AgentTeamSummaryRunResult =
+  | AgentTeamSummaryOk
+  | AgentTeamSummaryFailed
+  | AgentTeamSummaryRecovered;
+
+export interface AgentTeamSummaryResult {
+  readonly status: "ok" | "partial_failure";
+  readonly groups: AgentTeamSummaryGroups;
+  readonly runs: readonly AgentTeamSummaryRunResult[];
+}
+
 export interface AgentMessageManyItemRequest {
   readonly runId: string;
   readonly cwd: string;

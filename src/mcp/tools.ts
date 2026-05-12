@@ -11,8 +11,11 @@ import { startAgentTeamInParallel } from "../core/parallel-start.js";
 import { listRoles } from "../core/roles.js";
 import { createRunId } from "../core/run-ids.js";
 import { sendAgentMessages } from "../core/message-many.js";
+import { readMailboxRecords } from "../core/state/mailbox-store.js";
 import { recoverStateCorruption } from "../core/state/recovery.js";
+import { readRunSidecar } from "../core/state/run-store.js";
 import { readAgentStatuses } from "../core/status-many.js";
+import { summarizeAgentTeam } from "../core/team-summary.js";
 import { windDownAgentRuns } from "../core/wind-down-many.js";
 import type {
   AgentCleanupRequest,
@@ -31,6 +34,8 @@ import type {
   AgentStatusManyRequest,
   AgentStatusManyRun,
   AgentTeamConfig,
+  AgentTeamSummaryRequest,
+  AgentTeamSummaryRunRequest,
   AgentWindDownManyRequest,
   AgentWindDownManyRun,
   RoleId,
@@ -48,6 +53,7 @@ export const TOOL_NAMES = [
   "agent_team_message_many",
   "agent_team_status",
   "agent_team_status_many",
+  "agent_team_summary",
   "agent_team_cancel",
   "agent_team_wind_down",
   "agent_team_wind_down_many",
@@ -343,6 +349,84 @@ function parseStatusManyArgs(
     runs.push({
       runId: run.runId,
       cwd: itemCwd ?? defaultCwd ?? cwd,
+      ...(correlationId === undefined ? {} : { correlationId })
+    });
+  }
+
+  return {
+    runs,
+    concurrency
+  };
+}
+
+function parseSummaryArgs(
+  args: Record<string, unknown>,
+  cwd: string
+): AgentTeamSummaryRequest | JsonToolResult {
+  if (!Array.isArray(args.runs) || args.runs.length === 0) {
+    return validationError("agent_team_summary requires a non-empty runs array.");
+  }
+
+  const defaultCwd = readOptionalString(
+    args.cwd,
+    "agent_team_summary cwd must be a string."
+  );
+  if (typeof defaultCwd === "object") {
+    return defaultCwd;
+  }
+
+  const concurrency = args.concurrency === undefined ? 8 : args.concurrency;
+  if (
+    typeof concurrency !== "number" ||
+    !Number.isInteger(concurrency) ||
+    concurrency < 1 ||
+    concurrency > 8
+  ) {
+    return validationError(
+      "agent_team_summary concurrency must be an integer from 1 to 8."
+    );
+  }
+
+  const runs: AgentTeamSummaryRunRequest[] = [];
+  const seenTargets = new Set<string>();
+  for (const [index, value] of args.runs.entries()) {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      return validationError(`agent_team_summary runs[${index}] must be an object.`);
+    }
+
+    const run = value as Record<string, unknown>;
+    if (typeof run.runId !== "string" || run.runId.trim().length === 0) {
+      return validationError(`agent_team_summary runs[${index}] requires a non-empty runId.`);
+    }
+
+    const itemCwd = readOptionalString(
+      run.cwd,
+      `agent_team_summary runs[${index}] cwd must be a string.`
+    );
+    if (typeof itemCwd === "object") {
+      return itemCwd;
+    }
+
+    const correlationId = readOptionalString(
+      run.correlationId,
+      `agent_team_summary runs[${index}] correlationId must be a string.`
+    );
+    if (typeof correlationId === "object") {
+      return correlationId;
+    }
+
+    const resolvedCwd = itemCwd ?? defaultCwd ?? cwd;
+    const targetKey = `${resolve(resolvedCwd)}\0${run.runId}`;
+    if (seenTargets.has(targetKey)) {
+      return validationError(
+        `agent_team_summary runs[${index}] duplicates target ${run.runId}.`
+      );
+    }
+    seenTargets.add(targetKey);
+
+    runs.push({
+      runId: run.runId,
+      cwd: resolvedCwd,
       ...(correlationId === undefined ? {} : { correlationId })
     });
   }
@@ -781,6 +865,23 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
           ...(await readAgentStatuses(parsed, {
             getStatus: async (workspaceRoot, runId) =>
               (await lifecycleFor(workspaceRoot)).getStatus(workspaceRoot, runId),
+            recoverStateCorruption: async (input) => recoverStateCorruption(input)
+          }))
+        });
+      }
+
+      if (name === "agent_team_summary") {
+        const parsed = parseSummaryArgs(args, cwd());
+        if ("content" in parsed) {
+          return parsed;
+        }
+
+        return jsonToolResult({
+          ...(await summarizeAgentTeam(parsed, {
+            readRun: async (workspaceRoot, runId) =>
+              readRunSidecar(workspaceRoot, runId),
+            readMailbox: async (workspaceRoot, runId, kind) =>
+              readMailboxRecords(workspaceRoot, runId, kind),
             recoverStateCorruption: async (input) => recoverStateCorruption(input)
           }))
         });

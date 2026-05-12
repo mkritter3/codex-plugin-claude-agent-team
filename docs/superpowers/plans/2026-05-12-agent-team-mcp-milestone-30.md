@@ -36,13 +36,13 @@
 
 ## L11 Quality Gates
 
-- [ ] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
-- [ ] TDD red proof is captured for new core, MCP, schema, and packaged smoke behavior.
-- [ ] Focused milestone tests are listed with expected red and green outcomes.
-- [ ] Full verification commands are listed.
-- [ ] Selected matrix cases are explicitly named.
-- [ ] Invariant scans are listed.
-- [ ] Live provider smoke is marked required or not required with rationale.
+- [x] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
+- [x] TDD red proof is captured for new core, MCP, schema, and packaged smoke behavior.
+- [x] Focused milestone tests are listed with expected red and green outcomes.
+- [x] Full verification commands are listed.
+- [x] Selected matrix cases are explicitly named.
+- [x] Invariant scans are listed.
+- [x] Live provider smoke is marked required or not required with rationale.
 
 Selected quality-gate rows:
 
@@ -79,7 +79,7 @@ Live provider smoke is not required for this milestone because the tool reads du
 - Create: `src/core/team-summary.ts`
 - Create: `tests/core/team-summary.test.ts`
 
-- [ ] **Step 1: Write failing core tests**
+- [x] **Step 1: Write failing core tests**
 
 Create `tests/core/team-summary.test.ts` with tests for bounded concurrency, ordered results, group membership, evidence pointers, partial failures, state corruption, and recovery failure.
 
@@ -191,7 +191,7 @@ describe("summarizeAgentTeam", () => {
 });
 ```
 
-- [ ] **Step 2: Define provider-neutral types**
+- [x] **Step 2: Define provider-neutral types**
 
 Add summary request, result, group, run-state, mailbox-evidence, and evidence-pointer types to `src/core/types.ts`.
 
@@ -206,7 +206,7 @@ Type boundaries:
 - `AgentTeamSummaryEvidence`
 - `AgentTeamSummaryMailboxEvidence`
 
-- [ ] **Step 3: Implement bounded summary reader**
+- [x] **Step 3: Implement bounded summary reader**
 
 Create `src/core/team-summary.ts` with:
 
@@ -239,7 +239,7 @@ Operational grouping:
 - Modify: `tests/mcp/tools.test.ts`
 - Modify: `tests/mcp/server.test.ts`
 
-- [ ] **Step 1: Write failing MCP tests**
+- [x] **Step 1: Write failing MCP tests**
 
 Add tests that prove:
 
@@ -251,7 +251,7 @@ Add tests that prove:
 - valid calls use shared state readers and return JSON summary content
 - corrupt sidecar or mailbox state returns per-item recovery evidence
 
-- [ ] **Step 2: Add public schema**
+- [x] **Step 2: Add public schema**
 
 Add an MCP schema with title and description that describe a read-only team summary. Public fields:
 
@@ -271,7 +271,7 @@ Add an MCP schema with title and description that describe a read-only team summ
 
 The schema description must stay provider-neutral and must not mention internal prompts, Claude subscription details, provider command lines, process ids, cleanup implementation, or quality judgments.
 
-- [ ] **Step 3: Wire handler**
+- [x] **Step 3: Wire handler**
 
 Add `agent_team_summary` to `src/mcp/tools.ts` and call `summarizeAgentTeam` with:
 
@@ -289,11 +289,11 @@ Validation must run before durable-state readers are invoked.
 - Modify: `tests/package-runtime.test.ts`
 - Modify: `scripts/smoke-mcp-stdio.mjs`
 
-- [ ] **Step 1: Write failing package-runtime tests**
+- [x] **Step 1: Write failing package-runtime tests**
 
 Extend package-runtime coverage so the packaged smoke script must mention `agent_team_summary`.
 
-- [ ] **Step 2: Extend packaged stdio smoke**
+- [x] **Step 2: Extend packaged stdio smoke**
 
 Add a built-runtime smoke assertion that calling `agent_team_summary` without `runs` returns a validation error.
 
@@ -303,11 +303,11 @@ Add a built-runtime smoke assertion that calling `agent_team_summary` without `r
 
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-milestone-30.md`
 
-- [ ] **Step 1: Mark completed gates**
+- [x] **Step 1: Mark completed gates**
 
 After implementation and verification, update this plan’s L11 checklist and task checkboxes.
 
-- [ ] **Step 2: Run focused verification**
+- [x] **Step 2: Run focused verification**
 
 Commands:
 
@@ -319,7 +319,7 @@ npm run build
 node scripts/smoke-mcp-stdio.mjs
 ```
 
-- [ ] **Step 3: Run invariant scans**
+- [x] **Step 3: Run invariant scans**
 
 Commands:
 
@@ -328,7 +328,7 @@ rg -n "mock LLM|mockLLM|fake LLM|heuristic|quality score|benchmark claim|API key
 rg -n "agent_team_summary" src tests scripts docs/superpowers/plans/2026-05-12-agent-team-mcp-milestone-30.md
 ```
 
-- [ ] **Step 4: Run full CI**
+- [x] **Step 4: Run full CI**
 
 Command:
 
