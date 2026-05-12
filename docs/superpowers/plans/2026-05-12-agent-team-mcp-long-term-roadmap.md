@@ -301,6 +301,18 @@ That gate requires:
 
 **Status:** Complete. `npm run smoke:claude-live` now has a dry-run plan, fails closed without `--confirm-live-provider-use`, checks `policy.liveSmokeEnabled` after doctor before live execution, drives the packaged `dist/index.js` MCP stdio boundary through public team tools, waits on bounded status polling, and emits a sanitized report. The command stays out of CI while focused tests, full tests, packaged smokes, invariant scans, and `npm run ci` prove fixture-safe behavior.
 
+### Milestone 44: Install Handoff And MCP Config Preflight
+
+**Goal:** Make local installation handoff repeatable by adding a fixture-safe command that validates the install surface and prints an absolute MCP config for Codex clients.
+
+**Success Criteria:**
+
+- `npm run install:check` validates package metadata, plugin manifest, local `.mcp.json`, built runtime, and install script packaging without provider calls.
+- The command emits a sanitized JSON report with ordered checks, `ready` or `blocked` status, an absolute `mcpServers.agent-team` config, and next steps.
+- The generated config uses the packaged runtime boundary (`node` plus absolute `dist/index.js`) and does not expose prompts, provider internals, env values, secrets, or auth tokens.
+- `npm run ci` includes the install preflight after build and before packaged stdio smoke.
+- README/runbook/package smoke tests cover the install handoff without adding live provider usage to CI.
+
 ## Definition Of Done For V1
 
 V1 is complete when Codex can reliably:
@@ -321,4 +333,4 @@ V1.5 is complete when at least one non-Claude provider can be configured explici
 
 ## Near-Term Recommendation
 
-Milestones 40 through 43 are complete. The current roadmap has reached the planned V2 product maturity baseline for durable team records, dashboard visibility, policy/audit controls, release/upgrade safety, and an opt-in live Claude team smoke harness. The next implementation target should be selected among install UX, expanded provider capability proofs, or a local operator UI.
+Milestones 40 through 43 are complete. The current roadmap has reached the planned V2 product maturity baseline for durable team records, dashboard visibility, policy/audit controls, release/upgrade safety, and an opt-in live Claude team smoke harness. The next implementation target is Milestone 44 because installation handoff is the lowest-risk way to make the package usable repeatedly before adding broader provider proof or operator UI surfaces.
