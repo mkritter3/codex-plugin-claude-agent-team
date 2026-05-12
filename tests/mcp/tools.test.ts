@@ -1335,6 +1335,275 @@ describe("MCP tool handlers", () => {
     await expect(readFile(archivePath, "utf8")).resolves.toBe("{\"bad\"\n");
   });
 
+  it("validates wind_down_many args before invoking lifecycle", async () => {
+    let called = false;
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      lifecycle: {
+        async startRun() {
+          throw new Error("should not start");
+        },
+        async getStatus() {
+          throw new Error("should not status");
+        },
+        async messageRun() {
+          throw new Error("should not message");
+        },
+        async replyRun() {
+          throw new Error("should not reply");
+        },
+        async cancelRun() {
+          throw new Error("should not cancel");
+        },
+        async windDownRun() {
+          called = true;
+          throw new Error("should not wind down");
+        }
+      }
+    });
+
+    const invalidInputs: Record<string, unknown>[] = [
+      {},
+      { runs: [] },
+      { runs: [1] },
+      { runs: [{}] },
+      { runs: [{ runId: "" }] },
+      { runs: [{ runId: "run_1", cwd: 1 }] },
+      { runs: [{ runId: "run_1", correlationId: "" }] },
+      { cwd: "", runs: [{ runId: "run_1" }] },
+      { runs: [{ runId: "run_1" }], concurrency: 0 },
+      { runs: [{ runId: "run_1" }], concurrency: 9 },
+      { runs: [{ runId: "run_1" }], concurrency: 1.5 },
+      {
+        runs: [{ runId: "run_1" }, { runId: "run_1" }]
+      },
+      {
+        runs: [{ runId: "run_1" }, { runId: "run_1", cwd: "/repo/." }]
+      }
+    ];
+
+    for (const input of invalidInputs) {
+      const result = await handlers.handleToolCall("agent_team_wind_down_many", input);
+      expect(result.structuredContent?.status).toBe("validation_error");
+    }
+    expect(called).toBe(false);
+  });
+
+  it("winds down many runs through the lifecycle registry with default and per-run cwd", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-wind-many-"));
+    const otherWorkspace = await mkdtemp(join(tmpdir(), "agent-team-wind-many-other-"));
+    const managerByCwd = new Map<string, string>();
+    const calls: string[] = [];
+    let managerCount = 0;
+    const handlers = createToolHandlers({
+      cwd: () => workspace,
+      lifecycleFactory: () => {
+        managerCount += 1;
+        const managerId = `manager_${managerCount}`;
+        return {
+          async startRun() {
+            throw new Error("should not start");
+          },
+          async getStatus() {
+            throw new Error("should not status");
+          },
+          async messageRun() {
+            throw new Error("should not message");
+          },
+          async replyRun() {
+            throw new Error("should not reply");
+          },
+          async cancelRun() {
+            throw new Error("should not cancel");
+          },
+          async windDownRun(cwd, runId) {
+            managerByCwd.set(cwd, managerId);
+            calls.push(`${managerId}:${cwd}:${runId}`);
+            return {
+              runId,
+              status: runId === "run_b" ? "completed" : "winding-down",
+              sidecarPath: `${cwd}/.agent-team/runs/${runId}.json`,
+              message:
+                runId === "run_b"
+                  ? "Run completed during wind-down."
+                  : "Wind-down requested."
+            };
+          }
+        };
+      }
+    });
+
+    const result = await handlers.handleToolCall("agent_team_wind_down_many", {
+      cwd: workspace,
+      concurrency: 2,
+      runs: [
+        { runId: "run_a", correlationId: "a" },
+        { runId: "run_b", cwd: otherWorkspace, correlationId: "b" },
+        { runId: "run_c" }
+      ]
+    });
+
+    expect(managerByCwd.get(workspace)).toBeDefined();
+    expect(managerByCwd.get(otherWorkspace)).toBeDefined();
+    expect(managerByCwd.get(workspace)).not.toBe(managerByCwd.get(otherWorkspace));
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        `${managerByCwd.get(workspace)}:${workspace}:run_a`,
+        `${managerByCwd.get(workspace)}:${workspace}:run_c`,
+        `${managerByCwd.get(otherWorkspace)}:${otherWorkspace}:run_b`
+      ])
+    );
+    expect(result.structuredContent).toMatchObject({
+      status: "ok",
+      runs: [
+        {
+          status: "ok",
+          index: 0,
+          runId: "run_a",
+          cwd: workspace,
+          correlationId: "a",
+          result: { runId: "run_a", status: "winding-down" }
+        },
+        {
+          status: "ok",
+          index: 1,
+          runId: "run_b",
+          cwd: otherWorkspace,
+          correlationId: "b",
+          result: { runId: "run_b", status: "completed" }
+        },
+        {
+          status: "ok",
+          index: 2,
+          runId: "run_c",
+          cwd: workspace,
+          result: { runId: "run_c", status: "winding-down" }
+        }
+      ]
+    });
+  });
+
+  it("returns partial failures from wind_down_many without dropping later runs", async () => {
+    const attempted: string[] = [];
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      lifecycle: {
+        async startRun() {
+          throw new Error("should not start");
+        },
+        async getStatus() {
+          throw new Error("should not status");
+        },
+        async messageRun() {
+          throw new Error("should not message");
+        },
+        async replyRun() {
+          throw new Error("should not reply");
+        },
+        async cancelRun() {
+          throw new Error("should not cancel");
+        },
+        async windDownRun(_cwd, runId) {
+          attempted.push(runId);
+          if (runId === "run_bad") {
+            throw new Error("wind failed");
+          }
+          return {
+            runId,
+            status: "winding-down",
+            sidecarPath: `/repo/.agent-team/runs/${runId}.json`,
+            message: "Wind-down requested."
+          };
+        }
+      }
+    });
+
+    const result = await handlers.handleToolCall("agent_team_wind_down_many", {
+      concurrency: 1,
+      runs: [
+        { runId: "run_ok_1" },
+        { runId: "run_bad", correlationId: "bad" },
+        { runId: "run_ok_2" }
+      ]
+    });
+
+    expect(attempted).toEqual(["run_ok_1", "run_bad", "run_ok_2"]);
+    expect(result.structuredContent).toMatchObject({
+      status: "partial_failure",
+      runs: [
+        { status: "ok", index: 0, runId: "run_ok_1" },
+        {
+          status: "failed",
+          index: 1,
+          runId: "run_bad",
+          cwd: "/repo",
+          correlationId: "bad",
+          error: "wind failed"
+        },
+        { status: "ok", index: 2, runId: "run_ok_2" }
+      ]
+    });
+  });
+
+  it("recovers one corrupt wind_down_many sidecar and still returns later wind-down results", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-wind-many-corrupt-"));
+    await writeRunSidecar(workspace, {
+      runId: "run_ok_many_wind",
+      role: "planner",
+      provider: "claude-code-cli",
+      status: "running",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:00:01.000Z",
+      capabilitiesUsed: ["structuredOutput"],
+      evidencePaths: []
+    });
+    const corruptPath = runSidecarPath(workspace, "run_corrupt_many_wind");
+    await mkdir(join(workspace, ".agent-team", "runs"), { recursive: true });
+    await writeFile(corruptPath, "{\"bad\"\n", "utf8");
+    const handlers = createToolHandlers({ cwd: () => workspace });
+
+    const result = await handlers.handleToolCall("agent_team_wind_down_many", {
+      runs: [
+        { runId: "run_corrupt_many_wind", correlationId: "bad" },
+        { runId: "run_ok_many_wind" }
+      ]
+    });
+
+    expect(result.structuredContent).toMatchObject({
+      status: "partial_failure",
+      runs: [
+        {
+          status: "state_corrupt",
+          index: 0,
+          runId: "run_corrupt_many_wind",
+          cwd: workspace,
+          correlationId: "bad",
+          recovery: {
+            status: "state_corrupt",
+            runId: "run_corrupt_many_wind",
+            operation: "agent_team_wind_down_many",
+            kind: "json",
+            originalPath: corruptPath,
+            recovery: "archived",
+            interventionRequired: true
+          }
+        },
+        {
+          status: "ok",
+          index: 1,
+          runId: "run_ok_many_wind",
+          cwd: workspace,
+          result: { status: "winding-down" }
+        }
+      ]
+    });
+    const archivePath = (
+      result.structuredContent?.runs as Array<{ recovery?: { archivePath?: string } }>
+    )[0]?.recovery?.archivePath as string;
+    expect(archivePath).toContain(join(".agent-team", "archive"));
+    await expect(readFile(archivePath, "utf8")).resolves.toBe("{\"bad\"\n");
+  });
+
   it("archives corrupt mailboxes and returns a recovery result from reply", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "agent-team-corrupt-reply-"));
     await writeRunSidecar(workspace, {
@@ -1866,6 +2135,7 @@ describe("MCP tool handlers", () => {
       "agent_team_status_many",
       "agent_team_cancel",
       "agent_team_wind_down",
+      "agent_team_wind_down_many",
       "agent_team_cleanup",
       "agent_team_doctor",
       "agent_team_list_roles",

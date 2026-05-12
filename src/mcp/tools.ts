@@ -13,6 +13,7 @@ import { createRunId } from "../core/run-ids.js";
 import { sendAgentMessages } from "../core/message-many.js";
 import { recoverStateCorruption } from "../core/state/recovery.js";
 import { readAgentStatuses } from "../core/status-many.js";
+import { windDownAgentRuns } from "../core/wind-down-many.js";
 import type {
   AgentCleanupRequest,
   AgentCleanupResult,
@@ -30,6 +31,8 @@ import type {
   AgentStatusManyRequest,
   AgentStatusManyRun,
   AgentTeamConfig,
+  AgentWindDownManyRequest,
+  AgentWindDownManyRun,
   RoleId,
   RunSidecar
 } from "../core/types.js";
@@ -47,6 +50,7 @@ export const TOOL_NAMES = [
   "agent_team_status_many",
   "agent_team_cancel",
   "agent_team_wind_down",
+  "agent_team_wind_down_many",
   "agent_team_cleanup",
   "agent_team_doctor",
   "agent_team_list_roles",
@@ -473,6 +477,86 @@ function parseMessageManyArgs(
   };
 }
 
+function parseWindDownManyArgs(
+  args: Record<string, unknown>,
+  cwd: string
+): AgentWindDownManyRequest | JsonToolResult {
+  if (!Array.isArray(args.runs) || args.runs.length === 0) {
+    return validationError("agent_team_wind_down_many requires a non-empty runs array.");
+  }
+
+  const defaultCwd = readOptionalString(
+    args.cwd,
+    "agent_team_wind_down_many cwd must be a string."
+  );
+  if (typeof defaultCwd === "object") {
+    return defaultCwd;
+  }
+
+  const concurrency = args.concurrency === undefined ? 8 : args.concurrency;
+  if (
+    typeof concurrency !== "number" ||
+    !Number.isInteger(concurrency) ||
+    concurrency < 1 ||
+    concurrency > 8
+  ) {
+    return validationError(
+      "agent_team_wind_down_many concurrency must be an integer from 1 to 8."
+    );
+  }
+
+  const runs: AgentWindDownManyRun[] = [];
+  const seenTargets = new Set<string>();
+  for (const [index, value] of args.runs.entries()) {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      return validationError(`agent_team_wind_down_many runs[${index}] must be an object.`);
+    }
+
+    const run = value as Record<string, unknown>;
+    if (typeof run.runId !== "string" || run.runId.trim().length === 0) {
+      return validationError(
+        `agent_team_wind_down_many runs[${index}] requires a non-empty runId.`
+      );
+    }
+
+    const itemCwd = readOptionalString(
+      run.cwd,
+      `agent_team_wind_down_many runs[${index}] cwd must be a string.`
+    );
+    if (typeof itemCwd === "object") {
+      return itemCwd;
+    }
+
+    const correlationId = readOptionalString(
+      run.correlationId,
+      `agent_team_wind_down_many runs[${index}] correlationId must be a string.`
+    );
+    if (typeof correlationId === "object") {
+      return correlationId;
+    }
+
+    const resolvedCwd = itemCwd ?? defaultCwd ?? cwd;
+    const targetKey = `${resolve(resolvedCwd)}\0${run.runId}`;
+    if (seenTargets.has(targetKey)) {
+      return validationError(
+        `agent_team_wind_down_many runs[${index}] duplicates target ${run.runId}.`
+      );
+    }
+    seenTargets.add(targetKey);
+
+    runs.push({
+      runId: run.runId,
+      cwd: resolvedCwd,
+      ...(correlationId === undefined ? {} : { correlationId })
+    });
+  }
+
+  return {
+    runs,
+    concurrency
+  };
+}
+
 function parseReplyArgs(
   args: Record<string, unknown>,
   cwd: string
@@ -723,6 +807,21 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
                 : await lifecycle.windDownRun(workspaceRoot, runId);
             return jsonToolResult({ ...result });
           }
+        });
+      }
+
+      if (name === "agent_team_wind_down_many") {
+        const parsed = parseWindDownManyArgs(args, cwd());
+        if ("content" in parsed) {
+          return parsed;
+        }
+
+        return jsonToolResult({
+          ...(await windDownAgentRuns(parsed, {
+            windDownRun: async (workspaceRoot, runId) =>
+              (await lifecycleFor(workspaceRoot)).windDownRun(workspaceRoot, runId),
+            recoverStateCorruption: async (input) => recoverStateCorruption(input)
+          }))
         });
       }
 

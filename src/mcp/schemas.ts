@@ -104,6 +104,18 @@ const cleanupInputSchema = {
   force
 };
 
+const windDownManyRunInputSchema = z.object({
+  runId,
+  cwd,
+  correlationId
+});
+
+const windDownManyInputSchema = {
+  runs: z.array(windDownManyRunInputSchema).min(1),
+  cwd,
+  concurrency: z.number().int().min(1).max(8).optional()
+};
+
 const cwdOnlyInputSchema = {
   cwd
 };
@@ -164,6 +176,11 @@ export const TOOL_METADATA_BY_NAME = {
     title: "Wind Down Agent Session",
     description: "Request graceful finalization for an active or durable run.",
     inputSchema: statusInputSchema
+  },
+  agent_team_wind_down_many: {
+    title: "Wind Down Agent Sessions",
+    description: "Request graceful finalization for multiple active or durable runs with bounded concurrency.",
+    inputSchema: windDownManyInputSchema
   },
   agent_team_cleanup: {
     title: "Cleanup Agent Workspace",

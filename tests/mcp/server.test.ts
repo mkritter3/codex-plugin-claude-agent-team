@@ -37,6 +37,7 @@ vi.mock("../../src/mcp/tools.js", () => ({
     "agent_team_message_many",
     "agent_team_status",
     "agent_team_status_many",
+    "agent_team_wind_down_many",
     "agent_team_cleanup"
   ],
   createToolHandlers: mocks.createToolHandlers,
@@ -73,6 +74,7 @@ describe("MCP server", () => {
       "agent_team_message_many",
       "agent_team_status",
       "agent_team_status_many",
+      "agent_team_wind_down_many",
       "agent_team_cleanup"
     ]);
   });
@@ -103,6 +105,9 @@ describe("MCP server", () => {
       runId: expect.any(Object)
     });
     expect(metadataByName.get("agent_team_status_many")?.inputSchema).toMatchObject({
+      runs: expect.any(Object)
+    });
+    expect(metadataByName.get("agent_team_wind_down_many")?.inputSchema).toMatchObject({
       runs: expect.any(Object)
     });
     expect(metadataByName.get("agent_team_cleanup")?.inputSchema).toMatchObject({

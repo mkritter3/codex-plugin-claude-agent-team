@@ -75,6 +75,7 @@ async function main() {
     assertToolRequires(tools.tools, "agent_team_message_many", ["messages"]);
     assertToolRequires(tools.tools, "agent_team_status", ["runId"]);
     assertToolRequires(tools.tools, "agent_team_status_many", ["runs"]);
+    assertToolRequires(tools.tools, "agent_team_wind_down_many", ["runs"]);
     assertObjectSchema(tools.tools, "agent_team_list_roles");
 
     const result = await client.callTool({
