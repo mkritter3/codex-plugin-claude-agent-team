@@ -110,6 +110,10 @@ Treat these as first-class records:
 - If a result is `state_corrupt`, preserve the archive path and repair state before continuing.
 - If cleanup is blocked, review the retained implementation worktree and diff evidence before calling `agent_team_cleanup`.
 
+## Provider Adapter Development
+
+Before adding a new provider adapter, add a fixture-backed suite with `describeProviderRuntimeConformance` from `tests/providers/conformance/runtime-conformance.ts`. The harness proves provider runtime mechanics, routing capability gates, health shape, session handles, resume metadata, cancellation hooks, and structured result boundaries without live-provider calls or quality claims.
+
 ## Release Gate
 
 Every integrated change should pass:

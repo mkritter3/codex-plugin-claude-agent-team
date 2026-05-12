@@ -4,6 +4,7 @@ import {
   listProviderRuntimes,
   requireProviderRuntime
 } from "../../src/providers/index.js";
+import { describeProviderRuntimeConformance } from "./conformance/runtime-conformance.js";
 
 describe("provider runtime registry", () => {
   it("lists the bundled Claude Code CLI runtime", () => {
@@ -23,5 +24,9 @@ describe("provider runtime registry", () => {
     expect(() => requireProviderRuntime("missing-provider")).toThrow(
       "No provider runtime registered for missing-provider."
     );
+  });
+
+  it("exports the provider runtime conformance helper for future adapters", () => {
+    expect(typeof describeProviderRuntimeConformance).toBe("function");
   });
 });

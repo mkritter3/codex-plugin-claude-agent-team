@@ -35,13 +35,13 @@
 
 ## L11 Quality Gates
 
-- [ ] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
-- [ ] TDD red proof is captured for new behavior.
-- [ ] Focused milestone tests are listed with expected red and green outcomes.
-- [ ] Full verification commands are listed.
-- [ ] Required edge cases from the matrix are explicitly selected.
-- [ ] Invariant scans are listed.
-- [ ] Live provider smoke is marked required or not required with rationale.
+- [x] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
+- [x] TDD red proof is captured for new behavior.
+- [x] Focused milestone tests are listed with expected red and green outcomes.
+- [x] Full verification commands are listed.
+- [x] Required edge cases from the matrix are explicitly selected.
+- [x] Invariant scans are listed.
+- [x] Live provider smoke is marked required or not required with rationale.
 
 Selected quality-gate rows:
 
@@ -82,7 +82,7 @@ Live provider smoke is not required for M33 because the harness proves adapter m
 
 - Create: `tests/providers/conformance/runtime-conformance.test.ts`
 
-- [ ] **Step 1: Write failing fixture conformance tests**
+- [x] **Step 1: Write failing fixture conformance tests**
 
 Create `tests/providers/conformance/runtime-conformance.test.ts` that imports `describeProviderRuntimeConformance` and defines:
 
@@ -102,7 +102,7 @@ Run:
 npm test -- tests/providers/conformance/runtime-conformance.test.ts
 ```
 
-Expected: FAIL because `tests/providers/conformance/runtime-conformance.ts` does not exist yet.
+Observed: FAIL because `tests/providers/conformance/runtime-conformance.ts` did not exist yet.
 
 ## Task 2: Implement The Harness
 
@@ -111,7 +111,7 @@ Expected: FAIL because `tests/providers/conformance/runtime-conformance.ts` does
 - Create: `tests/providers/conformance/runtime-conformance.ts`
 - Modify: `tests/providers/conformance/runtime-conformance.test.ts`
 
-- [ ] **Step 1: Add conformance helper API**
+- [x] **Step 1: Add conformance helper API**
 
 Export:
 
@@ -131,7 +131,7 @@ export function describeProviderRuntimeConformance(
 ): void
 ```
 
-- [ ] **Step 2: Implement conformance assertions**
+- [x] **Step 2: Implement conformance assertions**
 
 Inside the helper, define Vitest tests that assert:
 
@@ -145,7 +145,7 @@ Inside the helper, define Vitest tests that assert:
 - resume input propagates through `sessionId`
 - `kill()` and `forceKill()` are callable and the done status resolves to an allowed status
 
-- [ ] **Step 3: Run focused conformance tests**
+- [x] **Step 3: Run focused conformance tests**
 
 Run:
 
@@ -153,7 +153,7 @@ Run:
 npm test -- tests/providers/conformance/runtime-conformance.test.ts
 ```
 
-Expected: PASS.
+Observed: PASS.
 
 ## Task 3: Registry And Documentation Coverage
 
@@ -164,7 +164,7 @@ Expected: PASS.
 - Modify: `CHANGELOG.md`
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-long-term-roadmap.md`
 
-- [ ] **Step 1: Add failing registry/docs assertions**
+- [x] **Step 1: Add failing registry/docs assertions**
 
 Update `tests/providers/runtime.test.ts` to assert that the conformance helper exists and is referenced as the expected future-adapter gate. Add docs assertions only if an existing docs test already covers the target text; otherwise keep docs proof through focused grep and final scans.
 
@@ -174,9 +174,9 @@ Run:
 npm test -- tests/providers/runtime.test.ts
 ```
 
-Expected: FAIL until the helper export and docs references exist.
+Observed: the helper import guard passed after helper implementation; docs coverage was verified with packaging/runbook tests and invariant scans.
 
-- [ ] **Step 2: Update provider registry tests**
+- [x] **Step 2: Update provider registry tests**
 
 Keep runtime registry tests focused on:
 
@@ -185,7 +185,7 @@ Keep runtime registry tests focused on:
 - missing runtime still fails closed
 - conformance helper import is available for future provider tests
 
-- [ ] **Step 3: Update README, changelog, and roadmap**
+- [x] **Step 3: Update README, changelog, and roadmap**
 
 Update:
 
@@ -193,7 +193,7 @@ Update:
 - `CHANGELOG.md`: add M33 conformance harness coverage to `0.1.0`.
 - Roadmap: mark M33 complete in the current baseline and move near-term recommendation to M34.
 
-- [ ] **Step 4: Run focused registry/docs tests**
+- [x] **Step 4: Run focused registry/docs tests**
 
 Run:
 
@@ -201,7 +201,7 @@ Run:
 npm test -- tests/providers/runtime.test.ts tests/docs/packaging.test.ts tests/docs/runbook.test.ts
 ```
 
-Expected: PASS.
+Observed: PASS.
 
 ## Task 4: Verification And Integration
 
@@ -209,7 +209,7 @@ Expected: PASS.
 
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-milestone-33.md`
 
-- [ ] **Step 1: Run focused milestone tests**
+- [x] **Step 1: Run focused milestone tests**
 
 Run:
 
@@ -217,9 +217,9 @@ Run:
 npm test -- tests/providers/conformance/runtime-conformance.test.ts tests/providers/runtime.test.ts tests/docs/packaging.test.ts tests/docs/runbook.test.ts
 ```
 
-Expected: PASS.
+Observed: PASS.
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -231,9 +231,9 @@ npm run smoke:mcp-stdio
 npm run ci
 ```
 
-Expected: all PASS.
+Observed: all PASS.
 
-- [ ] **Step 3: Run invariant scans**
+- [x] **Step 3: Run invariant scans**
 
 Run:
 
@@ -245,9 +245,17 @@ rg "process.kill|SIGKILL|automatic cleanup|workspace_cleanup_removed|cleanupRunW
 rg "provider-specific MCP|internal prompt|hidden instruction|generated agent definition" src tests docs README.md CHANGELOG.md
 ```
 
-Expected: matches are existing guard tests/docs or the new conformance harness docs. New implementation must not introduce public provider-specific schemas, hidden prompt leakage, process-kill shortcuts, API fallback, benchmark, or model-quality claims.
+Observed: matches were existing guard tests/docs or the new conformance harness docs/fixtures. No public provider-specific schema, hidden prompt leakage, process-kill shortcut, API fallback, benchmark, or model-quality claim was introduced.
 
-- [ ] **Step 4: Mark plan complete and commit**
+- [x] **Step 4: Mark plan complete and commit**
 
 After all proof is captured, mark the L11 gates and task checkboxes complete in this plan, then commit the implementation branch.
 
+## Verification Evidence
+
+- Baseline before implementation: `npm test` passed with 40 files and 266 tests.
+- Red proof: `npm test -- tests/providers/conformance/runtime-conformance.test.ts` failed because `tests/providers/conformance/runtime-conformance.ts` did not exist.
+- Focused conformance proof: `npm test -- tests/providers/conformance/runtime-conformance.test.ts` passed with 7 tests.
+- Focused milestone proof: `npm test -- tests/providers/conformance/runtime-conformance.test.ts tests/providers/runtime.test.ts tests/docs/packaging.test.ts tests/docs/runbook.test.ts` passed with 4 files and 18 tests.
+- Full proof: `npm run typecheck && npm test && npm run build && npm run smoke:mcp-stdio` passed with 41 files and 274 tests plus packaged stdio smoke.
+- Invariant scans completed for auth posture, permission/bypass boundaries, benchmark/model-quality claims, cleanup/process-kill shortcuts, and prompt/provider-specific schema leakage.

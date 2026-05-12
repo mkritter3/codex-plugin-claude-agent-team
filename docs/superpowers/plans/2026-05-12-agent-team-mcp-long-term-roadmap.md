@@ -27,7 +27,7 @@ Codex should be able to stand up and manage an external AI agent team from insid
 
 ## Current Baseline
 
-Completed through Milestone 32, including Milestone 29 batch cancel:
+Completed through Milestone 33:
 
 - package scaffold, MCP server, CI, stdio smoke, and schema coverage
 - provider-neutral roles, capabilities, router, config, and doctor
@@ -42,6 +42,7 @@ Completed through Milestone 32, including Milestone 29 batch cancel:
 - `agent_team_cancel_many`
 - `agent_team_wind_down_many`
 - `agent_team_summary`
+- provider runtime conformance harness for future adapters
 - end-to-end Claude team session runbook
 - README, changelog/versioning policy, license, and package/plugin metadata alignment
 
@@ -279,8 +280,8 @@ V1.5 is complete when at least one non-Claude provider can be configured explici
 
 Implement the next milestones in this order:
 
-1. Milestone 33: Provider Adapter Conformance Harness
-2. Milestone 34: OpenAI-Compatible Adapter Foundation
-3. Milestone 35: Ollama Cloud Profiles
+1. Milestone 34: OpenAI-Compatible Adapter Foundation
+2. Milestone 35: Ollama Cloud Profiles
+3. Milestone 36: Gemini Adapter
 
 This order finishes the V1 control plane before adding provider breadth.
