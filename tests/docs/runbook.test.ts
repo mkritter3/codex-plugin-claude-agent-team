@@ -38,6 +38,9 @@ describe("Claude team session runbook", () => {
     }
     expect(doc).toContain("opt-in live smoke");
     expect(doc).toContain("not part of CI");
+    expect(doc).toContain(".agent-team/audit/events.jsonl");
+    expect(doc).toContain("allowedProviderSelectors");
+    expect(doc).toContain("auditEnabled");
     expect(doc).toContain("retained implementation worktree");
     expect(doc).toContain("state_corrupt");
     expect(doc).toContain("partial_failure");

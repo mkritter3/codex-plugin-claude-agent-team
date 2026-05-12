@@ -156,6 +156,7 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
     input.inspectGitWorktreeSupport ?? defaultInspectGitWorktreeSupport;
   const checks: DoctorCheck[] = [];
   let config: AgentTeamConfig = DEFAULT_AGENT_TEAM_CONFIG;
+  let configLoaded = false;
 
   const major = nodeMajor(nodeVersion);
   if (major !== undefined && major >= 22) {
@@ -200,6 +201,7 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
 
   try {
     config = await loadConfig(workspaceRoot);
+    configLoaded = true;
     checks.push({
       id: "config",
       status: "pass",
@@ -247,6 +249,38 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
         fix: `Fix or remove ${workspaceRoot}/.agent-team/config.json.`
       }
     });
+  }
+
+  if (configLoaded) {
+    const policyDetails = {
+      allowedRoles: config.policy.allowedRoles,
+      allowedProviderSelectors: config.policy.allowedProviderSelectors,
+      allowWriteMode: config.policy.allowWriteMode,
+      allowedWorktreeRoots: config.policy.allowedWorktreeRoots,
+      liveSmokeEnabled: config.policy.liveSmokeEnabled,
+      auditEnabled: config.policy.auditEnabled
+    };
+    if (config.writeMode.enabled && !config.policy.allowWriteMode) {
+      checks.push({
+        id: "policy",
+        status: "fail",
+        message: "Agent Team policy forbids write-capable starts while write mode is enabled.",
+        details: {
+          ...policyDetails,
+          reason: "write_mode_not_allowed",
+          fix: "Either disable writeMode.enabled or set policy.allowWriteMode to true after confirming isolated worktree controls."
+        }
+      });
+    } else {
+      checks.push({
+        id: "policy",
+        status: config.policy.auditEnabled ? "pass" : "warn",
+        message: config.policy.auditEnabled
+          ? "Agent Team policy posture is compatible with workspace config."
+          : "Agent Team policy audit writes are explicitly disabled.",
+        details: policyDetails
+      });
+    }
   }
 
   try {

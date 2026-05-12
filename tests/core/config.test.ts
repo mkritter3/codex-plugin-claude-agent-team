@@ -28,6 +28,21 @@ describe("loadAgentTeamConfig", () => {
     });
   });
 
+  it("defaults policy to unrestricted roles and providers with audit enabled", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-config-"));
+
+    await expect(loadAgentTeamConfig(workspace)).resolves.toMatchObject({
+      policy: {
+        allowedRoles: [],
+        allowedProviderSelectors: [],
+        allowWriteMode: true,
+        allowedWorktreeRoots: [],
+        liveSmokeEnabled: false,
+        auditEnabled: true
+      }
+    });
+  });
+
   it("loads explicit isolated write mode without enabling API-key fallback", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "agent-team-config-"));
     await mkdir(join(workspace, ".agent-team"), { recursive: true });
@@ -43,8 +58,68 @@ describe("loadAgentTeamConfig", () => {
       writeMode: { enabled: true, requireIsolatedWorktree: true },
       auth: { allowApiKeyFallback: false },
       routing: { rolePins: {}, providerOrder: [] },
-      providers: DEFAULT_AGENT_TEAM_CONFIG.providers
+      providers: DEFAULT_AGENT_TEAM_CONFIG.providers,
+      policy: DEFAULT_AGENT_TEAM_CONFIG.policy
     });
+  });
+
+  it("loads explicit policy restrictions without changing provider config", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-config-"));
+    await mkdir(join(workspace, ".agent-team"), { recursive: true });
+    await writeFile(
+      join(workspace, ".agent-team", "config.json"),
+      JSON.stringify({
+        policy: {
+          allowedRoles: ["planner", "code-reviewer"],
+          allowedProviderSelectors: ["claude-code-cli", "family:grok", "capability:reasoning"],
+          allowWriteMode: false,
+          allowedWorktreeRoots: ["/tmp/agent-team-worktrees"],
+          liveSmokeEnabled: true,
+          auditEnabled: false
+        }
+      }),
+      "utf8"
+    );
+
+    await expect(loadAgentTeamConfig(workspace)).resolves.toMatchObject({
+      providers: DEFAULT_AGENT_TEAM_CONFIG.providers,
+      policy: {
+        allowedRoles: ["planner", "code-reviewer"],
+        allowedProviderSelectors: ["claude-code-cli", "family:grok", "capability:reasoning"],
+        allowWriteMode: false,
+        allowedWorktreeRoots: ["/tmp/agent-team-worktrees"],
+        liveSmokeEnabled: true,
+        auditEnabled: false
+      }
+    });
+  });
+
+  it("rejects invalid policy role ids and selectors", async () => {
+    const invalidConfigs = [
+      { policy: { allowedRoles: ["not-a-role"] } },
+      { policy: { allowedRoles: [""] } },
+      { policy: { allowedProviderSelectors: [""] } },
+      { policy: { allowedProviderSelectors: ["capability:not-real"] } },
+      { policy: { allowedWorktreeRoots: [1] } },
+      { policy: { allowedWorktreeRoots: [""] } },
+      { policy: { allowWriteMode: "yes" } },
+      { policy: { liveSmokeEnabled: "yes" } },
+      { policy: { auditEnabled: "yes" } }
+    ];
+
+    for (const [index, config] of invalidConfigs.entries()) {
+      const workspace = await mkdtemp(join(tmpdir(), `agent-team-config-invalid-${index}-`));
+      await mkdir(join(workspace, ".agent-team"), { recursive: true });
+      await writeFile(
+        join(workspace, ".agent-team", "config.json"),
+        JSON.stringify(config),
+        "utf8"
+      );
+
+      await expect(loadAgentTeamConfig(workspace)).rejects.toThrow(
+        AgentTeamConfigError
+      );
+    }
   });
 
   it("loads explicit provider routing policy without changing auth or provider config", async () => {

@@ -54,7 +54,24 @@ Before any live dispatch, call `agent_team_doctor` for the workspace:
 }
 ```
 
-Proceed only when doctor reports the workspace, package runtime, provider routing, and Claude Code CLI subscription OAuth posture are ready. If doctor reports a failure, fix that issue first. Do not route around the preflight with a different billing or transport path.
+Proceed only when doctor reports the workspace, package runtime, provider routing, policy posture, and Claude Code CLI subscription OAuth posture are ready. If doctor reports a failure, fix that issue first. Do not route around the preflight with a different billing or transport path.
+
+Workspace policy can restrict role starts, provider selectors, write-capable starts, retained worktree roots, and live-smoke posture through `.agent-team/config.json`:
+
+```json
+{
+  "policy": {
+    "allowedRoles": ["planner", "code-reviewer"],
+    "allowedProviderSelectors": ["claude-code-cli"],
+    "allowWriteMode": false,
+    "allowedWorktreeRoots": [],
+    "liveSmokeEnabled": false,
+    "auditEnabled": true
+  }
+}
+```
+
+When `auditEnabled` is true, dispatch and lifecycle start decisions write sanitized records to `.agent-team/audit/events.jsonl` before provider execution. Treat those records as operator evidence for allow/block decisions, not as transcripts.
 
 ## Opt-In Live Smoke
 
@@ -235,6 +252,7 @@ After runs are terminal or winding down, inspect evidence paths surfaced by stat
 - log path
 - transcript path
 - mailbox paths for inbox, outbox, control, and events
+- policy audit records under `.agent-team/audit/events.jsonl`
 - verdict
 - workspace diff path
 - changed files

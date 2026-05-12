@@ -17,6 +17,7 @@ All notable changes to this private local plugin are recorded here.
 - Added capability-first provider selection policy with role pins, provider order, neutral request selectors, and doctor routing explanations.
 - Added durable team record tools for grouping related run ids without replacing per-run sidecars or lifecycle tools.
 - Added `agent_team_dashboard` as a read-only dashboard and evidence report over saved teams or explicit run refs, including non-mutating corrupt-state reporting.
+- Added provider-neutral policy and audit controls for role/provider allowlists, write-mode policy, retained worktree roots, doctor posture, and sanitized `.agent-team/audit/events.jsonl` evidence.
 - Added the Claude team session runbook and packaging hardening docs.
 
 ## Versioning Policy

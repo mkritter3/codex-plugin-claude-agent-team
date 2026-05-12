@@ -1,5 +1,5 @@
 import { execFile as nodeExecFile } from "node:child_process";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import type { ImplementationWorkspaceInspection, WorkspaceLease } from "./types.js";
 
@@ -39,6 +39,13 @@ function sanitizeRunId(runId: string): string {
   return runId.replace(/[^A-Za-z0-9._-]/g, "-");
 }
 
+function isWithinRoot(path: string, root: string): boolean {
+  const resolvedPath = resolve(path);
+  const resolvedRoot = resolve(root);
+  const rel = relative(resolvedRoot, resolvedPath);
+  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
+}
+
 async function gitSourceRoot(
   sourceCwd: string,
   execFile: ExecFileLike
@@ -61,7 +68,7 @@ async function gitSourceRoot(
   }
 }
 
-export async function allocateIsolatedWorktree(input: {
+export async function planIsolatedWorktree(input: {
   readonly sourceCwd: string;
   readonly runId: string;
   readonly execFile?: ExecFileLike;
@@ -78,22 +85,6 @@ export async function allocateIsolatedWorktree(input: {
   const branchName = `agent-team/${safeRunId}`;
   const baseRef = "HEAD";
 
-  try {
-    await execFile("git", [
-      "-C",
-      sourceRoot,
-      "worktree",
-      "add",
-      executionCwd,
-      "-b",
-      branchName,
-      baseRef
-    ]);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new WorkspaceLeaseError(`Unable to allocate isolated worktree: ${message}`);
-  }
-
   return {
     sourceCwd: sourceRoot,
     executionCwd,
@@ -103,6 +94,44 @@ export async function allocateIsolatedWorktree(input: {
     retention: "retain-until-integrated",
     cleanup: "retained"
   };
+}
+
+export async function allocateIsolatedWorktree(input: {
+  readonly sourceCwd: string;
+  readonly runId: string;
+  readonly allowedExecutionRoots?: readonly string[];
+  readonly execFile?: ExecFileLike;
+}): Promise<WorkspaceLease> {
+  const execFile = input.execFile ?? defaultExecFile;
+  const lease = await planIsolatedWorktree(input);
+  const allowedExecutionRoots = input.allowedExecutionRoots ?? [];
+
+  if (
+    allowedExecutionRoots.length > 0 &&
+    !allowedExecutionRoots.some((root) => isWithinRoot(lease.executionCwd, root))
+  ) {
+    throw new WorkspaceLeaseError(
+      `Planned worktree ${lease.executionCwd} is outside allowed execution roots.`
+    );
+  }
+
+  try {
+    await execFile("git", [
+      "-C",
+      lease.sourceCwd,
+      "worktree",
+      "add",
+      lease.executionCwd,
+      "-b",
+      lease.branchName,
+      lease.baseRef
+    ]);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new WorkspaceLeaseError(`Unable to allocate isolated worktree: ${message}`);
+  }
+
+  return lease;
 }
 
 export async function cleanupIsolatedWorktree(input: {

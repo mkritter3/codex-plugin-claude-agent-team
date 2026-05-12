@@ -118,6 +118,15 @@ export interface ProviderRoutingPolicyConfig {
   readonly providerOrder: readonly string[];
 }
 
+export interface AgentTeamPolicyConfig {
+  readonly allowedRoles: readonly RoleId[];
+  readonly allowedProviderSelectors: readonly string[];
+  readonly allowWriteMode: boolean;
+  readonly allowedWorktreeRoots: readonly string[];
+  readonly liveSmokeEnabled: boolean;
+  readonly auditEnabled: boolean;
+}
+
 export interface AgentTeamConfig {
   readonly writeMode: {
     readonly enabled: boolean;
@@ -128,7 +137,29 @@ export interface AgentTeamConfig {
   };
   readonly routing: ProviderRoutingPolicyConfig;
   readonly providers: AgentTeamProviderConfig;
+  readonly policy: AgentTeamPolicyConfig;
 }
+
+export interface AgentTeamAuditRecord {
+  readonly sequence: number;
+  readonly createdAt: string;
+  readonly eventType:
+    | "policy_allowed"
+    | "policy_blocked"
+    | "provider_selected"
+    | "doctor_policy";
+  readonly operation: "dispatch" | "start" | "doctor";
+  readonly role?: RoleId;
+  readonly provider?: string;
+  readonly runId?: string;
+  readonly decision: "allowed" | "blocked" | "reported";
+  readonly reason: string;
+  readonly details: Record<string, unknown>;
+}
+
+export type AgentTeamAuditRecordInput = Omit<AgentTeamAuditRecord, "sequence" | "createdAt"> & {
+  readonly createdAt?: string;
+};
 
 export interface WorkspaceLease {
   readonly sourceCwd: string;

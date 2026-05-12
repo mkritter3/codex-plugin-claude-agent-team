@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { DEFAULT_AGENT_TEAM_CONFIG } from "../../src/core/config.js";
 import { AgentLifecycleManager } from "../../src/core/lifecycle.js";
+import { readAuditRecords } from "../../src/core/state/audit-store.js";
 import { readMailboxRecords } from "../../src/core/state/mailbox-store.js";
 import { readRunSidecar, writeRunSidecar } from "../../src/core/state/run-store.js";
 import type {
@@ -1033,10 +1034,19 @@ describe("AgentLifecycleManager", () => {
       permissionMode?: string;
       timeoutMs?: number;
     }> = [];
+    const order: string[] = [];
     const manager = new AgentLifecycleManager({
       createRunId: () => "run_reply_child",
       now: () => new Date("2026-05-11T00:02:00.000Z"),
+      appendAudit: async (root, input) => {
+        const { appendAuditRecord } = await import(
+          "../../src/core/state/audit-store.js"
+        );
+        order.push("audit");
+        return appendAuditRecord(root, input);
+      },
       startSession: (input) => {
+        order.push("start");
         starts.push({
           prompt: input.prompt,
           cwd: input.cwd,
@@ -1078,8 +1088,20 @@ describe("AgentLifecycleManager", () => {
       sessionId: "session_parent_reply",
       timeoutMs: 4321
     });
+    expect(order).toEqual(["audit", "start"]);
     expect(starts[0]?.prompt).toContain("resumed continuation");
     expect(starts[0]?.prompt).toContain("Re-check this with the new evidence.");
+    await expect(readAuditRecords(workspace)).resolves.toMatchObject([
+      {
+        eventType: "policy_allowed",
+        operation: "start",
+        role: "planner",
+        provider: "claude-code-cli",
+        runId: "run_reply_child",
+        decision: "allowed",
+        reason: "policy_allowed"
+      }
+    ]);
     await expect(readRunSidecar(workspace, "run_reply_child")).resolves.toMatchObject({
       runId: "run_reply_child",
       parentRunId: "run_parent_reply",
@@ -1094,6 +1116,63 @@ describe("AgentLifecycleManager", () => {
     await expect(readRunSidecar(workspace, "run_parent_reply")).resolves.toMatchObject({
       status: "completed"
     });
+  });
+
+  it("blocks child reply runs by policy before inbox, sidecar, or provider start side effects", async () => {
+    const parent: RunSidecar = {
+      runId: "run_parent_reply_blocked",
+      role: "planner",
+      provider: "claude-code-cli",
+      status: "completed",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:00:00.000Z",
+      capabilitiesUsed: ["structuredOutput", "sessionResume"],
+      evidencePaths: [],
+      providerSessionId: "session_parent_reply_blocked"
+    };
+    await writeRunSidecar(workspace, parent);
+    let started = false;
+    const manager = new AgentLifecycleManager({
+      config: {
+        ...DEFAULT_AGENT_TEAM_CONFIG,
+        policy: {
+          ...DEFAULT_AGENT_TEAM_CONFIG.policy,
+          allowedRoles: ["code-reviewer"]
+        }
+      },
+      createRunId: () => "run_reply_child_blocked",
+      now: () => new Date("2026-05-11T00:02:00.000Z"),
+      startSession: () => {
+        started = true;
+        throw new Error("should not start");
+      }
+    });
+
+    await expect(
+      manager.replyRun({
+        runId: "run_parent_reply_blocked",
+        cwd: workspace,
+        message: "Re-check this with the new evidence.",
+        correlationId: "reply_blocked"
+      })
+    ).rejects.toThrow("role_not_allowed");
+
+    expect(started).toBe(false);
+    await expect(readRunSidecar(workspace, "run_reply_child_blocked")).rejects.toThrow();
+    await expect(readMailboxRecords(workspace, "run_parent_reply_blocked", "inbox")).resolves.toEqual(
+      []
+    );
+    await expect(readAuditRecords(workspace)).resolves.toMatchObject([
+      {
+        eventType: "policy_blocked",
+        operation: "start",
+        role: "planner",
+        provider: "claude-code-cli",
+        runId: "run_reply_child_blocked",
+        decision: "blocked",
+        reason: "role_not_allowed"
+      }
+    ]);
   });
 
   it("rejects reply runs when no provider session id is available", async () => {
@@ -1135,6 +1214,202 @@ describe("AgentLifecycleManager", () => {
     ).rejects.toThrow("write mode is disabled");
   });
 
+  it("blocks disallowed lifecycle roles before sidecar, worktree, or provider side effects", async () => {
+    let started = false;
+    let allocated = false;
+    const manager = new AgentLifecycleManager({
+      config: {
+        ...DEFAULT_AGENT_TEAM_CONFIG,
+        policy: {
+          ...DEFAULT_AGENT_TEAM_CONFIG.policy,
+          allowedRoles: ["code-reviewer"]
+        }
+      },
+      createRunId: () => "run_policy_lifecycle_role",
+      allocateWorkspace: async () => {
+        allocated = true;
+        throw new Error("should not allocate");
+      },
+      startSession: () => {
+        started = true;
+        throw new Error("should not start");
+      }
+    });
+
+    await expect(
+      manager.startRun({
+        role: "planner",
+        task: "Review plan.",
+        cwd: workspace
+      })
+    ).rejects.toThrow("role_not_allowed");
+
+    expect(started).toBe(false);
+    expect(allocated).toBe(false);
+    await expect(readRunSidecar(workspace, "run_policy_lifecycle_role")).rejects.toThrow();
+    await expect(readAuditRecords(workspace)).resolves.toMatchObject([
+      {
+        eventType: "policy_blocked",
+        operation: "start",
+        role: "planner",
+        provider: "claude-code-cli",
+        decision: "blocked",
+        reason: "role_not_allowed"
+      }
+    ]);
+  });
+
+  it("blocks write mode denied by policy before worktree allocation", async () => {
+    let allocated = false;
+    const manager = new AgentLifecycleManager({
+      config: {
+        ...DEFAULT_AGENT_TEAM_CONFIG,
+        writeMode: { enabled: true, requireIsolatedWorktree: true },
+        policy: {
+          ...DEFAULT_AGENT_TEAM_CONFIG.policy,
+          allowWriteMode: false
+        }
+      },
+      createRunId: () => "run_policy_write_blocked",
+      allocateWorkspace: async () => {
+        allocated = true;
+        throw new Error("should not allocate");
+      },
+      startSession: () => {
+        throw new Error("should not start");
+      }
+    });
+
+    await expect(
+      manager.startRun({
+        role: "slice-implementer",
+        task: "Implement a bounded change.",
+        cwd: workspace
+      })
+    ).rejects.toThrow("write_mode_not_allowed");
+
+    expect(allocated).toBe(false);
+    await expect(readAuditRecords(workspace)).resolves.toMatchObject([
+      {
+        eventType: "policy_blocked",
+        reason: "write_mode_not_allowed"
+      }
+    ]);
+  });
+
+  it("blocks disallowed retained worktree roots before worktree allocation", async () => {
+    let allocated = false;
+    const manager = new AgentLifecycleManager({
+      config: {
+        ...DEFAULT_AGENT_TEAM_CONFIG,
+        writeMode: { enabled: true, requireIsolatedWorktree: true },
+        policy: {
+          ...DEFAULT_AGENT_TEAM_CONFIG.policy,
+          allowedWorktreeRoots: ["/var/approved-agent-worktrees"]
+        }
+      },
+      createRunId: () => "run_policy_worktree_root_blocked",
+      planWorkspace: async () => ({
+        sourceCwd: workspace,
+        executionCwd: "/tmp/.agent-team-worktrees/project/run_policy_worktree_root_blocked",
+        branchName: "agent-team/run_policy_worktree_root_blocked",
+        baseRef: "HEAD",
+        isolation: "git-worktree",
+        retention: "retain-until-integrated",
+        cleanup: "retained"
+      }),
+      allocateWorkspace: async () => {
+        allocated = true;
+        throw new Error("should not allocate");
+      },
+      startSession: () => {
+        throw new Error("should not start");
+      }
+    });
+
+    await expect(
+      manager.startRun({
+        role: "slice-implementer",
+        task: "Implement a bounded change.",
+        cwd: workspace
+      })
+    ).rejects.toThrow("worktree_root_not_allowed");
+
+    expect(allocated).toBe(false);
+    await expect(readAuditRecords(workspace)).resolves.toMatchObject([
+      {
+        eventType: "policy_blocked",
+        reason: "worktree_root_not_allowed"
+      }
+    ]);
+  });
+
+  it("appends a sanitized policy audit record before provider session start", async () => {
+    const done = deferred<ProviderSessionDoneStatus>();
+    const order: string[] = [];
+    const manager = new AgentLifecycleManager({
+      createRunId: () => "run_policy_lifecycle_allowed",
+      now: () => new Date("2026-05-12T10:00:00.000Z"),
+      startSession: () => {
+        order.push("start");
+        return fakeHandle(done.promise);
+      },
+      appendAudit: async (root, input) => {
+        const { appendAuditRecord, readAuditRecords: readRecords } = await import(
+          "../../src/core/state/audit-store.js"
+        );
+        order.push("audit");
+        const record = await appendAuditRecord(root, input);
+        expect(await readRecords(root)).toHaveLength(1);
+        return record;
+      }
+    });
+
+    const result = await manager.startRun({
+      role: "planner",
+      task: "Review plan.",
+      cwd: workspace
+    });
+
+    expect(result.status).toBe("running");
+    expect(order).toEqual(["audit", "start"]);
+    const audit = await readAuditRecords(workspace);
+    expect(audit).toMatchObject([
+      {
+        eventType: "policy_allowed",
+        operation: "start",
+        role: "planner",
+        provider: "claude-code-cli"
+      }
+    ]);
+    expect(JSON.stringify(audit)).not.toMatch(/prompt|providerSessionId|command|payload|secret/i);
+  });
+
+  it("fails closed before provider session when policy audit append fails", async () => {
+    let started = false;
+    const manager = new AgentLifecycleManager({
+      createRunId: () => "run_policy_audit_failed",
+      appendAudit: async () => {
+        throw new Error("audit unavailable");
+      },
+      startSession: () => {
+        started = true;
+        throw new Error("should not start");
+      }
+    });
+
+    await expect(
+      manager.startRun({
+        role: "planner",
+        task: "Review plan.",
+        cwd: workspace
+      })
+    ).rejects.toThrow("audit unavailable");
+
+    expect(started).toBe(false);
+    await expect(readRunSidecar(workspace, "run_policy_audit_failed")).rejects.toThrow();
+  });
+
   it("starts slice implementer runs inside a retained isolated worktree", async () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
@@ -1151,7 +1426,8 @@ describe("AgentLifecycleManager", () => {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
-        providers: DEFAULT_AGENT_TEAM_CONFIG.providers
+        providers: DEFAULT_AGENT_TEAM_CONFIG.providers,
+        policy: DEFAULT_AGENT_TEAM_CONFIG.policy
       },
       createRunId: () => "run_slice_1",
       now: () => new Date("2026-05-11T00:03:00.000Z"),
@@ -1219,7 +1495,8 @@ describe("AgentLifecycleManager", () => {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
-        providers: DEFAULT_AGENT_TEAM_CONFIG.providers
+        providers: DEFAULT_AGENT_TEAM_CONFIG.providers,
+        policy: DEFAULT_AGENT_TEAM_CONFIG.policy
       },
       createRunId: () => "run_slice_failed",
       now: () => new Date("2026-05-11T00:04:00.000Z"),
@@ -1262,7 +1539,8 @@ describe("AgentLifecycleManager", () => {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
-        providers: DEFAULT_AGENT_TEAM_CONFIG.providers
+        providers: DEFAULT_AGENT_TEAM_CONFIG.providers,
+        policy: DEFAULT_AGENT_TEAM_CONFIG.policy
       },
       createRunId: () => "run_slice_completed",
       now: () => new Date("2026-05-11T00:05:00.000Z"),
@@ -1328,7 +1606,8 @@ describe("AgentLifecycleManager", () => {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
-        providers: DEFAULT_AGENT_TEAM_CONFIG.providers
+        providers: DEFAULT_AGENT_TEAM_CONFIG.providers,
+        policy: DEFAULT_AGENT_TEAM_CONFIG.policy
       },
       createRunId: () => "run_slice_clean",
       allocateWorkspace: async () => ({
@@ -1395,7 +1674,8 @@ describe("AgentLifecycleManager", () => {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
-        providers: DEFAULT_AGENT_TEAM_CONFIG.providers
+        providers: DEFAULT_AGENT_TEAM_CONFIG.providers,
+        policy: DEFAULT_AGENT_TEAM_CONFIG.policy
       },
       createRunId: () => "run_slice_provider_failed",
       allocateWorkspace: async () => ({
@@ -1450,7 +1730,8 @@ describe("AgentLifecycleManager", () => {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
-        providers: DEFAULT_AGENT_TEAM_CONFIG.providers
+        providers: DEFAULT_AGENT_TEAM_CONFIG.providers,
+        policy: DEFAULT_AGENT_TEAM_CONFIG.policy
       },
       createRunId: () => "run_slice_cancelled",
       cancelGraceMs: 0,
@@ -1496,7 +1777,8 @@ describe("AgentLifecycleManager", () => {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
-        providers: DEFAULT_AGENT_TEAM_CONFIG.providers
+        providers: DEFAULT_AGENT_TEAM_CONFIG.providers,
+        policy: DEFAULT_AGENT_TEAM_CONFIG.policy
       },
       createRunId: () => "run_slice_cancel_inspect_failed",
       cancelGraceMs: 0,

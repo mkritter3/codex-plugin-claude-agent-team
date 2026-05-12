@@ -40,6 +40,17 @@ export class ProviderNotFoundError extends AgentTeamError {
   }
 }
 
+export class PolicyViolationError extends AgentTeamError {
+  readonly reason: string;
+  readonly details: Record<string, unknown>;
+
+  constructor(input: { readonly reason: string; readonly details: Record<string, unknown> }) {
+    super(`Agent team policy blocked operation: ${input.reason}`);
+    this.reason = input.reason;
+    this.details = input.details;
+  }
+}
+
 export type StateCorruptionKind = "json" | "jsonl";
 
 export class StateCorruptionError extends AgentTeamError {

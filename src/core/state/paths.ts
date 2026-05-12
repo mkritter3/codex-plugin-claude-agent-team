@@ -29,6 +29,14 @@ export function teamsDir(workspaceRoot: string): string {
   return join(stateRoot(workspaceRoot), "teams");
 }
 
+export function auditDir(workspaceRoot: string): string {
+  return join(stateRoot(workspaceRoot), "audit");
+}
+
+export function auditEventsPath(workspaceRoot: string): string {
+  return join(auditDir(workspaceRoot), "events.jsonl");
+}
+
 export function teamRecordPath(workspaceRoot: string, teamId: string): string {
   if (!isSafeTeamId(teamId)) {
     throw new Error(`Invalid team id: ${teamId}`);

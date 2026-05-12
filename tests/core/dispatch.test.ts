@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { mkdtemp } from "node:fs/promises";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readMailboxRecords } from "../../src/core/state/mailbox-store.js";
+import { readAuditRecords } from "../../src/core/state/audit-store.js";
 import { runLogPath } from "../../src/core/state/paths.js";
 import { readRunSidecar } from "../../src/core/state/run-store.js";
 import { dispatchReadOnlyAgent } from "../../src/core/dispatch.js";
@@ -223,6 +224,161 @@ function claudeRuntime(
 }
 
 describe("dispatchReadOnlyAgent", () => {
+  it("blocks disallowed roles before invoking provider runtime", async () => {
+    let called = false;
+    const result = await dispatchReadOnlyAgent(
+      {
+        role: "planner",
+        task: "Review plan",
+        cwd: workspace
+      },
+      {
+        config: {
+          ...DEFAULT_AGENT_TEAM_CONFIG,
+          policy: {
+            ...DEFAULT_AGENT_TEAM_CONFIG.policy,
+            allowedRoles: ["code-reviewer"]
+          }
+        },
+        createRunId: () => "run_policy_role_blocked",
+        runtimes: [
+          claudeRuntime(async () => {
+            called = true;
+            throw new Error("should not run");
+          })
+        ]
+      }
+    );
+
+    expect(called).toBe(false);
+    expect(result).toMatchObject({
+      runId: "run_policy_role_blocked",
+      status: "failed",
+      provider: "claude-code-cli",
+      role: "planner"
+    });
+    expect(result.verdict.summary).toContain("role_not_allowed");
+    await expect(readAuditRecords(workspace)).resolves.toMatchObject([
+      {
+        eventType: "policy_blocked",
+        operation: "dispatch",
+        role: "planner",
+        provider: "claude-code-cli",
+        decision: "blocked",
+        reason: "role_not_allowed"
+      }
+    ]);
+  });
+
+  it("blocks disallowed selected providers before invoking provider runtime", async () => {
+    let called = false;
+    const result = await dispatchReadOnlyAgent(
+      {
+        role: "planner",
+        task: "Review plan",
+        cwd: workspace,
+        provider: "claude-code-cli"
+      },
+      {
+        config: {
+          ...DEFAULT_AGENT_TEAM_CONFIG,
+          policy: {
+            ...DEFAULT_AGENT_TEAM_CONFIG.policy,
+            allowedProviderSelectors: ["family:grok"]
+          }
+        },
+        createRunId: () => "run_policy_provider_blocked",
+        runtimes: [
+          claudeRuntime(async () => {
+            called = true;
+            throw new Error("should not run");
+          })
+        ]
+      }
+    );
+
+    expect(called).toBe(false);
+    expect(result.status).toBe("failed");
+    expect(result.verdict.summary).toContain("provider_not_allowed");
+    await expect(readAuditRecords(workspace)).resolves.toMatchObject([
+      {
+        eventType: "policy_blocked",
+        reason: "provider_not_allowed",
+        provider: "claude-code-cli"
+      }
+    ]);
+  });
+
+  it("appends a sanitized policy audit record before provider runtime dispatch", async () => {
+    let auditCountAtRuntime = -1;
+    const result = await dispatchReadOnlyAgent(
+      {
+        role: "planner",
+        task: "Review plan",
+        cwd: workspace
+      },
+      {
+        createRunId: () => "run_policy_allowed",
+        now: () => new Date("2026-05-12T10:00:00.000Z"),
+        runtimes: [
+          claudeRuntime(async () => {
+            auditCountAtRuntime = (await readAuditRecords(workspace)).length;
+            return {
+              ok: true,
+              sessionId: "session_allowed",
+              text: shipText,
+              stdout: "stdout",
+              stderr: "",
+              exitCode: 0
+            };
+          })
+        ]
+      }
+    );
+
+    expect(result.status).toBe("completed");
+    expect(auditCountAtRuntime).toBe(1);
+    const audit = await readAuditRecords(workspace);
+    expect(audit).toMatchObject([
+      {
+        eventType: "policy_allowed",
+        operation: "dispatch",
+        role: "planner",
+        provider: "claude-code-cli",
+        decision: "allowed",
+        reason: "policy_allowed"
+      }
+    ]);
+    expect(JSON.stringify(audit)).not.toMatch(/prompt|providerSessionId|command|payload|secret/i);
+  });
+
+  it("fails closed before provider runtime when policy audit append fails", async () => {
+    let called = false;
+    await expect(
+      dispatchReadOnlyAgent(
+        {
+          role: "planner",
+          task: "Review plan",
+          cwd: workspace
+        },
+        {
+          createRunId: () => "run_policy_audit_failed",
+          appendAudit: async () => {
+            throw new Error("audit unavailable");
+          },
+          runtimes: [
+            claudeRuntime(async () => {
+              called = true;
+              throw new Error("should not run");
+            })
+          ]
+        }
+      )
+    ).rejects.toThrow("audit unavailable");
+
+    expect(called).toBe(false);
+  });
+
   it("dispatches through the runtime selected by provider id", async () => {
     const fakeRuntime: AgentProviderRuntime = {
       id: "fake-runtime",

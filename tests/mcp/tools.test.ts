@@ -40,7 +40,8 @@ describe("MCP tool handlers", () => {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
-        providers: DEFAULT_AGENT_TEAM_CONFIG.providers
+        providers: DEFAULT_AGENT_TEAM_CONFIG.providers,
+        policy: DEFAULT_AGENT_TEAM_CONFIG.policy
       }
     });
 

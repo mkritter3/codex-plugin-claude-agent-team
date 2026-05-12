@@ -15,11 +15,13 @@ import type {
   ProviderSessionSnapshot
 } from "../providers/types.js";
 import { DEFAULT_AGENT_TEAM_CONFIG } from "./config.js";
+import { PolicyViolationError } from "./errors.js";
 import {
   buildImplementationPrompt,
   buildReplyPrompt,
   buildRolePrompt
 } from "./prompts.js";
+import { evaluateStartPolicy } from "./policy.js";
 import { getRole } from "./roles.js";
 import { selectProvider } from "./router.js";
 import { createRunId as defaultCreateRunId, hashPrompt } from "./run-ids.js";
@@ -36,6 +38,7 @@ import {
   appendOutboxRecord,
   readMailboxRecords
 } from "./state/mailbox-store.js";
+import { appendAuditRecord } from "./state/audit-store.js";
 import {
   mailboxPath,
   runLogPath,
@@ -54,7 +57,8 @@ import { parseVerdict } from "./verdict.js";
 import {
   allocateIsolatedWorktree,
   cleanupIsolatedWorktree,
-  inspectImplementationWorkspace
+  inspectImplementationWorkspace,
+  planIsolatedWorktree
 } from "./workspaces.js";
 import type {
   AgentCleanupRequest,
@@ -80,6 +84,8 @@ export type StartProviderSession = (
 type AllocateWorkspace = typeof allocateIsolatedWorktree;
 type CleanupWorkspace = typeof cleanupIsolatedWorktree;
 type InspectWorkspace = typeof inspectImplementationWorkspace;
+type PlanWorkspace = typeof planIsolatedWorktree;
+type AppendAudit = typeof appendAuditRecord;
 
 export interface AgentLifecycleDependencies {
   readonly providers?: readonly AgentProviderDescriptor[];
@@ -91,6 +97,8 @@ export interface AgentLifecycleDependencies {
   readonly allocateWorkspace?: AllocateWorkspace;
   readonly cleanupWorkspace?: CleanupWorkspace;
   readonly inspectWorkspace?: InspectWorkspace;
+  readonly planWorkspace?: PlanWorkspace;
+  readonly appendAudit?: AppendAudit;
   readonly env?: NodeJS.ProcessEnv;
   readonly cancelGraceMs?: number;
   readonly windDownGraceMs?: number;
@@ -127,6 +135,8 @@ export class AgentLifecycleManager {
   private readonly allocateWorkspace: AllocateWorkspace;
   private readonly cleanupWorkspace: CleanupWorkspace;
   private readonly inspectWorkspace: InspectWorkspace;
+  private readonly planWorkspace: PlanWorkspace;
+  private readonly appendAudit: AppendAudit;
   private readonly env: NodeJS.ProcessEnv | undefined;
   private readonly cancelGraceMs: number;
   private readonly windDownGraceMs: number;
@@ -136,10 +146,18 @@ export class AgentLifecycleManager {
     this.providers = deps.providers;
     this.now = deps.now ?? (() => new Date());
     this.createRunId = deps.createRunId ?? defaultCreateRunId;
-    this.config = deps.config ?? DEFAULT_AGENT_TEAM_CONFIG;
+    this.config =
+      deps.config === undefined
+        ? DEFAULT_AGENT_TEAM_CONFIG
+        : {
+            ...deps.config,
+            policy: deps.config.policy ?? DEFAULT_AGENT_TEAM_CONFIG.policy
+          };
     this.allocateWorkspace = deps.allocateWorkspace ?? allocateIsolatedWorktree;
     this.cleanupWorkspace = deps.cleanupWorkspace ?? cleanupIsolatedWorktree;
     this.inspectWorkspace = deps.inspectWorkspace ?? inspectImplementationWorkspace;
+    this.planWorkspace = deps.planWorkspace ?? planIsolatedWorktree;
+    this.appendAudit = deps.appendAudit ?? appendAuditRecord;
     this.startSession = deps.startSession;
     this.runtimes = deps.runtimes;
     this.env = deps.env;
@@ -167,11 +185,54 @@ export class AgentLifecycleManager {
     });
     const runId = this.createRunId();
     const createdAt = this.now().toISOString();
+
+    const plannedLease =
+      !role.defaultReadOnly &&
+      this.config.policy.allowWriteMode &&
+      this.config.policy.allowedWorktreeRoots.length > 0
+        ? await this.planWorkspace({
+            sourceCwd: request.cwd,
+            runId
+          })
+        : undefined;
+
+    const policyDecision = evaluateStartPolicy({
+      config: this.config,
+      roleId: request.role,
+      provider,
+      executionPolicy: role.executionPolicy,
+      ...(plannedLease === undefined
+        ? {}
+        : { plannedWorktreeRoot: plannedLease.executionCwd }),
+      ...(request.provider === undefined ? {} : { requestedProvider: request.provider })
+    });
+    if (this.config.policy.auditEnabled) {
+      await this.appendAudit(request.cwd, {
+        eventType:
+          policyDecision.status === "allowed" ? "policy_allowed" : "policy_blocked",
+        operation: "start",
+        role: request.role,
+        provider: provider.id,
+        runId,
+        decision: policyDecision.status,
+        reason: policyDecision.reason,
+        details: policyDecision.details,
+        createdAt
+      });
+    }
+    if (policyDecision.status === "blocked") {
+      throw new PolicyViolationError({
+        reason: policyDecision.reason,
+        details: policyDecision.details
+      });
+    }
+
     const lease = role.defaultReadOnly
       ? undefined
       : await this.allocateWorkspace({
           sourceCwd: request.cwd,
-          runId
+          runId,
+          allowedExecutionRoots: this.config.policy.allowedWorktreeRoots
         });
     const executionCwd = lease?.executionCwd ?? request.cwd;
     const prompt = role.defaultReadOnly
@@ -345,18 +406,7 @@ export class AgentLifecycleManager {
 
     let resumeMessage = request.message?.trim() ?? "";
     let resumeSequence: number | undefined;
-    if (resumeMessage.length > 0) {
-      const record = await this.appendUserInboxMessage({
-        workspaceRoot: request.cwd,
-        sidecar: parent,
-        message: request.message ?? "",
-        ...(request.messageType === undefined ? {} : { messageType: request.messageType }),
-        ...(request.correlationId === undefined
-          ? {}
-          : { correlationId: request.correlationId })
-      });
-      resumeSequence = record.sequence;
-    } else {
+    if (resumeMessage.length === 0) {
       const latest = await this.latestInboxMessage(request.cwd, parent.runId);
       if (latest === undefined) {
         throw new Error(
@@ -380,6 +430,48 @@ export class AgentLifecycleManager {
     });
     const runId = this.createRunId();
     const createdAt = this.now().toISOString();
+
+    const policyDecision = evaluateStartPolicy({
+      config: this.config,
+      roleId: parent.role,
+      provider,
+      executionPolicy: role.executionPolicy,
+      requestedProvider: request.provider ?? parent.provider
+    });
+    if (this.config.policy.auditEnabled) {
+      await this.appendAudit(request.cwd, {
+        eventType:
+          policyDecision.status === "allowed" ? "policy_allowed" : "policy_blocked",
+        operation: "start",
+        role: parent.role,
+        provider: provider.id,
+        runId,
+        decision: policyDecision.status,
+        reason: policyDecision.reason,
+        details: policyDecision.details,
+        createdAt
+      });
+    }
+    if (policyDecision.status === "blocked") {
+      throw new PolicyViolationError({
+        reason: policyDecision.reason,
+        details: policyDecision.details
+      });
+    }
+
+    if ((request.message?.trim() ?? "").length > 0) {
+      const record = await this.appendUserInboxMessage({
+        workspaceRoot: request.cwd,
+        sidecar: parent,
+        message: request.message ?? "",
+        ...(request.messageType === undefined ? {} : { messageType: request.messageType }),
+        ...(request.correlationId === undefined
+          ? {}
+          : { correlationId: request.correlationId })
+      });
+      resumeSequence = record.sequence;
+    }
+
     const prompt = buildReplyPrompt({
       role,
       cwd: request.cwd,

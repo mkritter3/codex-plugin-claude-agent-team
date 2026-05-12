@@ -88,6 +88,23 @@ Provider selection policy is optional and capability-first. Request-level `provi
 
 Per-request `provider` selectors take precedence over role pins, role pins take precedence over `providerOrder`, and every selection still has to satisfy the role's required capabilities. Multi-provider second opinions should be started as multiple explicit runs; routing policy does not synthesize provider rankings or preference judgments.
 
+Policy controls are also optional and provider-neutral. They restrict which roles and providers may start, whether write-capable starts are allowed, where retained worktrees may be created, and whether local live smoke is enabled for operator-run checks:
+
+```json
+{
+  "policy": {
+    "allowedRoles": ["planner", "code-reviewer", "slice-implementer"],
+    "allowedProviderSelectors": ["claude-code-cli", "family:grok"],
+    "allowWriteMode": true,
+    "allowedWorktreeRoots": ["/tmp/.agent-team-worktrees"],
+    "liveSmokeEnabled": false,
+    "auditEnabled": true
+  }
+}
+```
+
+When `auditEnabled` is true, dispatch and lifecycle start decisions append sanitized JSONL records to `.agent-team/audit/events.jsonl` before provider runtime or session execution. Audit records identify the operation, role, provider, run id, decision, and policy reason; they do not include prompt text, provider session ids, provider command details, mailbox payloads, secrets, process metadata, or environment values.
+
 OpenAI-compatible providers are disabled by default and never inferred from environment variables. To use the foundation adapter for synchronous read-only dispatch, opt in explicitly with provider-scoped endpoint/model/auth-env config and only the capabilities the endpoint can actually satisfy:
 
 ```json
@@ -204,7 +221,7 @@ Gemini does not support background sessions, live stdin, resume, cancellation, e
 
 ## Auth And Doctor
 
-Before starting live runs, call `agent_team_doctor` for the target workspace. Doctor checks host readiness, package/runtime shape, writable state, git/worktree readiness when needed, provider health, auth posture, and role routing.
+Before starting live runs, call `agent_team_doctor` for the target workspace. Doctor checks host readiness, package/runtime shape, writable state, git/worktree readiness when needed, provider health, auth posture, policy posture, and role routing.
 
 Do not route around doctor failures. Claude Code CLI subscription OAuth remains the intended v1 path.
 
@@ -234,6 +251,7 @@ Treat these as first-class records:
 
 - sidecars under `.agent-team/runs/`
 - optional team records under `.agent-team/teams/`
+- policy audit records under `.agent-team/audit/events.jsonl`
 - JSONL mailboxes under `.agent-team/mailboxes/`
 - logs and transcripts
 - parsed verdicts

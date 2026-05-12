@@ -16,6 +16,7 @@ describe("packaging and install docs", () => {
       "agent-team-mcp",
       "\"./dist/index.js\"",
       ".agent-team/config.json",
+      ".agent-team/audit/events.jsonl",
       "agent_team_doctor",
       "agent_team_start_parallel",
       "agent_team_create_team",
@@ -32,6 +33,9 @@ describe("packaging and install docs", () => {
     expect(readme).toContain("opt-in live smoke");
     expect(readme).toContain("not part of CI");
     expect(readme).toContain("read-only dashboard");
+    expect(readme).toContain("policy");
+    expect(readme).toContain("allowedProviderSelectors");
+    expect(readme).toContain("auditEnabled");
   });
 
   it("documents versioning and changelog policy", async () => {
@@ -40,6 +44,7 @@ describe("packaging and install docs", () => {
     expect(changelog).toContain("# Changelog");
     expect(changelog).toContain("0.1.0");
     expect(changelog).toContain("Versioning Policy");
+    expect(changelog).toContain("policy and audit controls");
     expect(changelog).toContain("MCP tool surface changes");
     expect(changelog).toContain("npm run ci");
   });

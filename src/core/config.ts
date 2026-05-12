@@ -24,6 +24,14 @@ export const DEFAULT_AGENT_TEAM_CONFIG: AgentTeamConfig = {
     rolePins: {},
     providerOrder: []
   },
+  policy: {
+    allowedRoles: [],
+    allowedProviderSelectors: [],
+    allowWriteMode: true,
+    allowedWorktreeRoots: [],
+    liveSmokeEnabled: false,
+    auditEnabled: true
+  },
   providers: {
     openaiCompatible: {
       enabled: false,
@@ -64,6 +72,16 @@ function readString(input: unknown): string | undefined {
   return trimmed.length === 0 ? undefined : trimmed;
 }
 
+function readStrictBoolean(input: unknown, fallback: boolean, context: string): boolean {
+  if (input === undefined) {
+    return fallback;
+  }
+  if (typeof input !== "boolean") {
+    throw new AgentTeamConfigError(`${context} must be a boolean.`);
+  }
+  return input;
+}
+
 function objectField(input: unknown, key: string): Record<string, unknown> {
   if (typeof input !== "object" || input === null || !(key in input)) {
     return {};
@@ -80,6 +98,17 @@ function arrayField(input: unknown, key: string): readonly unknown[] {
   }
   const value = input[key as keyof typeof input];
   return Array.isArray(value) ? value : [];
+}
+
+function optionalArrayField(input: unknown, key: string, context: string): readonly unknown[] {
+  if (typeof input !== "object" || input === null || !(key in input)) {
+    return [];
+  }
+  const value = input[key as keyof typeof input];
+  if (!Array.isArray(value)) {
+    throw new AgentTeamConfigError(`${context} must be an array.`);
+  }
+  return value;
 }
 
 function readRequiredId(input: unknown, fallback: string): string {
@@ -347,6 +376,62 @@ function parseRoutingConfig(
   };
 }
 
+function parsePolicyConfig(parsed: unknown): AgentTeamConfig["policy"] {
+  const policy = objectField(parsed, "policy");
+  const allowedRoles = optionalArrayField(
+    policy,
+    "allowedRoles",
+    "policy.allowedRoles"
+  ).map((roleInput, index) => {
+    const roleId = readString(roleInput);
+    if (roleId === undefined || !ROLE_IDS.has(roleId as RoleId)) {
+      throw new AgentTeamConfigError(`Invalid policy.allowedRoles[${index}].`);
+    }
+    return roleId as RoleId;
+  });
+
+  const allowedProviderSelectors = optionalArrayField(
+    policy,
+    "allowedProviderSelectors",
+    "policy.allowedProviderSelectors"
+  ).map((selectorInput, index) =>
+    readRoutingSelector(selectorInput, `policy.allowedProviderSelectors[${index}]`)
+  );
+
+  const allowedWorktreeRoots = optionalArrayField(
+    policy,
+    "allowedWorktreeRoots",
+    "policy.allowedWorktreeRoots"
+  ).map((rootInput, index) => {
+    const root = readString(rootInput);
+    if (root === undefined) {
+      throw new AgentTeamConfigError(`policy.allowedWorktreeRoots[${index}] must be a non-empty string.`);
+    }
+    return root;
+  });
+
+  return {
+    allowedRoles,
+    allowedProviderSelectors,
+    allowWriteMode: readStrictBoolean(
+      policy.allowWriteMode,
+      DEFAULT_AGENT_TEAM_CONFIG.policy.allowWriteMode,
+      "policy.allowWriteMode"
+    ),
+    allowedWorktreeRoots,
+    liveSmokeEnabled: readStrictBoolean(
+      policy.liveSmokeEnabled,
+      DEFAULT_AGENT_TEAM_CONFIG.policy.liveSmokeEnabled,
+      "policy.liveSmokeEnabled"
+    ),
+    auditEnabled: readStrictBoolean(
+      policy.auditEnabled,
+      DEFAULT_AGENT_TEAM_CONFIG.policy.auditEnabled,
+      "policy.auditEnabled"
+    )
+  };
+}
+
 export async function loadAgentTeamConfig(
   workspaceRoot: string
 ): Promise<AgentTeamConfig> {
@@ -388,7 +473,8 @@ export async function loadAgentTeamConfig(
       ollamaCloud: parseOllamaCloudProviderConfig(providers),
       grok: parseGrokProviderConfig(providers),
       gemini: parseGeminiProviderConfig(providers)
-    }
+    },
+    policy: parsePolicyConfig(parsed)
   };
 
   if (config.writeMode.enabled && !config.writeMode.requireIsolatedWorktree) {

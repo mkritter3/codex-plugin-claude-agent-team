@@ -54,6 +54,59 @@ describe("isolated workspace leases", () => {
     ]);
   });
 
+  it("allows retained git worktrees inside configured execution roots", async () => {
+    const calls: Array<{ file: string; args: readonly string[] }> = [];
+    const allowedRoot = join("/tmp", ".agent-team-worktrees");
+
+    await expect(
+      allocateIsolatedWorktree({
+        sourceCwd: "/tmp/project/src",
+        runId: "run_allowed_root",
+        allowedExecutionRoots: [allowedRoot],
+        execFile: async (file, args) => {
+          calls.push({ file, args });
+          if (args.includes("--show-toplevel")) {
+            return { stdout: "/tmp/project\n", stderr: "" };
+          }
+          return { stdout: "", stderr: "" };
+        }
+      })
+    ).resolves.toMatchObject({
+      executionCwd: join(allowedRoot, "project", "run_allowed_root")
+    });
+
+    expect(calls.map((call) => call.args.slice(0, 4))).toEqual([
+      ["-C", "/tmp/project/src", "rev-parse", "--show-toplevel"],
+      ["-C", "/tmp/project", "worktree", "add"]
+    ]);
+  });
+
+  it("rejects retained git worktrees outside configured execution roots before git worktree add", async () => {
+    const calls: Array<{ file: string; args: readonly string[] }> = [];
+
+    await expect(
+      allocateIsolatedWorktree({
+        sourceCwd: "/tmp/project/src",
+        runId: "run_blocked_root",
+        allowedExecutionRoots: ["/var/approved-agent-worktrees"],
+        execFile: async (file, args) => {
+          calls.push({ file, args });
+          if (args.includes("--show-toplevel")) {
+            return { stdout: "/tmp/project\n", stderr: "" };
+          }
+          throw new Error("should not call git worktree add");
+        }
+      })
+    ).rejects.toThrow("outside allowed execution roots");
+
+    expect(calls).toEqual([
+      {
+        file: "git",
+        args: ["-C", "/tmp/project/src", "rev-parse", "--show-toplevel"]
+      }
+    ]);
+  });
+
   it("fails closed when git cannot resolve the source root", async () => {
     await expect(
       allocateIsolatedWorktree({

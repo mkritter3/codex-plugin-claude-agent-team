@@ -7,6 +7,7 @@ import {
   explainProviderSelection,
   selectProvider
 } from "../../src/core/router.js";
+import { DEFAULT_AGENT_TEAM_CONFIG } from "../../src/core/config.js";
 import type { AgentProviderDescriptor } from "../../src/core/types.js";
 import { listProviders } from "../../src/providers/index.js";
 
@@ -320,6 +321,7 @@ describe("selectProvider", () => {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
+        policy: DEFAULT_AGENT_TEAM_CONFIG.policy,
         providers: {
           openaiCompatible: {
             enabled: false,
@@ -372,6 +374,7 @@ describe("selectProvider", () => {
         writeMode: { enabled: false, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
+        policy: DEFAULT_AGENT_TEAM_CONFIG.policy,
         providers: {
           openaiCompatible: {
             enabled: true,
@@ -434,6 +437,7 @@ describe("selectProvider", () => {
         writeMode: { enabled: false, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
+        policy: DEFAULT_AGENT_TEAM_CONFIG.policy,
         providers: {
           openaiCompatible: {
             enabled: false,
@@ -522,6 +526,7 @@ describe("selectProvider", () => {
         writeMode: { enabled: false, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
+        policy: DEFAULT_AGENT_TEAM_CONFIG.policy,
         providers: {
           openaiCompatible: {
             enabled: false,
@@ -583,6 +588,7 @@ describe("selectProvider", () => {
         writeMode: { enabled: false, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
+        policy: DEFAULT_AGENT_TEAM_CONFIG.policy,
         providers: {
           openaiCompatible: {
             enabled: false,
@@ -630,6 +636,7 @@ describe("selectProvider", () => {
         writeMode: { enabled: false, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
+        policy: DEFAULT_AGENT_TEAM_CONFIG.policy,
         providers: {
           openaiCompatible: {
             enabled: false,

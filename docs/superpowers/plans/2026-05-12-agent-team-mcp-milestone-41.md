@@ -524,9 +524,23 @@ git commit -m "feat: add policy and audit controls"
 
 ## Verification Evidence
 
-- Baseline before implementation: pending.
-- Red proof: pending.
-- Focused milestone proof: pending.
-- Full proof: pending.
-- Packaged stdio smoke: pending.
-- Invariant scans: pending.
+- Baseline before implementation: `npm test` passed before M41 production wiring with 49 files and 385 tests.
+- Red proof:
+  - `npm test -- tests/core/config.test.ts tests/core/policy.test.ts tests/core/state/audit-store.test.ts` first failed because policy config, policy evaluator, and audit store did not exist or were not parsed yet.
+  - `npm test -- tests/core/dispatch.test.ts tests/core/lifecycle.test.ts tests/core/workspaces.test.ts tests/core/lifecycle-registry.test.ts` first failed because dispatch/lifecycle did not evaluate policy, audit appends did not run before provider execution, worktree root gating happened too late, and lifecycle registry identity ignored policy.
+  - `npm test -- tests/doctor.test.ts tests/docs/packaging.test.ts tests/docs/runbook.test.ts` first failed because doctor/docs did not report M41 policy and audit controls.
+  - Reviewer follow-up red proof: `npm test -- tests/core/lifecycle.test.ts` failed because reply/resume starts did not audit before provider start and did not block disallowed roles before start side effects.
+- Focused milestone proof:
+  - `npm test -- tests/core/lifecycle.test.ts tests/core/policy.test.ts tests/core/workspaces.test.ts` passed after adding planned worktree-root policy and reply/resume policy/audit gates.
+  - `npm test -- tests/core/config.test.ts tests/core/policy.test.ts tests/core/state/audit-store.test.ts tests/core/dispatch.test.ts tests/core/lifecycle.test.ts tests/core/workspaces.test.ts tests/core/lifecycle-registry.test.ts tests/doctor.test.ts tests/docs/packaging.test.ts tests/docs/runbook.test.ts` passed with 10 files and 145 tests.
+  - `npm test -- tests/doctor.test.ts tests/docs/packaging.test.ts tests/docs/runbook.test.ts` passed with 3 files and 35 tests.
+- Full proof:
+  - `npm run typecheck` passed.
+  - `npm test` passed with 51 files and 410 tests.
+  - `npm run build` passed.
+  - `npm run smoke:mcp-stdio` passed.
+  - `npm run ci` passed: typecheck, all 410 tests, build, and packaged stdio smoke.
+- Invariant scans:
+  - Cleanup/process scans reported expected pre-existing cleanup APIs/events, existing Claude process kill fallback tests/runtime, and plan/docs guardrails; no new automatic cleanup or process-kill shortcut was introduced by M41.
+  - Prompt/session/command audit scans reported expected negative assertions and docs saying audit records must not contain prompts, provider session ids, command details, payloads, secrets, process metadata, or environment values.
+  - Model-quality/benchmark scans reported existing role/docs/plan guardrails only; M41 makes no live-provider, ranking, benchmark, or model-quality claim.

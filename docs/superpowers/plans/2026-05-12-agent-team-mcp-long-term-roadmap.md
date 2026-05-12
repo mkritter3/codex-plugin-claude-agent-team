@@ -27,7 +27,7 @@ Codex should be able to stand up and manage an external AI agent team from insid
 
 ## Current Baseline
 
-Completed through Milestone 40:
+Completed through Milestone 41:
 
 - package scaffold, MCP server, CI, stdio smoke, and schema coverage
 - provider-neutral roles, capabilities, router, config, and doctor
@@ -50,6 +50,7 @@ Completed through Milestone 40:
 - capability-first provider selection policy with role pins, provider order, and routing explanations
 - optional durable team records under `.agent-team/teams/` for grouping related run ids without replacing per-run sidecars
 - `agent_team_dashboard` read-only dashboard/report surface for team or explicit run refs
+- provider-neutral policy and audit controls for roles, providers, write mode, retained worktree roots, live-smoke posture, doctor posture, and sanitized `.agent-team/audit/events.jsonl` records
 - end-to-end Claude team session runbook
 - README, changelog/versioning policy, license, and package/plugin metadata alignment
 
@@ -268,6 +269,8 @@ That gate requires:
 - Audit records explain routing, permission, provider, and lifecycle decisions.
 - Dangerous paths fail closed and produce actionable doctor messages.
 
+**Status:** Complete. Workspace policy can restrict roles, provider selectors, write-capable starts, retained worktree roots, and live-smoke posture; dispatch and lifecycle start paths evaluate policy before provider execution and append sanitized audit records when enabled; doctor reports policy posture and fails incompatible write-mode configuration.
+
 ### Milestone 42: Release Channel And Upgrade Safety
 
 **Goal:** Make upgrades and installation boring.
@@ -305,4 +308,4 @@ Implement the next milestones in this order:
 2. Milestone 41: Policy And Audit Controls
 3. Milestone 42: Release Channel And Upgrade Safety
 
-Milestone 40 is now complete, so the next implementation target is Milestone 41, followed by Milestone 42. That order moves from operator visibility into stronger audit controls and safer releases without weakening the V1 control plane.
+Milestones 40 and 41 are now complete, so the next implementation target is Milestone 42. That order moves from operator visibility into stronger audit controls and safer releases without weakening the V1 control plane.

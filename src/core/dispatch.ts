@@ -10,8 +10,10 @@ import {
 import { selectProvider } from "./router.js";
 import { getRole } from "./roles.js";
 import { buildRolePrompt } from "./prompts.js";
+import { evaluateStartPolicy } from "./policy.js";
 import { createRunId as defaultCreateRunId, hashPrompt } from "./run-ids.js";
 import { runLogPath, runSidecarPath } from "./state/paths.js";
+import { appendAuditRecord } from "./state/audit-store.js";
 import { writeRunSidecar } from "./state/run-store.js";
 import {
   appendRunEvent,
@@ -38,6 +40,7 @@ export interface DispatchDependencies {
   readonly env?: NodeJS.ProcessEnv;
   readonly config?: AgentTeamConfig;
   readonly loadConfig?: typeof loadAgentTeamConfig;
+  readonly appendAudit?: typeof appendAuditRecord;
 }
 
 async function writeDispatchSidecar(input: {
@@ -85,6 +88,29 @@ export async function dispatchReadOnlyAgent(
         ...(request.provider === undefined ? {} : { requestedProviderId: request.provider })
       })
     : providers[0] ?? listProviders()[0]!;
+  const appendAudit = deps.appendAudit ?? appendAuditRecord;
+
+  const policyDecision = evaluateStartPolicy({
+    config,
+    roleId: request.role,
+    provider,
+    executionPolicy: role.executionPolicy,
+    ...(request.provider === undefined ? {} : { requestedProvider: request.provider })
+  });
+  if (config.policy.auditEnabled) {
+    await appendAudit(request.cwd, {
+      eventType:
+        policyDecision.status === "allowed" ? "policy_allowed" : "policy_blocked",
+      operation: "dispatch",
+      role: request.role,
+      provider: provider.id,
+      runId,
+      decision: policyDecision.status,
+      reason: policyDecision.reason,
+      details: policyDecision.details,
+      createdAt
+    });
+  }
 
   const finish = async (input: {
     readonly status: RunStatus;
@@ -141,6 +167,31 @@ export async function dispatchReadOnlyAgent(
       outputSummary: verdict.summary,
       eventCreatedAt: createdAt,
       eventPayload: { reason: "unsupported_role" }
+    });
+  }
+
+  if (policyDecision.status === "blocked") {
+    const verdict = blockedVerdict(
+      `Agent team policy blocked operation: ${policyDecision.reason}`
+    );
+    await writeDispatchSidecar({
+      request,
+      runId,
+      provider,
+      status: "queued",
+      createdAt,
+      updatedAt: createdAt
+    });
+    return finish({
+      status: "failed",
+      verdict,
+      outputSummary: verdict.summary,
+      eventCreatedAt: createdAt,
+      eventPayload: {
+        reason: "policy_blocked",
+        policyReason: policyDecision.reason,
+        details: policyDecision.details
+      }
     });
   }
 

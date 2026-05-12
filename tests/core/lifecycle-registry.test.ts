@@ -16,6 +16,12 @@ function config(input: {
   readonly grokModel?: string;
   readonly rolePin?: string;
   readonly providerOrder?: readonly string[];
+  readonly allowedRoles?: AgentTeamConfig["policy"]["allowedRoles"];
+  readonly allowedProviderSelectors?: readonly string[];
+  readonly allowWriteMode?: boolean;
+  readonly allowedWorktreeRoots?: readonly string[];
+  readonly liveSmokeEnabled?: boolean;
+  readonly auditEnabled?: boolean;
 } = {}): AgentTeamConfig {
   return {
     writeMode: {
@@ -33,6 +39,14 @@ function config(input: {
               architect: input.rolePin
             },
       providerOrder: input.providerOrder ?? []
+    },
+    policy: {
+      allowedRoles: input.allowedRoles ?? [],
+      allowedProviderSelectors: input.allowedProviderSelectors ?? [],
+      allowWriteMode: input.allowWriteMode ?? true,
+      allowedWorktreeRoots: input.allowedWorktreeRoots ?? [],
+      liveSmokeEnabled: input.liveSmokeEnabled ?? false,
+      auditEnabled: input.auditEnabled ?? true
     },
     providers: {
       openaiCompatible: {
@@ -156,6 +170,24 @@ describe("LifecycleRegistry", () => {
       registry.get("/repo", config({ providerOrder: ["family:grok"] }))
     ).not.toBe(
       registry.get("/repo", config({ providerOrder: ["family:ollama-cloud"] }))
+    );
+    expect(registry.get("/repo", config({ allowedRoles: ["planner"] }))).not.toBe(
+      baseline
+    );
+    expect(
+      registry.get("/repo", config({ allowedProviderSelectors: ["family:grok"] }))
+    ).not.toBe(baseline);
+    expect(registry.get("/repo", config({ allowWriteMode: false }))).not.toBe(
+      baseline
+    );
+    expect(
+      registry.get("/repo", config({ allowedWorktreeRoots: ["/tmp/approved"] }))
+    ).not.toBe(baseline);
+    expect(registry.get("/repo", config({ liveSmokeEnabled: true }))).not.toBe(
+      baseline
+    );
+    expect(registry.get("/repo", config({ auditEnabled: false }))).not.toBe(
+      baseline
     );
   });
 });

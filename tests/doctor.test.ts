@@ -748,6 +748,68 @@ describe("runDoctor", () => {
     });
   });
 
+  it("reports policy posture without exposing provider implementation details", async () => {
+    const workspace = await tempWorkspace();
+    await writeConfig(workspace, {
+      policy: {
+        allowedRoles: ["planner", "code-reviewer"],
+        allowedProviderSelectors: ["claude-code-cli", "family:grok"],
+        allowWriteMode: true,
+        allowedWorktreeRoots: ["/tmp/.agent-team-worktrees"],
+        liveSmokeEnabled: true,
+        auditEnabled: true
+      }
+    });
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: {},
+      ...cliFound()
+    });
+
+    expect(report.ok).toBe(true);
+    expect(report.checks.find((check) => check.id === "policy")).toMatchObject({
+      status: "pass",
+      message: "Agent Team policy posture is compatible with workspace config.",
+      details: {
+        allowedRoles: ["planner", "code-reviewer"],
+        allowedProviderSelectors: ["claude-code-cli", "family:grok"],
+        allowWriteMode: true,
+        allowedWorktreeRoots: ["/tmp/.agent-team-worktrees"],
+        liveSmokeEnabled: true,
+        auditEnabled: true
+      }
+    });
+    expect(JSON.stringify(report.checks.find((check) => check.id === "policy"))).not.toMatch(
+      /prompt|providerSessionId|command|payload|secret/i
+    );
+  });
+
+  it("fails doctor when write mode is enabled but policy forbids write-capable starts", async () => {
+    const workspace = await tempWorkspace();
+    await writeConfig(workspace, {
+      writeMode: { enabled: true, requireIsolatedWorktree: true },
+      policy: {
+        allowWriteMode: false
+      }
+    });
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: {},
+      ...cliFound(),
+      inspectGitWorktreeSupport: async () => ({ ok: true })
+    });
+
+    expect(report.ok).toBe(false);
+    expect(report.checks.find((check) => check.id === "policy")).toMatchObject({
+      status: "fail",
+      details: {
+        reason: "write_mode_not_allowed"
+      }
+    });
+  });
+
   it("does not require git worktree support when write mode is disabled", async () => {
     const workspace = await tempWorkspace();
     let called = false;
