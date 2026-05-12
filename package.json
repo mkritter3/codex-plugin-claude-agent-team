@@ -4,6 +4,14 @@
   "description": "Codex MCP plugin for provider-neutral AI agent teams with Claude Code CLI as the first adapter.",
   "type": "module",
   "private": true,
+  "homepage": "https://github.com/mkritter3/codex-plugin-claude-agent-team",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mkritter3/codex-plugin-claude-agent-team.git"
+  },
+  "license": "MIT",
+  "keywords": ["codex", "mcp", "agents", "claude-code"],
+  "codexPlugin": ".codex-plugin/plugin.json",
   "bin": {
     "agent-team-mcp": "./dist/index.js"
   },

@@ -1,0 +1,20 @@
+# Changelog
+
+All notable changes to this private local plugin are recorded here.
+
+## 0.1.0
+
+- Bootstrapped the Agent Team MCP package, plugin manifest, CI, package runtime, and stdio smoke.
+- Added provider-neutral roles, capabilities, routing, lifecycle state, sidecars, mailboxes, logs, verdicts, recovery, cleanup, and doctor checks.
+- Added Claude Code CLI subscription OAuth as the primary v1 provider adapter.
+- Added durable background runs, status, message, reply, cancel, wind-down, cleanup, timeout expiry, detached reconciliation, and retained isolated implementation worktrees.
+- Added bounded team tools for start, status, message, summary, and wind-down.
+- Added the Claude team session runbook and packaging hardening docs.
+
+## Versioning Policy
+
+- Patch versions cover documentation, tests, packaging metadata, and internal fixes that preserve public MCP behavior.
+- Minor versions cover MCP tool surface changes, provider compatibility changes, config shape changes, and state layout changes.
+- Major versions cover incompatible MCP schemas, state migrations, or lifecycle contract changes.
+- Each release note must call out MCP tool surface changes, provider compatibility, config changes, state layout changes, and migration notes.
+- `npm run ci` is the release gate before tagging or distributing an installable revision.

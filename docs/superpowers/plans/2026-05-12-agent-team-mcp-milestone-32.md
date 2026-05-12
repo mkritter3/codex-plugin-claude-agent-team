@@ -16,8 +16,10 @@
 
 - Create: `README.md`
 - Create: `CHANGELOG.md`
+- Create: `LICENSE`
 - Create: `tests/docs/packaging.test.ts`
 - Modify: `package.json`
+- Modify: `package-lock.json`
 - Modify: `tests/package-runtime.test.ts`
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-long-term-roadmap.md`
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-milestone-32.md`
@@ -35,13 +37,13 @@
 
 ## L11 Quality Gates
 
-- [ ] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
-- [ ] TDD red proof is captured for packaging docs and metadata tests.
-- [ ] Focused milestone tests are listed with expected red and green outcomes.
-- [ ] Full verification commands are listed.
-- [ ] Required edge cases from the matrix are explicitly selected.
-- [ ] Invariant scans are listed.
-- [ ] Live provider smoke is marked required or not required with rationale.
+- [x] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
+- [x] TDD red proof is captured for packaging docs and metadata tests.
+- [x] Focused milestone tests are listed with expected red and green outcomes.
+- [x] Full verification commands are listed.
+- [x] Required edge cases from the matrix are explicitly selected.
+- [x] Invariant scans are listed.
+- [x] Live provider smoke is marked required or not required with rationale.
 
 Selected quality-gate rows:
 
@@ -59,7 +61,8 @@ Live provider smoke is not required for this milestone because M32 hardens local
 
 - `README.md` covers prerequisites, installation from the local repo, build, MCP config, Claude Code CLI subscription OAuth auth, `.agent-team/config.json` workspace config, doctor preflight, basic workflow, troubleshooting, evidence, cleanup, and release gate.
 - `CHANGELOG.md` documents the current `0.1.0` baseline and the ongoing changelog/versioning policy.
-- `package.json`, `.codex-plugin/plugin.json`, `.mcp.json`, `scripts/smoke-mcp-stdio.mjs`, tests, and CI agree on the package name, version, repository, license, plugin manifest path, and runtime entrypoint.
+- `LICENSE` contains the MIT license declared by package and plugin metadata.
+- `package.json`, `package-lock.json`, `.codex-plugin/plugin.json`, `.mcp.json`, `scripts/smoke-mcp-stdio.mjs`, tests, and CI agree on the package name, version, repository, license, plugin manifest path, and runtime entrypoint.
 - `tests/docs/packaging.test.ts` prevents README/changelog regressions and private implementation leakage.
 - `tests/package-runtime.test.ts` verifies package metadata alignment with plugin metadata and `.mcp.json`.
 - Roadmap baseline includes M31 completion and keeps M32 as the current completed milestone after implementation.
@@ -71,7 +74,7 @@ Live provider smoke is not required for this milestone because M32 hardens local
 
 - Create: `tests/docs/packaging.test.ts`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Create `tests/docs/packaging.test.ts`:
 
@@ -140,7 +143,7 @@ describe("packaging and install docs", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests to verify red**
+- [x] **Step 2: Run tests to verify red**
 
 Run:
 
@@ -156,7 +159,7 @@ Expected: fail because `README.md` and `CHANGELOG.md` do not exist.
 
 - Modify: `tests/package-runtime.test.ts`
 
-- [ ] **Step 1: Add failing package metadata assertions**
+- [x] **Step 1: Add failing package metadata assertions**
 
 Add a test that reads `package.json`, `.codex-plugin/plugin.json`, and `.mcp.json` and expects:
 
@@ -169,7 +172,7 @@ Add a test that reads `package.json`, `.codex-plugin/plugin.json`, and `.mcp.jso
 - plugin `mcpServers === "./.mcp.json"`
 - `.mcp.json` command/args are `node` and `./dist/index.js`
 
-- [ ] **Step 2: Run tests to verify red**
+- [x] **Step 2: Run tests to verify red**
 
 Run:
 
@@ -185,8 +188,9 @@ Expected: fail because `package.json` does not yet expose repository, homepage, 
 
 - Create: `README.md`
 - Create: `CHANGELOG.md`
+- Create: `LICENSE`
 
-- [ ] **Step 1: Add README**
+- [x] **Step 1: Add README**
 
 Create `README.md` with standalone sections for:
 
@@ -203,7 +207,7 @@ Create `README.md` with standalone sections for:
 - release gate
 - links to the runbook and roadmap
 
-- [ ] **Step 2: Add changelog**
+- [x] **Step 2: Add changelog**
 
 Create `CHANGELOG.md` with:
 
@@ -214,7 +218,11 @@ Create `CHANGELOG.md` with:
 - notes that MCP tool surface changes, provider compatibility, config shape, and state layout changes must be recorded
 - `npm run ci` as the release gate
 
-- [ ] **Step 3: Run docs tests**
+- [x] **Step 3: Add license**
+
+Create `LICENSE` with the MIT license text and `Copyright (c) 2026 mkritter3`.
+
+- [x] **Step 4: Run docs tests**
 
 Run:
 
@@ -229,9 +237,10 @@ Expected: pass after README and changelog are complete.
 **Files:**
 
 - Modify: `package.json`
+- Modify: `package-lock.json`
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-long-term-roadmap.md`
 
-- [ ] **Step 1: Align package metadata**
+- [x] **Step 1: Align package metadata**
 
 Add to `package.json`:
 
@@ -248,11 +257,13 @@ Add to `package.json`:
 }
 ```
 
-- [ ] **Step 2: Refresh roadmap baseline**
+Then run `npm install --package-lock-only` so the root lockfile metadata records the declared license.
+
+- [x] **Step 2: Refresh roadmap baseline**
 
 Update the current baseline from `Completed through Milestone 30` to `Completed through Milestone 32`, add bullets for M31/M32 docs hardening, and update near-term recommendation to make M29 batch cancel the remaining V1 convenience item before V1.5 provider expansion.
 
-- [ ] **Step 3: Run package-runtime tests**
+- [x] **Step 3: Run package-runtime tests**
 
 Run:
 
@@ -268,11 +279,11 @@ Expected: pass after metadata alignment.
 
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-milestone-32.md`
 
-- [ ] **Step 1: Mark completed gates**
+- [x] **Step 1: Mark completed gates**
 
 After implementation and verification, mark this plan’s L11 checklist and task checkboxes complete.
 
-- [ ] **Step 2: Run focused verification**
+- [x] **Step 2: Run focused verification**
 
 Commands:
 
@@ -284,7 +295,7 @@ npm run build
 node scripts/smoke-mcp-stdio.mjs
 ```
 
-- [ ] **Step 3: Run invariant scans**
+- [x] **Step 3: Run invariant scans**
 
 Commands:
 
@@ -294,7 +305,7 @@ rg -n "api[- ]key fallback|ANTHROPIC_API_KEY=.*|ANTHROPIC_AUTH_TOKEN=.*|internal
 rg -n "dist/index.js|agent-team-mcp|codexPlugin|mcpServers|npm run ci|smoke:mcp-stdio" README.md CHANGELOG.md package.json .codex-plugin/plugin.json .mcp.json tests scripts .github
 ```
 
-- [ ] **Step 4: Run full CI**
+- [x] **Step 4: Run full CI**
 
 Command:
 

@@ -27,7 +27,7 @@ Codex should be able to stand up and manage an external AI agent team from insid
 
 ## Current Baseline
 
-Completed through Milestone 30:
+Completed through Milestone 32:
 
 - package scaffold, MCP server, CI, stdio smoke, and schema coverage
 - provider-neutral roles, capabilities, router, config, and doctor
@@ -41,6 +41,8 @@ Completed through Milestone 30:
 - `agent_team_message_many`
 - `agent_team_wind_down_many`
 - `agent_team_summary`
+- end-to-end Claude team session runbook
+- README, changelog/versioning policy, license, and package/plugin metadata alignment
 
 ## Roadmap Shape
 
@@ -276,8 +278,8 @@ V1.5 is complete when at least one non-Claude provider can be configured explici
 
 Implement the next milestones in this order:
 
-1. Milestone 31: End-To-End Claude Team Runbook
-2. Milestone 32: V1 Packaging And Release Hardening
-3. Milestone 29: Batch Cancel, if the runbook or live usage shows explicit multi-cancel is operationally urgent
+1. Milestone 29: Batch Cancel, if live usage shows explicit multi-cancel is operationally urgent for V1
+2. Milestone 33: Provider Adapter Conformance Harness
+3. Milestone 34: OpenAI-Compatible Adapter Foundation
 
 This order finishes in-flight communication and graceful shutdown before adding provider breadth.

@@ -72,10 +72,10 @@ describe("Claude team session runbook", () => {
     expect(doc).not.toMatch(forbiddenClaimPattern);
   });
 
-  it("updates the roadmap baseline through Milestone 30", async () => {
+  it("keeps the roadmap baseline at least through Milestone 30", async () => {
     const roadmap = await readFile(roadmapUrl, "utf8");
 
-    expect(roadmap).toContain("Completed through Milestone 30");
+    expect(roadmap).toMatch(/Completed through Milestone (3[0-9]|[4-9][0-9])/);
     expect(roadmap).toContain("agent_team_message_many");
     expect(roadmap).toContain("agent_team_wind_down_many");
     expect(roadmap).toContain("agent_team_summary");

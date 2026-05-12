@@ -11,6 +11,7 @@ describe("package runtime contract", () => {
     const packageJson = await readJson<{
       bin?: Record<string, string>;
       scripts?: Record<string, string>;
+      codexPlugin?: string;
     }>("../package.json");
     const mcpJson = await readJson<{
       mcpServers?: Record<string, { command?: string; args?: readonly string[] }>;
@@ -21,6 +22,7 @@ describe("package runtime contract", () => {
     }>("../tsconfig.build.json");
 
     expect(packageJson.bin?.["agent-team-mcp"]).toBe("./dist/index.js");
+    expect(packageJson.codexPlugin).toBe(".codex-plugin/plugin.json");
     expect(packageJson.scripts?.build).toBe("tsc -p tsconfig.build.json");
     expect(packageJson.scripts?.["smoke:mcp-stdio"]).toBe(
       "node scripts/smoke-mcp-stdio.mjs"
@@ -34,6 +36,50 @@ describe("package runtime contract", () => {
       outDir: "dist"
     });
     expect(buildConfig.include).toEqual(["src/**/*.ts"]);
+  });
+
+  it("aligns package metadata with the Codex plugin manifest", async () => {
+    const packageJson = await readJson<{
+      name?: string;
+      version?: string;
+      homepage?: string;
+      repository?: { type?: string; url?: string };
+      license?: string;
+      keywords?: readonly string[];
+      bin?: Record<string, string>;
+      codexPlugin?: string;
+    }>("../package.json");
+    const pluginJson = await readJson<{
+      name?: string;
+      version?: string;
+      homepage?: string;
+      repository?: string;
+      license?: string;
+      mcpServers?: string;
+    }>("../.codex-plugin/plugin.json");
+    const mcpJson = await readJson<{
+      mcpServers?: Record<string, { command?: string; args?: readonly string[] }>;
+    }>("../.mcp.json");
+
+    expect(packageJson.name).toBe(pluginJson.name);
+    expect(packageJson.version).toBe(pluginJson.version);
+    expect(packageJson.homepage).toBe(pluginJson.homepage);
+    expect(packageJson.repository).toEqual({
+      type: "git",
+      url: "git+https://github.com/mkritter3/codex-plugin-claude-agent-team.git"
+    });
+    expect(pluginJson.repository).toBe(
+      "https://github.com/mkritter3/codex-plugin-claude-agent-team"
+    );
+    expect(packageJson.license).toBe(pluginJson.license);
+    expect(packageJson.keywords).toEqual(["codex", "mcp", "agents", "claude-code"]);
+    expect(packageJson.codexPlugin).toBe(".codex-plugin/plugin.json");
+    expect(pluginJson.mcpServers).toBe("./.mcp.json");
+    expect(packageJson.bin?.["agent-team-mcp"]).toBe("./dist/index.js");
+    expect(mcpJson.mcpServers?.["agent-team"]).toEqual({
+      command: "node",
+      args: ["./dist/index.js"]
+    });
   });
 
   it("keeps packaged stdio smoke pointed at the built MCP entrypoint", async () => {
