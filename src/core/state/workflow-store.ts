@@ -40,7 +40,10 @@ import {
   type WorkflowReviewerVerdict,
   type WorkflowRiskLevel,
   type WorkflowSlice,
+  type WorkflowSliceRunEvidence,
+  type WorkflowSliceStartFailureEvidence,
   type WorkflowSliceState,
+  type WorkflowSliceUnblockEvidence,
   type WorkflowUserEscalation,
   type WorkflowVerdictStatus
 } from "../workflow-types.js";
@@ -78,7 +81,30 @@ const SLICE_KEYS = new Set([
   "requiredReviewers",
   "integrationOrderHint",
   "blockedMode",
-  "blockedBy"
+  "blockedBy",
+  "runIds",
+  "runEvidence",
+  "startFailureEvidence",
+  "unblockEvidence"
+]);
+const SLICE_RUN_EVIDENCE_KEYS = new Set([
+  "runId",
+  "startedAt",
+  "provider",
+  "role",
+  "sidecarPath",
+  "logPath",
+  "executionCwd",
+  "transcriptPath"
+]);
+const SLICE_START_FAILURE_EVIDENCE_KEYS = new Set(["failedAt", "error"]);
+const SLICE_UNBLOCK_EVIDENCE_KEYS = new Set([
+  "dependencySliceId",
+  "recordedAt",
+  "summary",
+  "changedFiles",
+  "evidencePaths",
+  "sourceRunId"
 ]);
 const CODEX_RATIONALE_KEYS = new Set([
   "rationaleId",
@@ -292,6 +318,32 @@ function parseSlice(value: unknown, path: string, index: number): WorkflowSlice 
     slice.blockedBy === undefined
       ? undefined
       : expectStringArray(slice.blockedBy, path, `slices[${index}].blockedBy`);
+  const runIds =
+    slice.runIds === undefined
+      ? undefined
+      : expectStringArray(slice.runIds, path, `slices[${index}].runIds`);
+  const runEvidence =
+    slice.runEvidence === undefined
+      ? undefined
+      : expectArray(slice.runEvidence, path, `slices[${index}].runEvidence`).map(
+          (item, evidenceIndex) => parseSliceRunEvidence(item, path, index, evidenceIndex)
+        );
+  const startFailureEvidence =
+    slice.startFailureEvidence === undefined
+      ? undefined
+      : expectArray(
+          slice.startFailureEvidence,
+          path,
+          `slices[${index}].startFailureEvidence`
+        ).map((item, evidenceIndex) =>
+          parseSliceStartFailureEvidence(item, path, index, evidenceIndex)
+        );
+  const unblockEvidence =
+    slice.unblockEvidence === undefined
+      ? undefined
+      : expectArray(slice.unblockEvidence, path, `slices[${index}].unblockEvidence`).map(
+          (item, evidenceIndex) => parseSliceUnblockEvidence(item, path, index, evidenceIndex)
+        );
   const readScope =
     slice.readScope === undefined
       ? undefined
@@ -350,7 +402,90 @@ function parseSlice(value: unknown, path: string, index: number): WorkflowSlice 
     ...(requiredReviewers === undefined ? {} : { requiredReviewers }),
     ...(integrationOrderHint === undefined ? {} : { integrationOrderHint }),
     ...(blockedMode === undefined ? {} : { blockedMode }),
-    ...(blockedBy === undefined ? {} : { blockedBy })
+    ...(blockedBy === undefined ? {} : { blockedBy }),
+    ...(runIds === undefined ? {} : { runIds }),
+    ...(runEvidence === undefined ? {} : { runEvidence }),
+    ...(startFailureEvidence === undefined ? {} : { startFailureEvidence }),
+    ...(unblockEvidence === undefined ? {} : { unblockEvidence })
+  };
+}
+
+function parseSliceRunEvidence(
+  value: unknown,
+  path: string,
+  sliceIndex: number,
+  evidenceIndex: number
+): WorkflowSliceRunEvidence {
+  const field = `slices[${sliceIndex}].runEvidence[${evidenceIndex}]`;
+  const evidence = expectObject(value, path, field);
+  assertKnownKeys(evidence, path, SLICE_RUN_EVIDENCE_KEYS, field);
+  const executionCwd =
+    evidence.executionCwd === undefined
+      ? undefined
+      : expectNonEmptyString(evidence.executionCwd, path, `${field}.executionCwd`);
+  const transcriptPath =
+    evidence.transcriptPath === undefined
+      ? undefined
+      : expectNonEmptyString(evidence.transcriptPath, path, `${field}.transcriptPath`);
+  return {
+    runId: expectNonEmptyString(evidence.runId, path, `${field}.runId`),
+    startedAt: expectNonEmptyString(evidence.startedAt, path, `${field}.startedAt`),
+    provider: expectNonEmptyString(evidence.provider, path, `${field}.provider`),
+    role: expectNonEmptyString(evidence.role, path, `${field}.role`),
+    sidecarPath: expectNonEmptyString(evidence.sidecarPath, path, `${field}.sidecarPath`),
+    logPath: expectNonEmptyString(evidence.logPath, path, `${field}.logPath`),
+    ...(executionCwd === undefined ? {} : { executionCwd }),
+    ...(transcriptPath === undefined ? {} : { transcriptPath })
+  };
+}
+
+function parseSliceStartFailureEvidence(
+  value: unknown,
+  path: string,
+  sliceIndex: number,
+  evidenceIndex: number
+): WorkflowSliceStartFailureEvidence {
+  const field = `slices[${sliceIndex}].startFailureEvidence[${evidenceIndex}]`;
+  const evidence = expectObject(value, path, field);
+  assertKnownKeys(evidence, path, SLICE_START_FAILURE_EVIDENCE_KEYS, field);
+  return {
+    failedAt: expectNonEmptyString(evidence.failedAt, path, `${field}.failedAt`),
+    error: expectNonEmptyString(evidence.error, path, `${field}.error`)
+  };
+}
+
+function parseSliceUnblockEvidence(
+  value: unknown,
+  path: string,
+  sliceIndex: number,
+  evidenceIndex: number
+): WorkflowSliceUnblockEvidence {
+  const field = `slices[${sliceIndex}].unblockEvidence[${evidenceIndex}]`;
+  const evidence = expectObject(value, path, field);
+  assertKnownKeys(evidence, path, SLICE_UNBLOCK_EVIDENCE_KEYS, field);
+  const changedFiles =
+    evidence.changedFiles === undefined
+      ? undefined
+      : expectStringArray(evidence.changedFiles, path, `${field}.changedFiles`);
+  const evidencePaths =
+    evidence.evidencePaths === undefined
+      ? undefined
+      : expectStringArray(evidence.evidencePaths, path, `${field}.evidencePaths`);
+  const sourceRunId =
+    evidence.sourceRunId === undefined
+      ? undefined
+      : expectNonEmptyString(evidence.sourceRunId, path, `${field}.sourceRunId`);
+  return {
+    dependencySliceId: expectNonEmptyString(
+      evidence.dependencySliceId,
+      path,
+      `${field}.dependencySliceId`
+    ),
+    recordedAt: expectNonEmptyString(evidence.recordedAt, path, `${field}.recordedAt`),
+    summary: expectNonEmptyString(evidence.summary, path, `${field}.summary`),
+    ...(changedFiles === undefined ? {} : { changedFiles }),
+    ...(evidencePaths === undefined ? {} : { evidencePaths }),
+    ...(sourceRunId === undefined ? {} : { sourceRunId })
   };
 }
 

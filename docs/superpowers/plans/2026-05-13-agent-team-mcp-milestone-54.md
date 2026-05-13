@@ -1,6 +1,6 @@
 # Agent Team MCP Milestone 54 Slice Start And Unblock Mechanics Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add the first actionable slice-DAG orchestration surface: start approved ready workflow slices with bounded concurrency, and record dependency-unblock evidence for blocked slices without auto-merging or deleting evidence.
 
@@ -50,13 +50,13 @@ Out of scope:
 
 ## L11 Quality Gates
 
-- [ ] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
-- [ ] TDD red proof is captured for workflow slice core, workflow store/view strictness, MCP handlers, server registration, and package smoke coverage.
-- [ ] Focused milestone tests are listed with expected red and green outcomes.
-- [ ] Full verification commands are listed.
-- [ ] Required edge cases from the matrix are explicitly selected.
-- [ ] Invariant scans are listed.
-- [ ] Live provider smoke is not required because tests use injected lifecycle fixtures and do not claim real-provider capability.
+- [x] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
+- [x] TDD red proof is captured for workflow slice core, workflow store/view strictness, MCP handlers, server registration, and package smoke coverage.
+- [x] Focused milestone tests are listed with expected red and green outcomes.
+- [x] Full verification commands are listed.
+- [x] Required edge cases from the matrix are explicitly selected.
+- [x] Invariant scans are listed.
+- [x] Live provider smoke is not required because tests use injected lifecycle fixtures and do not claim real-provider capability.
 
 ## Success Criteria
 
@@ -133,7 +133,7 @@ Selected from the L11 matrix:
 - Test: `tests/core/state/workflow-store.test.ts`
 - Test: `tests/core/workflow-view.test.ts`
 
-- [ ] **Step 1: Write failing core tests**
+- [x] **Step 1: Write failing core tests**
 
 Add tests proving:
 
@@ -148,7 +148,7 @@ Add tests proving:
 - notification run ids receive ordered mailbox messages through injected `messageRun`
 - notification partial failures are returned without losing durable unblock evidence
 
-- [ ] **Step 2: Run focused tests and verify red**
+- [x] **Step 2: Run focused tests and verify red**
 
 Run:
 
@@ -158,7 +158,7 @@ npm test -- tests/core/workflow-slices.test.ts
 
 Expected: fail because `workflow-slices.ts` does not exist.
 
-- [ ] **Step 3: Implement workflow slice services**
+- [x] **Step 3: Implement workflow slice services**
 
 Create:
 
@@ -169,7 +169,7 @@ export async function unblockWorkflowSlice(input: UnblockWorkflowSliceInput, dep
 
 Use `readWorkflowRecord`, `writeWorkflowRecord`, existing lifecycle dependency functions, and `toWorkflowView`. Do not call providers directly.
 
-- [ ] **Step 4: Run focused tests and verify green**
+- [x] **Step 4: Run focused tests and verify green**
 
 Run:
 
@@ -188,7 +188,7 @@ Expected: workflow slice, store, and view tests pass.
 - Test: `tests/mcp/tools.test.ts`
 - Test: `tests/mcp/server.test.ts`
 
-- [ ] **Step 1: Write failing MCP tests**
+- [x] **Step 1: Write failing MCP tests**
 
 Add tests proving:
 
@@ -198,7 +198,7 @@ Add tests proving:
 - valid inputs delegate to injected services and return sanitized workflow/results
 - state corruption is routed through shared recovery behavior
 
-- [ ] **Step 2: Run focused MCP tests and verify red**
+- [x] **Step 2: Run focused MCP tests and verify red**
 
 Run:
 
@@ -208,11 +208,11 @@ npm test -- tests/mcp/tools.test.ts tests/mcp/server.test.ts
 
 Expected: fail because the tools are not registered.
 
-- [ ] **Step 3: Implement MCP schema and handlers**
+- [x] **Step 3: Implement MCP schema and handlers**
 
 Add both tools to names, metadata, parser helpers, dependency injection, and handler dispatch. Keep public schema provider-neutral.
 
-- [ ] **Step 4: Run focused MCP tests and verify green**
+- [x] **Step 4: Run focused MCP tests and verify green**
 
 Run:
 
@@ -230,11 +230,11 @@ Expected: MCP tool tests pass.
 - Test: `tests/package-runtime.test.ts`
 - Modify: this plan
 
-- [ ] **Step 1: Write failing package-runtime test**
+- [x] **Step 1: Write failing package-runtime test**
 
 Assert the packaged smoke script checks required fields for `agent_team_start_slices` and `agent_team_unblock_slice`.
 
-- [ ] **Step 2: Run package-runtime test and verify red**
+- [x] **Step 2: Run package-runtime test and verify red**
 
 Run:
 
@@ -244,7 +244,7 @@ npm test -- tests/package-runtime.test.ts
 
 Expected: fail because the smoke script does not cover the new tools.
 
-- [ ] **Step 3: Update stdio smoke**
+- [x] **Step 3: Update stdio smoke**
 
 Add:
 
@@ -257,7 +257,7 @@ assertToolRequires(tools.tools, "agent_team_unblock_slice", [
 ]);
 ```
 
-- [ ] **Step 4: Run full milestone verification**
+- [x] **Step 4: Run full milestone verification**
 
 Run:
 
@@ -272,7 +272,7 @@ npm run smoke:package
 npm run ci
 ```
 
-- [ ] **Step 5: Run invariant scans**
+- [x] **Step 5: Run invariant scans**
 
 Run:
 
@@ -285,7 +285,53 @@ rg -n "agent_team_start_slices|agent_team_unblock_slice|WorkflowSliceRunEvidence
 
 Expected: the negated scans return no matches; the workflow scan shows only implementation, tests, and docs guardrail matches.
 
-- [ ] **Step 6: Mark plan complete and commit**
+- [x] **Step 6: Mark plan complete and commit**
 
-Update this plan with the implementation summary and verification evidence, then commit the milestone implementation.
+## Implementation Summary
 
+Implemented in `codex/workflow-slice-orchestration`. This milestone makes approved workflow slice DAGs actionable while preserving Codex-owned integration: it starts ready slices through existing lifecycle start behavior, records run/failure evidence on workflow slices, records dependency-unblock evidence, and optionally notifies waiting runs through existing mailbox lifecycle messaging.
+
+Added:
+
+- `src/core/workflow-slices.ts` with `startWorkflowSlices` and `unblockWorkflowSlice`.
+- Public MCP tools `agent_team_start_slices` and `agent_team_unblock_slice`.
+- Slice run evidence, start failure evidence, and unblock evidence on durable workflow slices.
+- Strict workflow-store parsing for the new evidence fields.
+- Sanitized workflow view mapping for slice run/unblock evidence.
+- Bounded concurrency, ordered per-slice results, and partial-failure evidence for slice starts.
+- Bounded, ordered notification fan-out for unblock messages via existing `messageRun`.
+- Packaged stdio smoke coverage for the new tools.
+
+No live provider proof, auto-merge, auto-cleanup, review consensus, integration queue computation, or provider-specific public schema was introduced.
+
+## Verification Evidence
+
+TDD red proof:
+
+- `npm test -- tests/core/workflow-slices.test.ts` failed before `src/core/workflow-slices.ts` existed.
+- `npm test -- tests/mcp/tools.test.ts tests/mcp/server.test.ts tests/package-runtime.test.ts` failed before the new MCP tools and packaged smoke checks were registered.
+- `tests/core/workflow-view.test.ts` caught unsanitized extra evidence fields before the view mapper selected only public fields.
+
+Focused green proof:
+
+- `npm test -- tests/core/workflow-slices.test.ts` passed 7 tests.
+- `npm test -- tests/core/workflow-slices.test.ts tests/core/state/workflow-store.test.ts tests/core/workflow-view.test.ts` passed 23 tests.
+- `npm test -- tests/mcp/tools.test.ts tests/mcp/server.test.ts tests/package-runtime.test.ts` passed 74 tests.
+- `npm test -- tests/core/workflow-slices.test.ts tests/core/state/workflow-store.test.ts tests/core/workflow-view.test.ts tests/mcp/tools.test.ts tests/mcp/server.test.ts tests/package-runtime.test.ts` passed 97 tests.
+
+Full verification:
+
+- `npm run typecheck` passed.
+- `npm test` passed 71 files and 551 tests.
+- `npm run build` passed.
+- `npm run install:check` passed after build produced `dist/index.js`. An earlier parallel run correctly reported blocked while build was still racing the runtime entrypoint into place.
+- `npm run smoke:mcp-stdio` passed.
+- `npm run smoke:package` passed.
+- `npm run ci` passed.
+
+Invariant scans:
+
+- `! rg -n "allowApiKeyFallback:\s*true|apiKeyFallback\s*:\s*true" src .codex-plugin package.json` returned no matches.
+- `! rg -n "hiddenPrompt|internalPrompt|rawProvider|raw provider|providerPayload|provider payload" src/mcp src/core .codex-plugin` returned no matches.
+- `! rg -n "mock LLM|heuristic LLM|heuristic.*benchmark|mock.*benchmark|provider-ranking" src scripts .codex-plugin` returned no matches.
+- Workflow scan `rg -n "agent_team_start_slices|agent_team_unblock_slice|WorkflowSliceRunEvidence|WorkflowSliceUnblockEvidence|StateCorruptionError" src tests docs/superpowers/plans/2026-05-13-agent-team-mcp-milestone-54.md` showed implementation, tests, existing shared recovery, and docs guardrail matches.

@@ -118,6 +118,50 @@ describe("workflow-store", () => {
     );
   });
 
+  it("strict-parses workflow slice run, failure, and unblock evidence", async () => {
+    const record = workflowRecord("workflow_slice_evidence", "2026-05-13T10:00:00.000Z", {
+      slices: [
+        {
+          ...workflowRecord("workflow_slice_evidence", "2026-05-13T10:00:00.000Z").slices[0]!,
+          state: "running",
+          runIds: ["run_slice_1"],
+          runEvidence: [
+            {
+              runId: "run_slice_1",
+              startedAt: "2026-05-13T11:00:00.000Z",
+              provider: "claude-code-cli",
+              role: "slice-implementer",
+              sidecarPath: "/repo/.agent-team/runs/run_slice_1.json",
+              logPath: "/repo/.agent-team/logs/run_slice_1.log",
+              executionCwd: "/repo/.worktrees/run_slice_1",
+              transcriptPath: "/repo/.agent-team/logs/run_slice_1.jsonl"
+            }
+          ],
+          startFailureEvidence: [
+            {
+              failedAt: "2026-05-13T11:01:00.000Z",
+              error: "provider policy rejected write mode"
+            }
+          ],
+          unblockEvidence: [
+            {
+              dependencySliceId: "slice_state_store",
+              recordedAt: "2026-05-13T11:02:00.000Z",
+              summary: "Dependency approved.",
+              changedFiles: ["src/core/workflow-slices.ts"],
+              evidencePaths: ["/repo/.agent-team/runs/run_slice_1.json"],
+              sourceRunId: "run_slice_1"
+            }
+          ]
+        }
+      ]
+    });
+
+    await writeWorkflowRecord(workspace, record);
+
+    await expect(readWorkflowRecord(workspace, "workflow_slice_evidence")).resolves.toEqual(record);
+  });
+
   it("lists workflow records sorted by created time then workflow id", async () => {
     const latest = workflowRecord("workflow_c", "2026-05-13T10:00:02.000Z");
     const firstB = workflowRecord("workflow_b", "2026-05-13T10:00:00.000Z");
@@ -196,6 +240,28 @@ describe("workflow-store", () => {
       (base: WorkflowRecord) => ({
         ...base,
         slices: [{ ...base.slices[0], state: "almost-ready" }]
+      })
+    ],
+    [
+      "slice run evidence",
+      (base: WorkflowRecord) => ({
+        ...base,
+        slices: [
+          {
+            ...base.slices[0],
+            runEvidence: [
+              {
+                runId: "run_slice",
+                startedAt: "2026-05-13T10:00:00.000Z",
+                provider: "claude-code-cli",
+                role: "planner",
+                sidecarPath: "/repo/.agent-team/runs/run_slice.json",
+                logPath: "/repo/.agent-team/logs/run_slice.log",
+                rawProviderPayload: "nope"
+              }
+            ]
+          }
+        ]
       })
     ],
     [

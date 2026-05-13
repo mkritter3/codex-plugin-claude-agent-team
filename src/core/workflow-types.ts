@@ -136,6 +136,35 @@ export interface WorkflowSlice {
   readonly integrationOrderHint?: number;
   readonly blockedMode?: WorkflowBlockedMode;
   readonly blockedBy?: readonly string[];
+  readonly runIds?: readonly string[];
+  readonly runEvidence?: readonly WorkflowSliceRunEvidence[];
+  readonly startFailureEvidence?: readonly WorkflowSliceStartFailureEvidence[];
+  readonly unblockEvidence?: readonly WorkflowSliceUnblockEvidence[];
+}
+
+export interface WorkflowSliceRunEvidence {
+  readonly runId: string;
+  readonly startedAt: string;
+  readonly provider: string;
+  readonly role: string;
+  readonly sidecarPath: string;
+  readonly logPath: string;
+  readonly executionCwd?: string;
+  readonly transcriptPath?: string;
+}
+
+export interface WorkflowSliceStartFailureEvidence {
+  readonly failedAt: string;
+  readonly error: string;
+}
+
+export interface WorkflowSliceUnblockEvidence {
+  readonly dependencySliceId: string;
+  readonly recordedAt: string;
+  readonly summary: string;
+  readonly changedFiles?: readonly string[];
+  readonly evidencePaths?: readonly string[];
+  readonly sourceRunId?: string;
 }
 
 export interface WorkflowReviewerVerdict {

@@ -4,7 +4,10 @@ import type {
   WorkflowGoalPacket,
   WorkflowPlanningStatus,
   WorkflowRecord,
-  WorkflowSlice
+  WorkflowSlice,
+  WorkflowSliceRunEvidence,
+  WorkflowSliceStartFailureEvidence,
+  WorkflowSliceUnblockEvidence
 } from "./workflow-types.js";
 
 export interface WorkflowSliceView {
@@ -22,6 +25,10 @@ export interface WorkflowSliceView {
   readonly integrationOrderHint?: number;
   readonly blockedMode?: WorkflowSlice["blockedMode"];
   readonly blockedBy?: readonly string[];
+  readonly runIds?: readonly string[];
+  readonly runEvidence?: WorkflowSlice["runEvidence"];
+  readonly startFailureEvidence?: WorkflowSlice["startFailureEvidence"];
+  readonly unblockEvidence?: WorkflowSlice["unblockEvidence"];
 }
 
 export interface WorkflowOpusReviewEvidenceView {
@@ -51,6 +58,43 @@ export interface WorkflowView {
   readonly evidencePath: string;
 }
 
+function runEvidenceToView(
+  evidence: WorkflowSliceRunEvidence
+): WorkflowSliceRunEvidence {
+  return {
+    runId: evidence.runId,
+    startedAt: evidence.startedAt,
+    provider: evidence.provider,
+    role: evidence.role,
+    sidecarPath: evidence.sidecarPath,
+    logPath: evidence.logPath,
+    ...(evidence.executionCwd === undefined ? {} : { executionCwd: evidence.executionCwd }),
+    ...(evidence.transcriptPath === undefined ? {} : { transcriptPath: evidence.transcriptPath })
+  };
+}
+
+function failureEvidenceToView(
+  evidence: WorkflowSliceStartFailureEvidence
+): WorkflowSliceStartFailureEvidence {
+  return {
+    failedAt: evidence.failedAt,
+    error: evidence.error
+  };
+}
+
+function unblockEvidenceToView(
+  evidence: WorkflowSliceUnblockEvidence
+): WorkflowSliceUnblockEvidence {
+  return {
+    dependencySliceId: evidence.dependencySliceId,
+    recordedAt: evidence.recordedAt,
+    summary: evidence.summary,
+    ...(evidence.changedFiles === undefined ? {} : { changedFiles: evidence.changedFiles }),
+    ...(evidence.evidencePaths === undefined ? {} : { evidencePaths: evidence.evidencePaths }),
+    ...(evidence.sourceRunId === undefined ? {} : { sourceRunId: evidence.sourceRunId })
+  };
+}
+
 function sliceToView(slice: WorkflowSlice): WorkflowSliceView {
   return {
     sliceId: slice.sliceId,
@@ -72,7 +116,17 @@ function sliceToView(slice: WorkflowSlice): WorkflowSliceView {
       ? {}
       : { integrationOrderHint: slice.integrationOrderHint }),
     ...(slice.blockedMode === undefined ? {} : { blockedMode: slice.blockedMode }),
-    ...(slice.blockedBy === undefined ? {} : { blockedBy: slice.blockedBy })
+    ...(slice.blockedBy === undefined ? {} : { blockedBy: slice.blockedBy }),
+    ...(slice.runIds === undefined ? {} : { runIds: slice.runIds }),
+    ...(slice.runEvidence === undefined
+      ? {}
+      : { runEvidence: slice.runEvidence.map(runEvidenceToView) }),
+    ...(slice.startFailureEvidence === undefined
+      ? {}
+      : { startFailureEvidence: slice.startFailureEvidence.map(failureEvidenceToView) }),
+    ...(slice.unblockEvidence === undefined
+      ? {}
+      : { unblockEvidence: slice.unblockEvidence.map(unblockEvidenceToView) })
   };
 }
 

@@ -35,6 +35,35 @@ describe("workflow view", () => {
           requiredReviewers: ["code-reviewer"],
           integrationOrderHint: 1,
           blockedMode: "deferred-start",
+          runIds: ["run_view"],
+          runEvidence: [
+            {
+              runId: "run_view",
+              startedAt: "2026-05-13T10:01:00.000Z",
+              provider: "claude-code-cli",
+              role: "planner",
+              sidecarPath: "/repo/.agent-team/runs/run_view.json",
+              logPath: "/repo/.agent-team/logs/run_view.log",
+              providerSessionId: "hidden-session"
+            }
+          ],
+          startFailureEvidence: [
+            {
+              failedAt: "2026-05-13T10:02:00.000Z",
+              error: "provider policy rejected write mode"
+            }
+          ],
+          unblockEvidence: [
+            {
+              dependencySliceId: "slice_dependency",
+              recordedAt: "2026-05-13T10:03:00.000Z",
+              summary: "Dependency evidence is ready.",
+              changedFiles: ["src/core/workflow-view.ts"],
+              evidencePaths: ["/repo/.agent-team/runs/run_dependency.json"],
+              sourceRunId: "run_dependency",
+              rawMailboxPayload: "hidden"
+            }
+          ],
           internalPrompt: "do not expose"
         }
       ],
@@ -77,7 +106,25 @@ describe("workflow view", () => {
         expect.objectContaining({
           sliceId: "slice_view",
           expectedEvidence: ["focused test"],
-          riskLevel: "low"
+          riskLevel: "low",
+          runIds: ["run_view"],
+          runEvidence: [
+            expect.objectContaining({
+              runId: "run_view",
+              sidecarPath: "/repo/.agent-team/runs/run_view.json"
+            })
+          ],
+          startFailureEvidence: [
+            expect.objectContaining({
+              error: "provider policy rejected write mode"
+            })
+          ],
+          unblockEvidence: [
+            expect.objectContaining({
+              dependencySliceId: "slice_dependency",
+              sourceRunId: "run_dependency"
+            })
+          ]
         })
       ],
       seniorReview: {
@@ -86,7 +133,7 @@ describe("workflow view", () => {
       }
     });
     expect(JSON.stringify(view)).not.toMatch(
-      /internalPrompt|rawProviderPayload|rawMailboxPayload|providerSessionId|commandArgs|secret/
+      /internalPrompt|rawProviderPayload|rawMailboxPayload|providerSessionId|commandArgs|hidden-session|secret/
     );
   });
 });

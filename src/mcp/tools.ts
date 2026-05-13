@@ -45,6 +45,13 @@ import {
   type PlanConsensusUserEscalationInput,
   type PlanConsensusVerdictInput
 } from "../core/workflow-consensus.js";
+import {
+  startWorkflowSlices,
+  unblockWorkflowSlice,
+  type StartWorkflowSlicesInput,
+  type UnblockDependencyEvidenceInput,
+  type UnblockWorkflowSliceInput
+} from "../core/workflow-slices.js";
 import type {
   CodexRationaleCategory,
   WorkflowGoalPacket,
@@ -99,6 +106,8 @@ export const TOOL_NAMES = [
   "agent_team_get_workflow",
   "agent_team_list_workflows",
   "agent_team_plan_consensus",
+  "agent_team_start_slices",
+  "agent_team_unblock_slice",
   "agent_team_dashboard",
   "agent_team_cancel",
   "agent_team_cancel_many",
@@ -138,6 +147,8 @@ export interface ToolDependencies {
   readonly getWorkflow?: typeof getWorkflow;
   readonly listWorkflows?: typeof listWorkflows;
   readonly planConsensus?: typeof planConsensus;
+  readonly startWorkflowSlices?: typeof startWorkflowSlices;
+  readonly unblockWorkflowSlice?: typeof unblockWorkflowSlice;
   readonly now?: () => Date;
   readonly createWorkflowId?: () => string;
 }
@@ -764,6 +775,190 @@ function parsePlanConsensusArgs(
     verdicts,
     ...(seniorReviewerEvidence === undefined ? {} : { seniorReviewerEvidence }),
     ...(userEscalations === undefined ? {} : { userEscalations }),
+    ...(deps.now === undefined ? {} : { now: deps.now })
+  };
+}
+
+function parseStartWorkflowSlicesArgs(
+  args: Record<string, unknown>,
+  defaultCwd: string,
+  deps: Pick<ToolDependencies, "now">
+): StartWorkflowSlicesInput | JsonToolResult {
+  const workflowId = readString(
+    args.workflowId,
+    "agent_team_start_slices requires a non-empty workflowId."
+  );
+  if (isJsonToolResult(workflowId)) {
+    return workflowId;
+  }
+  const cwdValue = readOptionalString(args.cwd, "agent_team_start_slices cwd");
+  if (cwdValue !== undefined && typeof cwdValue !== "string") {
+    return cwdValue;
+  }
+  const sliceIds =
+    args.sliceIds === undefined
+      ? undefined
+      : readStringArray(args.sliceIds, "agent_team_start_slices sliceIds");
+  if (sliceIds !== undefined && isJsonToolResult(sliceIds)) {
+    return sliceIds;
+  }
+  const provider = readOptionalString(args.provider, "agent_team_start_slices provider");
+  if (provider !== undefined && typeof provider !== "string") {
+    return provider;
+  }
+  const timeoutMs = readOptionalTimeout(
+    args.timeoutMs,
+    "agent_team_start_slices timeoutMs must be positive."
+  );
+  if (timeoutMs !== undefined && typeof timeoutMs !== "number") {
+    return timeoutMs;
+  }
+  const concurrency = readOptionalPositiveInteger(
+    args.concurrency,
+    "agent_team_start_slices concurrency"
+  );
+  if (concurrency !== undefined && typeof concurrency !== "number") {
+    return concurrency;
+  }
+  if (typeof concurrency === "number" && concurrency > 8) {
+    return validationError("agent_team_start_slices concurrency must be at most 8.");
+  }
+  return {
+    workspaceRoot: cwdValue ?? defaultCwd,
+    workflowId,
+    ...(sliceIds === undefined ? {} : { sliceIds }),
+    ...(provider === undefined ? {} : { provider }),
+    ...(timeoutMs === undefined ? {} : { timeoutMs }),
+    concurrency: concurrency ?? 4,
+    ...(deps.now === undefined ? {} : { now: deps.now })
+  };
+}
+
+function parseDependencyEvidence(
+  value: unknown
+): readonly UnblockDependencyEvidenceInput[] | JsonToolResult {
+  if (!Array.isArray(value) || value.length === 0) {
+    return validationError("agent_team_unblock_slice requires non-empty dependencyEvidence.");
+  }
+  const evidence: UnblockDependencyEvidenceInput[] = [];
+  for (const [index, item] of value.entries()) {
+    if (typeof item !== "object" || item === null || Array.isArray(item)) {
+      return validationError(`agent_team_unblock_slice dependencyEvidence[${index}] must be an object.`);
+    }
+    const entry = item as Record<string, unknown>;
+    const dependencySliceId = readString(
+      entry.dependencySliceId,
+      `agent_team_unblock_slice dependencyEvidence[${index}].dependencySliceId`
+    );
+    if (isJsonToolResult(dependencySliceId)) {
+      return dependencySliceId;
+    }
+    const summary = readString(
+      entry.summary,
+      `agent_team_unblock_slice dependencyEvidence[${index}].summary`
+    );
+    if (isJsonToolResult(summary)) {
+      return summary;
+    }
+    const changedFiles =
+      entry.changedFiles === undefined
+        ? undefined
+        : readStringArray(
+            entry.changedFiles,
+            `agent_team_unblock_slice dependencyEvidence[${index}].changedFiles`
+          );
+    if (changedFiles !== undefined && isJsonToolResult(changedFiles)) {
+      return changedFiles;
+    }
+    const evidencePaths =
+      entry.evidencePaths === undefined
+        ? undefined
+        : readStringArray(
+            entry.evidencePaths,
+            `agent_team_unblock_slice dependencyEvidence[${index}].evidencePaths`
+          );
+    if (evidencePaths !== undefined && isJsonToolResult(evidencePaths)) {
+      return evidencePaths;
+    }
+    const sourceRunId = readOptionalString(
+      entry.sourceRunId,
+      `agent_team_unblock_slice dependencyEvidence[${index}].sourceRunId`
+    );
+    if (sourceRunId !== undefined && typeof sourceRunId !== "string") {
+      return sourceRunId;
+    }
+    evidence.push({
+      dependencySliceId,
+      summary,
+      ...(changedFiles === undefined ? {} : { changedFiles }),
+      ...(evidencePaths === undefined ? {} : { evidencePaths }),
+      ...(sourceRunId === undefined ? {} : { sourceRunId })
+    });
+  }
+  return evidence;
+}
+
+function parseUnblockWorkflowSliceArgs(
+  args: Record<string, unknown>,
+  defaultCwd: string,
+  deps: Pick<ToolDependencies, "now">
+): UnblockWorkflowSliceInput | JsonToolResult {
+  const workflowId = readString(
+    args.workflowId,
+    "agent_team_unblock_slice requires a non-empty workflowId."
+  );
+  if (isJsonToolResult(workflowId)) {
+    return workflowId;
+  }
+  const sliceId = readString(args.sliceId, "agent_team_unblock_slice requires a non-empty sliceId.");
+  if (isJsonToolResult(sliceId)) {
+    return sliceId;
+  }
+  const cwdValue = readOptionalString(args.cwd, "agent_team_unblock_slice cwd");
+  if (cwdValue !== undefined && typeof cwdValue !== "string") {
+    return cwdValue;
+  }
+  const dependencyEvidence = parseDependencyEvidence(args.dependencyEvidence);
+  if (isJsonToolResult(dependencyEvidence)) {
+    return dependencyEvidence;
+  }
+  const notifyRunIds =
+    args.notifyRunIds === undefined
+      ? undefined
+      : readStringArray(args.notifyRunIds, "agent_team_unblock_slice notifyRunIds");
+  if (notifyRunIds !== undefined && isJsonToolResult(notifyRunIds)) {
+    return notifyRunIds;
+  }
+  const message = readOptionalString(args.message, "agent_team_unblock_slice message");
+  if (message !== undefined && typeof message !== "string") {
+    return message;
+  }
+  const correlationId = readOptionalString(
+    args.correlationId,
+    "agent_team_unblock_slice correlationId"
+  );
+  if (correlationId !== undefined && typeof correlationId !== "string") {
+    return correlationId;
+  }
+  const concurrency = readOptionalPositiveInteger(
+    args.concurrency,
+    "agent_team_unblock_slice concurrency"
+  );
+  if (concurrency !== undefined && typeof concurrency !== "number") {
+    return concurrency;
+  }
+  if (typeof concurrency === "number" && concurrency > 8) {
+    return validationError("agent_team_unblock_slice concurrency must be at most 8.");
+  }
+  return {
+    workspaceRoot: cwdValue ?? defaultCwd,
+    workflowId,
+    sliceId,
+    dependencyEvidence,
+    ...(notifyRunIds === undefined ? {} : { notifyRunIds }),
+    ...(message === undefined ? {} : { message }),
+    ...(correlationId === undefined ? {} : { correlationId }),
+    ...(concurrency === undefined ? {} : { concurrency }),
     ...(deps.now === undefined ? {} : { now: deps.now })
   };
 }
@@ -1635,6 +1830,8 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
   const workflowGet = deps.getWorkflow ?? getWorkflow;
   const workflowList = deps.listWorkflows ?? listWorkflows;
   const workflowConsensus = deps.planConsensus ?? planConsensus;
+  const workflowStartSlices = deps.startWorkflowSlices ?? startWorkflowSlices;
+  const workflowUnblockSlice = deps.unblockWorkflowSlice ?? unblockWorkflowSlice;
   const cwd = deps.cwd ?? process.cwd;
   const lifecycleRegistry =
     deps.lifecycleRegistry ??
@@ -1923,6 +2120,43 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
           action: async () =>
             jsonToolResult({
               ...(await workflowConsensus(parsed))
+            })
+        });
+      }
+
+      if (name === "agent_team_start_slices") {
+        const parsed = parseStartWorkflowSlicesArgs(args, cwd(), deps);
+        if (isJsonToolResult(parsed)) {
+          return parsed;
+        }
+        return recoverableLifecycleTool({
+          workspaceRoot: parsed.workspaceRoot,
+          operation: name,
+          action: async () =>
+            jsonToolResult({
+              ...(await workflowStartSlices(parsed, {
+                startRun: async (request) =>
+                  (await lifecycleFor(request.cwd)).startRun(request)
+              }))
+            })
+        });
+      }
+
+      if (name === "agent_team_unblock_slice") {
+        const parsed = parseUnblockWorkflowSliceArgs(args, cwd(), deps);
+        if (isJsonToolResult(parsed)) {
+          return parsed;
+        }
+        return recoverableLifecycleTool({
+          workspaceRoot: parsed.workspaceRoot,
+          operation: name,
+          action: async () =>
+            jsonToolResult({
+              ...(await workflowUnblockSlice(parsed, {
+                messageRun: async (request) =>
+                  (await lifecycleFor(request.cwd)).messageRun(request),
+                recoverStateCorruption: async (input) => recoverStateCorruption(input)
+              }))
             })
         });
       }

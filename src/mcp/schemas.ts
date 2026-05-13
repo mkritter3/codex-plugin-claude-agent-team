@@ -246,6 +246,34 @@ const planConsensusInputSchema = {
   userEscalations: z.array(userEscalationInputSchema).min(1).optional()
 };
 
+const startSlicesInputSchema = {
+  workflowId,
+  cwd,
+  sliceIds: z.array(z.string().min(1)).min(1).optional(),
+  provider,
+  timeoutMs,
+  concurrency: z.number().int().min(1).max(8).optional()
+};
+
+const dependencyEvidenceInputSchema = z.object({
+  dependencySliceId: z.string().min(1),
+  summary: z.string().min(1),
+  changedFiles: z.array(z.string().min(1)).min(1).optional(),
+  evidencePaths: z.array(z.string().min(1)).min(1).optional(),
+  sourceRunId: z.string().regex(/^run_[A-Za-z0-9_-]+$/).optional()
+});
+
+const unblockSliceInputSchema = {
+  workflowId,
+  sliceId: z.string().min(1),
+  dependencyEvidence: z.array(dependencyEvidenceInputSchema).min(1),
+  cwd,
+  notifyRunIds: z.array(z.string().regex(/^run_[A-Za-z0-9_-]+$/)).min(1).optional(),
+  message: z.string().min(1).optional(),
+  correlationId,
+  concurrency: z.number().int().min(1).max(8).optional()
+};
+
 const dashboardInputSchema = {
   teamId: teamId
     .optional()
@@ -380,6 +408,16 @@ export const TOOL_METADATA_BY_NAME = {
     description:
       "Record and evaluate a provider-neutral planning consensus round for a durable workflow.",
     inputSchema: planConsensusInputSchema
+  },
+  agent_team_start_slices: {
+    title: "Start Workflow Slices",
+    description: "Start approved ready workflow slices with bounded concurrency.",
+    inputSchema: startSlicesInputSchema
+  },
+  agent_team_unblock_slice: {
+    title: "Unblock Workflow Slice",
+    description: "Record dependency evidence and optionally notify waiting workflow slice runs.",
+    inputSchema: unblockSliceInputSchema
   },
   agent_team_dashboard: {
     title: "Agent Team Dashboard",

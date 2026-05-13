@@ -98,6 +98,12 @@ async function main() {
       "codexDecision",
       "verdicts"
     ]);
+    assertToolRequires(tools.tools, "agent_team_start_slices", ["workflowId"]);
+    assertToolRequires(tools.tools, "agent_team_unblock_slice", [
+      "workflowId",
+      "sliceId",
+      "dependencyEvidence"
+    ]);
     assertObjectSchema(tools.tools, "agent_team_dashboard");
     assertToolRequires(tools.tools, "agent_team_cancel_many", ["runs"]);
     assertToolRequires(tools.tools, "agent_team_wind_down_many", ["runs"]);

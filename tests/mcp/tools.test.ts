@@ -261,6 +261,34 @@ describe("MCP tool handlers", () => {
     );
   });
 
+  it("exposes provider-neutral workflow slice orchestration tools with sanitized schemas", () => {
+    expect(listToolNames()).toEqual(
+      expect.arrayContaining(["agent_team_start_slices", "agent_team_unblock_slice"])
+    );
+    expect(TOOL_METADATA_BY_NAME.agent_team_start_slices).toMatchObject({
+      title: "Start Workflow Slices",
+      description: expect.stringMatching(/workflow slices/i)
+    });
+    expect(TOOL_METADATA_BY_NAME.agent_team_start_slices.inputSchema).toMatchObject({
+      workflowId: expect.any(Object)
+    });
+    expect(TOOL_METADATA_BY_NAME.agent_team_unblock_slice).toMatchObject({
+      title: "Unblock Workflow Slice",
+      description: expect.stringMatching(/dependency/i)
+    });
+    expect(TOOL_METADATA_BY_NAME.agent_team_unblock_slice.inputSchema).toMatchObject({
+      workflowId: expect.any(Object),
+      sliceId: expect.any(Object),
+      dependencyEvidence: expect.any(Object)
+    });
+    expect(JSON.stringify(TOOL_METADATA_BY_NAME.agent_team_start_slices)).not.toMatch(
+      /claude-code-cli|internal prompt|raw provider|providerPayload/i
+    );
+    expect(JSON.stringify(TOOL_METADATA_BY_NAME.agent_team_unblock_slice)).not.toMatch(
+      /claude-code-cli|internal prompt|raw provider|providerPayload/i
+    );
+  });
+
   it("creates, reads, and lists sanitized workflow views through MCP", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "agent-team-mcp-workflow-"));
     const handlers = createToolHandlers({
@@ -439,6 +467,181 @@ describe("MCP tool handlers", () => {
 
     expect(result.structuredContent).toMatchObject({ status: "validation_error" });
     expect(called).toBe(false);
+  });
+
+  it("starts workflow slices through MCP using the injected workflow service", async () => {
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      startWorkflowSlices: async (input) => ({
+        status: "started",
+        batchId: `${input.workflowId}_slices`,
+        concurrency: input.concurrency,
+        slices: [
+          {
+            status: "started",
+            index: 0,
+            sliceId: "slice_core",
+            run: {
+              runId: "run_slice_core",
+              status: "running",
+              provider: "claude-code-cli",
+              role: "slice-implementer",
+              sidecarPath: "/repo/.agent-team/runs/run_slice_core.json",
+              logPath: "/repo/.agent-team/logs/run_slice_core.log",
+              mailboxPaths: {
+                inbox: "/repo/.agent-team/mailboxes/run_slice_core/inbox.jsonl",
+                outbox: "/repo/.agent-team/mailboxes/run_slice_core/outbox.jsonl",
+                control: "/repo/.agent-team/mailboxes/run_slice_core/control.jsonl",
+                events: "/repo/.agent-team/mailboxes/run_slice_core/events.jsonl"
+              }
+            }
+          }
+        ],
+        workflow: {
+          workflowId: input.workflowId,
+          createdAt: "2026-05-13T10:00:00.000Z",
+          updatedAt: "2026-05-13T11:00:00.000Z",
+          planningStatus: "approved",
+          goal: {
+            title: "Workflow",
+            successCriteria: ["slice started"],
+            constraints: ["provider neutral"],
+            nonGoals: ["auto merge"]
+          },
+          seniorReview: DEFAULT_AGENT_TEAM_CONFIG.seniorReview,
+          slices: [
+            {
+              sliceId: "slice_core",
+              title: "Core",
+              state: "running",
+              ownerRole: "slice-implementer",
+              dependencies: [],
+              writeScope: ["src/core"],
+              acceptanceTests: ["focused tests"],
+              runIds: ["run_slice_core"]
+            }
+          ],
+          consensusRounds: [],
+          userEscalations: [],
+          opusReviewEvidence: [],
+          integrationQueue: [],
+          codexRationale: [],
+          evidencePath: "/repo/.agent-team/workflows/workflow_mcp.json"
+        }
+      })
+    });
+
+    const result = await handlers.handleToolCall("agent_team_start_slices", {
+      workflowId: "workflow_mcp",
+      sliceIds: ["slice_core"],
+      concurrency: 1
+    });
+
+    expect(result.structuredContent).toMatchObject({
+      status: "started",
+      workflow: {
+        workflowId: "workflow_mcp",
+        slices: [expect.objectContaining({ sliceId: "slice_core", state: "running" })]
+      }
+    });
+  });
+
+  it("unblocks workflow slices through MCP using the injected workflow service", async () => {
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      unblockWorkflowSlice: async (input) => ({
+        status: "ready",
+        sliceId: input.sliceId,
+        notifications: [],
+        workflow: {
+          workflowId: input.workflowId,
+          createdAt: "2026-05-13T10:00:00.000Z",
+          updatedAt: "2026-05-13T11:00:00.000Z",
+          planningStatus: "approved",
+          goal: {
+            title: "Workflow",
+            successCriteria: ["slice unblocked"],
+            constraints: ["provider neutral"],
+            nonGoals: ["auto merge"]
+          },
+          seniorReview: DEFAULT_AGENT_TEAM_CONFIG.seniorReview,
+          slices: [
+            {
+              sliceId: input.sliceId,
+              title: "Blocked",
+              state: "ready",
+              ownerRole: "slice-implementer",
+              dependencies: ["slice_core"],
+              writeScope: ["src/core"],
+              acceptanceTests: ["focused tests"],
+              unblockEvidence: [
+                {
+                  dependencySliceId: "slice_core",
+                  recordedAt: "2026-05-13T11:00:00.000Z",
+                  summary: "Core is ready."
+                }
+              ]
+            }
+          ],
+          consensusRounds: [],
+          userEscalations: [],
+          opusReviewEvidence: [],
+          integrationQueue: [],
+          codexRationale: [],
+          evidencePath: "/repo/.agent-team/workflows/workflow_mcp.json"
+        }
+      })
+    });
+
+    const result = await handlers.handleToolCall("agent_team_unblock_slice", {
+      workflowId: "workflow_mcp",
+      sliceId: "slice_blocked",
+      dependencyEvidence: [
+        {
+          dependencySliceId: "slice_core",
+          summary: "Core is ready."
+        }
+      ]
+    });
+
+    expect(result.structuredContent).toMatchObject({
+      status: "ready",
+      sliceId: "slice_blocked",
+      workflow: {
+        slices: [expect.objectContaining({ sliceId: "slice_blocked", state: "ready" })]
+      }
+    });
+  });
+
+  it("rejects invalid workflow slice orchestration input before invoking injected services", async () => {
+    let startCalled = false;
+    let unblockCalled = false;
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      startWorkflowSlices: async () => {
+        startCalled = true;
+        throw new Error("should not start");
+      },
+      unblockWorkflowSlice: async () => {
+        unblockCalled = true;
+        throw new Error("should not unblock");
+      }
+    });
+
+    const startResult = await handlers.handleToolCall("agent_team_start_slices", {
+      workflowId: "workflow_mcp",
+      concurrency: 0
+    });
+    const unblockResult = await handlers.handleToolCall("agent_team_unblock_slice", {
+      workflowId: "workflow_mcp",
+      sliceId: "slice_blocked",
+      dependencyEvidence: []
+    });
+
+    expect(startResult.structuredContent).toMatchObject({ status: "validation_error" });
+    expect(unblockResult.structuredContent).toMatchObject({ status: "validation_error" });
+    expect(startCalled).toBe(false);
+    expect(unblockCalled).toBe(false);
   });
 
   it("loads workspace config for default lifecycle starts", async () => {
@@ -3464,6 +3667,8 @@ describe("MCP tool handlers", () => {
       "agent_team_get_workflow",
       "agent_team_list_workflows",
       "agent_team_plan_consensus",
+      "agent_team_start_slices",
+      "agent_team_unblock_slice",
       "agent_team_dashboard",
       "agent_team_cancel",
       "agent_team_cancel_many",
