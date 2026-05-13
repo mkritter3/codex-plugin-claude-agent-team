@@ -44,6 +44,12 @@ describe("workflow view", () => {
               role: "planner",
               sidecarPath: "/repo/.agent-team/runs/run_view.json",
               logPath: "/repo/.agent-team/logs/run_view.log",
+              mailboxPaths: {
+                inbox: "/repo/.agent-team/mailboxes/run_view/inbox.jsonl",
+                outbox: "/repo/.agent-team/mailboxes/run_view/outbox.jsonl",
+                control: "/repo/.agent-team/mailboxes/run_view/control.jsonl",
+                events: "/repo/.agent-team/mailboxes/run_view/events.jsonl"
+              },
               providerSessionId: "hidden-session"
             }
           ],
@@ -172,7 +178,13 @@ describe("workflow view", () => {
           runEvidence: [
             expect.objectContaining({
               runId: "run_view",
-              sidecarPath: "/repo/.agent-team/runs/run_view.json"
+              sidecarPath: "/repo/.agent-team/runs/run_view.json",
+              mailboxPaths: {
+                inbox: "/repo/.agent-team/mailboxes/run_view/inbox.jsonl",
+                outbox: "/repo/.agent-team/mailboxes/run_view/outbox.jsonl",
+                control: "/repo/.agent-team/mailboxes/run_view/control.jsonl",
+                events: "/repo/.agent-team/mailboxes/run_view/events.jsonl"
+              }
             })
           ],
           startFailureEvidence: [

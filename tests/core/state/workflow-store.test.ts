@@ -141,7 +141,13 @@ describe("workflow-store", () => {
               sidecarPath: "/repo/.agent-team/runs/run_slice_1.json",
               logPath: "/repo/.agent-team/logs/run_slice_1.log",
               executionCwd: "/repo/.worktrees/run_slice_1",
-              transcriptPath: "/repo/.agent-team/logs/run_slice_1.jsonl"
+              transcriptPath: "/repo/.agent-team/logs/run_slice_1.jsonl",
+              mailboxPaths: {
+                inbox: "/repo/.agent-team/mailboxes/run_slice_1/inbox.jsonl",
+                outbox: "/repo/.agent-team/mailboxes/run_slice_1/outbox.jsonl",
+                control: "/repo/.agent-team/mailboxes/run_slice_1/control.jsonl",
+                events: "/repo/.agent-team/mailboxes/run_slice_1/events.jsonl"
+              }
             }
           ],
           startFailureEvidence: [

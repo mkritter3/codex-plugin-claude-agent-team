@@ -63,9 +63,10 @@ function requireNonEmptyString(value: unknown, field: string): string {
 
 function requireStringArray(
   value: readonly string[] | undefined,
-  field: string
+  field: string,
+  options: { readonly allowEmpty?: boolean } = {}
 ): readonly string[] {
-  if (!Array.isArray(value) || value.length === 0) {
+  if (!Array.isArray(value) || (!options.allowEmpty && value.length === 0)) {
     throw new Error(`${field} must contain at least one item`);
   }
   return value.map((item, index) => requireNonEmptyString(item, `${field}[${index}]`));
@@ -175,7 +176,7 @@ function normalizeSlices(slices: readonly CreateWorkflowSliceInput[]): readonly 
       }),
       ownerRole,
       dependencies,
-      writeScope: requireStringArray(slice.writeScope, "writeScope"),
+      writeScope: requireStringArray(slice.writeScope, "writeScope", { allowEmpty: true }),
       ...(readScope === undefined ? {} : { readScope }),
       acceptanceTests: requireStringArray(slice.acceptanceTests, "acceptanceTests"),
       expectedEvidence: requireStringArray(slice.expectedEvidence, "expectedEvidence"),

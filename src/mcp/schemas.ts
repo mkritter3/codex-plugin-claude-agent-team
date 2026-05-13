@@ -164,7 +164,7 @@ const workflowSliceInputSchema = z.object({
   ownerRole: role,
   state: z.enum(["planned", "blocked", "ready"]).optional(),
   dependencies: z.array(z.string().min(1)).optional(),
-  writeScope: z.array(z.string().min(1)).min(1),
+  writeScope: z.array(z.string().min(1)),
   readScope: z.array(z.string().min(1)).min(1).optional(),
   acceptanceTests: z.array(z.string().min(1)).min(1),
   expectedEvidence: z.array(z.string().min(1)).min(1),
@@ -243,7 +243,7 @@ const planConsensusInputSchema = {
   codexDecision: codexDecisionInputSchema,
   verdicts: z.array(consensusVerdictInputSchema).min(1),
   seniorReviewerEvidence: seniorReviewerEvidenceInputSchema.optional(),
-  userEscalations: z.array(userEscalationInputSchema).min(1).optional()
+  userEscalations: z.array(userEscalationInputSchema).optional()
 };
 
 const startSlicesInputSchema = {
@@ -276,7 +276,7 @@ const unblockSliceInputSchema = {
 
 const implementationEvidenceInputSchema = z.object({
   summary: z.string().min(1),
-  changedFiles: z.array(z.string().min(1)).min(1),
+  changedFiles: z.array(z.string().min(1)),
   testsRun: z.array(z.string().min(1)).min(1),
   evidencePaths: z.array(z.string().min(1)).min(1),
   sourceRunId: z.string().regex(/^run_[A-Za-z0-9_-]+$/).optional(),
@@ -293,7 +293,7 @@ const reviewSliceInputSchema = {
   codexDecision: codexDecisionInputSchema,
   verdicts: z.array(consensusVerdictInputSchema).min(1),
   seniorReviewerEvidence: seniorReviewerEvidenceInputSchema.optional(),
-  userEscalations: z.array(userEscalationInputSchema).min(1).optional()
+  userEscalations: z.array(userEscalationInputSchema).optional()
 };
 
 const integrationQueueInputSchema = {

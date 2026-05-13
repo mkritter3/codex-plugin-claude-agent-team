@@ -196,7 +196,8 @@ function runEvidence(run: AgentStartResult, startedAt: string): WorkflowSliceRun
     sidecarPath: run.sidecarPath,
     logPath: run.logPath,
     ...(run.executionCwd === undefined ? {} : { executionCwd: run.executionCwd }),
-    ...(run.transcriptPath === undefined ? {} : { transcriptPath: run.transcriptPath })
+    ...(run.transcriptPath === undefined ? {} : { transcriptPath: run.transcriptPath }),
+    mailboxPaths: run.mailboxPaths
   };
 }
 

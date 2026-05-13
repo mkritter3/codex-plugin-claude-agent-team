@@ -110,7 +110,6 @@ describe("workflow service", () => {
     ["invalid state", { state: "running" }, /initial slice state must be planned, blocked, or ready/],
     ["missing dependency", { dependencies: ["missing"] }, /unknown dependency/],
     ["self dependency", { dependencies: ["slice_core"] }, /cannot depend on itself/],
-    ["empty write scope", { writeScope: [] }, /writeScope must contain at least one item/],
     ["empty expected evidence", { expectedEvidence: [] }, /expectedEvidence must contain at least one item/],
     ["empty acceptance tests", { acceptanceTests: [] }, /acceptanceTests must contain at least one item/],
     ["invalid risk level", { riskLevel: "cosmic" }, /riskLevel must be low, medium, or high/],
@@ -150,5 +149,38 @@ describe("workflow service", () => {
     ).rejects.toThrow(message);
 
     await expect(listWorkflows(workspace)).resolves.toEqual({ workflows: [] });
+  });
+
+  it("allows empty write scope for read-only direct MCP workflow slices", async () => {
+    const created = await createWorkflow({
+      workspaceRoot: workspace,
+      config: DEFAULT_AGENT_TEAM_CONFIG,
+      createWorkflowId: () => "workflow_readonly",
+      goal: {
+        title: "Read-only workflow",
+        successCriteria: ["review completes without source edits"],
+        constraints: ["no source write scope"],
+        nonGoals: ["implementation edits"]
+      },
+      slices: [
+        {
+          sliceId: "slice_readonly",
+          title: "Read-only review",
+          ownerRole: "planner",
+          writeScope: [],
+          acceptanceTests: ["agent_team_status_many"],
+          expectedEvidence: ["status evidence"]
+        }
+      ]
+    });
+
+    expect(created.workflow.slices[0]).toMatchObject({
+      sliceId: "slice_readonly",
+      state: "ready",
+      writeScope: []
+    });
+    await expect(listWorkflows(workspace)).resolves.toEqual({
+      workflows: [created.workflow]
+    });
   });
 });

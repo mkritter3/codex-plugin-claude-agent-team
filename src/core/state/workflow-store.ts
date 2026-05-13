@@ -106,8 +106,10 @@ const SLICE_RUN_EVIDENCE_KEYS = new Set([
   "sidecarPath",
   "logPath",
   "executionCwd",
-  "transcriptPath"
+  "transcriptPath",
+  "mailboxPaths"
 ]);
+const SLICE_RUN_MAILBOX_PATH_KEYS = new Set(["inbox", "outbox", "control", "events"]);
 const SLICE_START_FAILURE_EVIDENCE_KEYS = new Set(["failedAt", "error"]);
 const SLICE_UNBLOCK_EVIDENCE_KEYS = new Set([
   "dependencySliceId",
@@ -504,6 +506,10 @@ function parseSliceRunEvidence(
     evidence.transcriptPath === undefined
       ? undefined
       : expectNonEmptyString(evidence.transcriptPath, path, `${field}.transcriptPath`);
+  const mailboxPaths =
+    evidence.mailboxPaths === undefined
+      ? undefined
+      : parseSliceRunMailboxPaths(evidence.mailboxPaths, path, `${field}.mailboxPaths`);
   return {
     runId: expectNonEmptyString(evidence.runId, path, `${field}.runId`),
     startedAt: expectNonEmptyString(evidence.startedAt, path, `${field}.startedAt`),
@@ -512,7 +518,23 @@ function parseSliceRunEvidence(
     sidecarPath: expectNonEmptyString(evidence.sidecarPath, path, `${field}.sidecarPath`),
     logPath: expectNonEmptyString(evidence.logPath, path, `${field}.logPath`),
     ...(executionCwd === undefined ? {} : { executionCwd }),
-    ...(transcriptPath === undefined ? {} : { transcriptPath })
+    ...(transcriptPath === undefined ? {} : { transcriptPath }),
+    ...(mailboxPaths === undefined ? {} : { mailboxPaths })
+  };
+}
+
+function parseSliceRunMailboxPaths(
+  value: unknown,
+  path: string,
+  field: string
+): WorkflowSliceRunEvidence["mailboxPaths"] {
+  const paths = expectObject(value, path, field);
+  assertKnownKeys(paths, path, SLICE_RUN_MAILBOX_PATH_KEYS, field);
+  return {
+    inbox: expectNonEmptyString(paths.inbox, path, `${field}.inbox`),
+    outbox: expectNonEmptyString(paths.outbox, path, `${field}.outbox`),
+    control: expectNonEmptyString(paths.control, path, `${field}.control`),
+    events: expectNonEmptyString(paths.events, path, `${field}.events`)
   };
 }
 

@@ -83,6 +83,11 @@ describe("Claude team session runbook", () => {
     expect(doc).toContain("does not call providers");
     expect(doc).toContain(".agent-team/audit/events.jsonl");
     expect(doc).toContain("allowedProviderSelectors");
+    expect(doc).toContain("allowedRoles");
+    expect(doc).toContain("allowWriteMode");
+    expect(doc).toContain("allowedWorktreeRoots");
+    expect(doc).toContain("policy.liveSmokeEnabled gates live-smoke harnesses");
+    expect(doc).toContain("normal direct MCP starts");
     expect(doc).toContain("auditEnabled");
     expect(doc).toContain("retained implementation worktree");
     expect(doc).toContain("state_corrupt");
@@ -123,6 +128,14 @@ describe("Claude team session runbook", () => {
     expect(doc).toContain("not the orchestration path for user work");
     expect(doc).toContain("direct MCP orchestration");
     expect(doc).toContain("mailbox steering");
+    expect(doc).toContain("runId");
+    expect(doc).toContain("sidecarPath");
+    expect(doc).toContain("logPath");
+    expect(doc).toContain("transcriptPath");
+    expect(doc).toContain("mailboxPaths");
+    expect(doc).toContain("recorded_for_resume");
+    expect(doc).toContain("mid-flight steering");
+    expect(doc).toContain("final integration evidence");
     expect(doc).toContain("Codex-owned manual integration");
 	  });
 

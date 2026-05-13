@@ -23,7 +23,7 @@
     "defaultPrompt": [
       "Use Agent Team to plan, delegate, review, and integrate this feature.",
       "Start an L11 agent-team workflow with Codex as orchestrator.",
-      "Run agent_team_doctor and prepare direct MCP orchestration."
+      "Run doctor, create workflow, plan consensus, then start slices."
     ],
     "brandColor": "#111827"
   }

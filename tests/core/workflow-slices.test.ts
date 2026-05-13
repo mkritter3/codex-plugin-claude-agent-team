@@ -264,7 +264,13 @@ describe("workflow slice orchestration", () => {
             expect.objectContaining({
               runId: "run_backend-engineer",
               startedAt: "2026-05-13T11:00:00.000Z",
-              sidecarPath: expect.stringContaining("run_backend-engineer.json")
+              sidecarPath: expect.stringContaining("run_backend-engineer.json"),
+              mailboxPaths: {
+                inbox: expect.stringContaining("run_backend-engineer/inbox.jsonl"),
+                outbox: expect.stringContaining("run_backend-engineer/outbox.jsonl"),
+                control: expect.stringContaining("run_backend-engineer/control.jsonl"),
+                events: expect.stringContaining("run_backend-engineer/events.jsonl")
+              }
             })
           ]
         })

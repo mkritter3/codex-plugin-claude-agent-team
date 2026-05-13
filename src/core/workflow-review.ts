@@ -110,8 +110,12 @@ function requireNonEmptyString(value: unknown, field: string): string {
   return value;
 }
 
-function requireStringArray(value: readonly string[] | undefined, field: string): readonly string[] {
-  if (!Array.isArray(value) || value.length === 0) {
+function requireStringArray(
+  value: readonly string[] | undefined,
+  field: string,
+  options: { readonly allowEmpty?: boolean } = {}
+): readonly string[] {
+  if (!Array.isArray(value) || (!options.allowEmpty && value.length === 0)) {
     throw new Error(`${field} must contain at least one item`);
   }
   return value.map((item, index) => requireNonEmptyString(item, `${field}[${index}]`));
@@ -215,7 +219,9 @@ function normalizeImplementationEvidence(
   return {
     recordedAt,
     summary: requireNonEmptyString(evidence.summary, "implementationEvidence.summary"),
-    changedFiles: requireStringArray(evidence.changedFiles, "implementationEvidence.changedFiles"),
+    changedFiles: requireStringArray(evidence.changedFiles, "implementationEvidence.changedFiles", {
+      allowEmpty: true
+    }),
     testsRun: requireStringArray(evidence.testsRun, "implementationEvidence.testsRun"),
     evidencePaths: requireStringArray(evidence.evidencePaths, "implementationEvidence.evidencePaths"),
     ...(sourceRunId === undefined ? {} : { sourceRunId }),

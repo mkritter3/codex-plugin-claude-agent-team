@@ -565,6 +565,76 @@ describe("MCP tool handlers", () => {
     expect(called).toBe(false);
   });
 
+  it("accepts empty dependencies and writeScope for read-only workflow slices", async () => {
+    let createInput:
+      | {
+          slices: readonly {
+            dependencies?: readonly string[];
+            writeScope: readonly string[];
+          }[];
+        }
+      | undefined;
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      createWorkflow: async (input) => {
+        createInput = input;
+        return {
+          workflow: {
+            workflowId: "workflow_readonly",
+            createdAt: "2026-05-13T10:00:00.000Z",
+            updatedAt: "2026-05-13T10:00:00.000Z",
+            planningStatus: "draft",
+            goal: input.goal,
+            seniorReview: DEFAULT_AGENT_TEAM_CONFIG.seniorReview,
+            slices: [
+              {
+                sliceId: "slice_readonly",
+                title: "Read-only review",
+                state: "ready",
+                ownerRole: "planner",
+                dependencies: [],
+                writeScope: [],
+                acceptanceTests: ["agent_team_status_many"]
+              }
+            ],
+            consensusRounds: [],
+            userEscalations: [],
+            opusReviewEvidence: [],
+            integrationQueue: [],
+            codexRationale: [],
+            evidencePath: "/repo/.agent-team/workflows/workflow_readonly.json"
+          }
+        };
+      }
+    });
+
+    const result = await handlers.handleToolCall("agent_team_create_workflow", {
+      workflowId: "workflow_readonly",
+      goal: {
+        title: "Read-only proof",
+        successCriteria: ["workflow created"],
+        constraints: ["no source edits"],
+        nonGoals: ["feature work"]
+      },
+      slices: [
+        {
+          sliceId: "slice_readonly",
+          title: "Read-only review",
+          ownerRole: "planner",
+          state: "ready",
+          dependencies: [],
+          writeScope: [],
+          acceptanceTests: ["agent_team_status_many"],
+          expectedEvidence: ["run status evidence"]
+        }
+      ]
+    });
+
+    expect(result.structuredContent?.workflow.workflowId).toBe("workflow_readonly");
+    expect(createInput?.slices[0]?.dependencies).toEqual([]);
+    expect(createInput?.slices[0]?.writeScope).toEqual([]);
+  });
+
   it("records planning consensus through MCP using the injected workflow service", async () => {
     const handlers = createToolHandlers({
       cwd: () => "/repo",
@@ -631,6 +701,113 @@ describe("MCP tool handlers", () => {
     expect(JSON.stringify(result.structuredContent)).not.toMatch(
       /internalPrompt|rawProvider|providerSession|commandArgs|secret/i
     );
+  });
+
+  it("accepts explicit empty optional arrays for direct workflow calls", async () => {
+    let consensusCalled = false;
+    let reviewCalled = false;
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      planConsensus: async (input) => {
+        consensusCalled = true;
+        expect(input.userEscalations).toEqual([]);
+        return {
+          workflow: {
+            workflowId: input.workflowId,
+            createdAt: "2026-05-13T10:00:00.000Z",
+            updatedAt: "2026-05-13T10:01:00.000Z",
+            planningStatus: "approved",
+            goal: {
+              title: "Plan",
+              successCriteria: ["approved"],
+              constraints: ["provider neutral"],
+              nonGoals: ["live claims"]
+            },
+            seniorReview: DEFAULT_AGENT_TEAM_CONFIG.seniorReview,
+            slices: [],
+            consensusRounds: [],
+            userEscalations: [],
+            opusReviewEvidence: [],
+            integrationQueue: [],
+            codexRationale: [],
+            evidencePath: "/repo/.agent-team/workflows/workflow_mcp.json"
+          }
+        };
+      },
+      reviewWorkflowSlice: async (input) => {
+        reviewCalled = true;
+        expect(input.userEscalations).toEqual([]);
+        expect(input.implementationEvidence?.changedFiles).toEqual([]);
+        return {
+          workflow: {
+            workflowId: input.workflowId,
+            createdAt: "2026-05-13T10:00:00.000Z",
+            updatedAt: "2026-05-13T10:02:00.000Z",
+            planningStatus: "approved",
+            goal: {
+              title: "Review",
+              successCriteria: ["reviewed"],
+              constraints: ["provider neutral"],
+              nonGoals: ["live claims"]
+            },
+            seniorReview: DEFAULT_AGENT_TEAM_CONFIG.seniorReview,
+            slices: [],
+            consensusRounds: [],
+            userEscalations: [],
+            opusReviewEvidence: [],
+            integrationQueue: [],
+            codexRationale: [],
+            evidencePath: "/repo/.agent-team/workflows/workflow_mcp.json"
+          }
+        };
+      }
+    });
+
+    const consensus = await handlers.handleToolCall("agent_team_plan_consensus", {
+      workflowId: "workflow_mcp",
+      userEscalations: [],
+      codexDecision: {
+        status: "approve",
+        category: "technical",
+        summary: "No user escalation is needed."
+      },
+      verdicts: [
+        {
+          reviewerRole: "planner",
+          status: "approve",
+          summary: "Proceed."
+        }
+      ]
+    });
+
+    const review = await handlers.handleToolCall("agent_team_review_slice", {
+      workflowId: "workflow_mcp",
+      sliceId: "slice_readonly",
+      userEscalations: [],
+      implementationEvidence: {
+        summary: "Read-only proof.",
+        changedFiles: [],
+        testsRun: ["agent_team_status_many"],
+        evidencePaths: ["/repo/.agent-team/runs/run_readonly.json"]
+      },
+      codexDecision: {
+        status: "revise",
+        category: "technical",
+        summary: "Needs docs hardening."
+      },
+      verdicts: [
+        {
+          reviewerRole: "planner",
+          status: "revise",
+          summary: "Revise docs."
+        }
+      ]
+    });
+
+    expect(consensus.structuredContent?.workflow.workflowId).toBe("workflow_mcp");
+    expect(review.structuredContent?.workflow.workflowId).toBe("workflow_mcp");
+    expect(consensusCalled).toBe(true);
+    expect(reviewCalled).toBe(true);
   });
 
   it("rejects invalid consensus input before invoking injected service", async () => {

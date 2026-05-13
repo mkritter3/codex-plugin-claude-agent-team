@@ -93,6 +93,8 @@ Workspace policy can restrict role starts, provider selectors, write-capable sta
 }
 ```
 
+For direct Codex operation, `allowedRoles`, `allowedProviderSelectors`, `allowWriteMode`, and `allowedWorktreeRoots` are the important policy boundaries. `policy.liveSmokeEnabled gates live-smoke harnesses` and opt-in proof scripts; normal direct MCP starts are controlled by doctor readiness, provider and role allowlists, write-mode policy, and explicit operator intent through the MCP tools.
+
 `schemaVersion` is optional for old local workspaces and defaults to `1`. If doctor reports an unsupported future config schema, upgrade this plugin before operating that workspace.
 
 When `auditEnabled` is true, dispatch and lifecycle start decisions write sanitized records to `.agent-team/audit/events.jsonl` before provider execution. Treat those records as operator evidence for allow/block decisions, not as transcripts.
@@ -180,6 +182,8 @@ After planning is approved, start slices with bounded concurrency:
 }
 ```
 
+Record the `agent_team_start_slices` response before moving on. Each started row includes the slice id plus run evidence such as `runId`, `sidecarPath`, `logPath`, `transcriptPath`, and `mailboxPaths`; these are the durable addresses for status, review, mid-flight steering, and cleanup.
+
 Blocked slices are first-class. When a dependency is ready, call `agent_team_unblock_slice` with dependency evidence, changed files, and evidence paths. Dependent write agents must re-check current source state before editing.
 
 Review is required before integration. Use `agent_team_review_slice` to record implementation evidence, reviewer verdicts, Codex sign-off, Opus review posture when available, and revision or blocker decisions. A slice that needs changes remains `needs-revision` until a later review approves it.
@@ -223,6 +227,8 @@ The completion report is the final workflow gate:
 ```
 
 `agent_team_workflow_report` returns `completionStatus`. It reports `complete` only when planning is approved and every slice is integrated with durable passing final gate verification. It reports `incomplete` for `ready-to-integrate`, `in-progress`, `deferred`, or `missing-evidence` states. It reports `blocked` when any slice is blocked, failed, cancelled, or needs revision. The report also identifies cleanup-ready rows, retained worktree paths, evidence paths, blockers, and missing evidence reasons.
+
+Treat workflow report completion as final integration evidence, not as a raw provider-run status. A completed run can still leave its workflow slice waiting for review, revision, or integration evidence.
 
 Cleanup is explicit and cleanup only after integration evidence is saved. Use `agent_team_cleanup` for a retained implementation worktree after Codex has reviewed the diff, recorded final gate evidence, and no longer needs that worktree as review evidence.
 
@@ -856,6 +862,8 @@ Use `agent_team_message_many` to provide evidence or direction without resuming 
 ```
 
 The result may be `delivered_live` or `recorded_for_resume`. Both are durable outcomes. A `partial_failure` response keeps per-run evidence and does not imply later items were skipped.
+
+Use mid-flight steering while agents are active, but account for the transport result. `delivered_live` means the active run accepted the update; `recorded_for_resume` means the message is saved for a later resumable turn or review cycle and may not affect the current execution.
 
 Team records do not message agents by themselves. They only provide run refs that you can place into the existing batch tools.
 

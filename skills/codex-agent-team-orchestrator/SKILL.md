@@ -28,7 +28,7 @@ Keep the user focused on CEO/product-level decisions: user impact, release postu
 
 ## Direct MCP Orchestration Loop
 
-1. Run `agent_team_doctor` for the target workspace before live dispatch.
+1. Run `agent_team_doctor` for the target workspace before live dispatch and check policy fields such as `allowedRoles`, `allowedProviderSelectors`, `allowWriteMode`, and `allowedWorktreeRoots`.
 2. Create a durable workflow with `agent_team_create_workflow`.
 3. Record planning consensus with `agent_team_plan_consensus`.
 4. Start ready slices with `agent_team_start_slices`, using bounded concurrency.
@@ -43,6 +43,10 @@ Keep the user focused on CEO/product-level decisions: user impact, release postu
 13. Run `agent_team_cleanup` only after integration evidence is saved and retained worktrees are no longer needed.
 
 Batch calls must preserve ordered per-item results, partial-failure evidence, per-run or per-slice addressability, and bounded concurrency.
+
+`policy.liveSmokeEnabled` gates live-smoke harnesses and opt-in proof scripts. For normal direct MCP starts, doctor readiness, provider and role allowlists, write-mode policy, and the user's live-operation intent are the governing checks; do not require a harness flag when Codex is operating the public tools directly.
+
+`agent_team_start_slices` returns per-slice evidence that Codex should retain in the working notes: `runId`, `sidecarPath`, `logPath`, `transcriptPath`, and `mailboxPaths`. Treat those paths as the durable handoff contract for status polling, review, mailbox steering, and cleanup.
 
 ## Planning Rules
 
@@ -70,13 +74,15 @@ If a provider becomes unstable, record cooldown or degraded evidence and prefer 
 
 Use `agent_team_message_many` for mid-flight steering when an agent is active and mailbox-capable. Steering should be specific: new constraints, dependency evidence, blocker resolution, or course correction. Avoid dumping unrelated context into every agent.
 
-If a transport cannot receive mid-flight steering, record that limitation and steer through the next resumable turn or review cycle.
+If a transport cannot receive mid-flight steering, record that limitation and steer through the next resumable turn or review cycle. A steering result of `recorded_for_resume` is durable evidence, not live delivery; account for that in review and do not assume the active agent saw it before completion.
 
 ## Integration
 
 Implementation agents write only in retained isolated worktrees. Codex reviews one slice at a time, checks changed files and test evidence, and decides how to integrate. The plugin reports queue order and evidence; it does not automatically merge.
 
 Every integrated slice needs durable verification evidence before it can be treated as complete. Test-first and test-hardening slices are first-class work, not optional polish.
+
+The workflow report is the final completion gate. A slice run reaching a terminal status is not enough: `agent_team_workflow_report` should be treated as complete only after planning is approved and final integration evidence has been recorded for every slice.
 
 ## Safety
 

@@ -76,7 +76,8 @@ function runEvidenceToView(
     sidecarPath: evidence.sidecarPath,
     logPath: evidence.logPath,
     ...(evidence.executionCwd === undefined ? {} : { executionCwd: evidence.executionCwd }),
-    ...(evidence.transcriptPath === undefined ? {} : { transcriptPath: evidence.transcriptPath })
+    ...(evidence.transcriptPath === undefined ? {} : { transcriptPath: evidence.transcriptPath }),
+    ...(evidence.mailboxPaths === undefined ? {} : { mailboxPaths: evidence.mailboxPaths })
   };
 }
 

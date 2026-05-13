@@ -22,7 +22,7 @@ describe("Codex operator skill packaging", () => {
     expect(pluginJson.interface?.defaultPrompt).toEqual([
       "Use Agent Team to plan, delegate, review, and integrate this feature.",
       "Start an L11 agent-team workflow with Codex as orchestrator.",
-      "Run agent_team_doctor and prepare direct MCP orchestration."
+      "Run doctor, create workflow, plan consensus, then start slices."
     ]);
   });
 
@@ -46,6 +46,21 @@ describe("Codex operator skill packaging", () => {
       "agent_team_record_integration",
       "agent_team_workflow_report",
       "agent_team_cleanup",
+      "allowedRoles",
+      "allowedProviderSelectors",
+      "allowWriteMode",
+      "allowedWorktreeRoots",
+      "policy.liveSmokeEnabled",
+      "live-smoke harnesses",
+      "normal direct MCP starts",
+      "runId",
+      "sidecarPath",
+      "logPath",
+      "transcriptPath",
+      "mailboxPaths",
+      "recorded_for_resume",
+      "workflow report",
+      "final integration evidence",
       "CEO/product-level",
       "harnesses are regression and live-proof tools only",
       "Do not use dogfood scripts as the orchestration path",

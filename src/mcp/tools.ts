@@ -303,9 +303,10 @@ function readOptionalPositiveInteger(
 
 function readStringArray(
   value: unknown,
-  field: string
+  field: string,
+  options: { readonly allowEmpty?: boolean } = {}
 ): readonly string[] | JsonToolResult {
-  if (!Array.isArray(value) || value.length === 0) {
+  if (!Array.isArray(value) || (!options.allowEmpty && value.length === 0)) {
     return validationError(`${field} must be a non-empty array.`);
   }
   const result: string[] = [];
@@ -402,13 +403,16 @@ function parseWorkflowSliceArgs(
   const dependencies =
     slice.dependencies === undefined
       ? undefined
-      : readStringArray(slice.dependencies, `agent_team_create_workflow slices[${index}].dependencies`);
+      : readStringArray(slice.dependencies, `agent_team_create_workflow slices[${index}].dependencies`, {
+          allowEmpty: true
+        });
   if (dependencies !== undefined && isJsonToolResult(dependencies)) {
     return dependencies;
   }
   const writeScope = readStringArray(
     slice.writeScope,
-    `agent_team_create_workflow slices[${index}].writeScope`
+    `agent_team_create_workflow slices[${index}].writeScope`,
+    { allowEmpty: true }
   );
   if (isJsonToolResult(writeScope)) {
     return writeScope;
@@ -860,8 +864,8 @@ function parseConsensusUserEscalations(
   if (value === undefined) {
     return undefined;
   }
-  if (!Array.isArray(value) || value.length === 0) {
-    return validationError("agent_team_plan_consensus userEscalations must be a non-empty array.");
+  if (!Array.isArray(value)) {
+    return validationError("agent_team_plan_consensus userEscalations must be an array.");
   }
   const escalations: PlanConsensusUserEscalationInput[] = [];
   for (const [index, item] of value.entries()) {
@@ -1162,7 +1166,8 @@ function parseImplementationEvidence(
   }
   const changedFiles = readStringArray(
     evidence.changedFiles,
-    "agent_team_review_slice implementationEvidence.changedFiles"
+    "agent_team_review_slice implementationEvidence.changedFiles",
+    { allowEmpty: true }
   );
   if (isJsonToolResult(changedFiles)) {
     return changedFiles;

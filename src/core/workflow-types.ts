@@ -171,6 +171,14 @@ export interface WorkflowSliceRunEvidence {
   readonly logPath: string;
   readonly executionCwd?: string;
   readonly transcriptPath?: string;
+  readonly mailboxPaths?: WorkflowSliceRunMailboxPaths;
+}
+
+export interface WorkflowSliceRunMailboxPaths {
+  readonly inbox: string;
+  readonly outbox: string;
+  readonly control: string;
+  readonly events: string;
 }
 
 export interface WorkflowSliceStartFailureEvidence {
