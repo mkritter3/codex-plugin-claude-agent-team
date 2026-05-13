@@ -46,7 +46,8 @@ describe("Claude team session runbook", () => {
       "npm run smoke:claude-live",
       "npm run smoke:claude-live-matrix",
       "npm run smoke:providers-live",
-      "npm run ci"
+      "npm run ci",
+      "docs/superpowers/reports/2026-05-13-agent-team-workflow-orchestrator-readiness.md"
     ]) {
       expect(doc).toContain(text);
     }

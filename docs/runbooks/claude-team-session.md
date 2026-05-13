@@ -33,6 +33,8 @@ These commands are CI-safe. They verify package/runtime wiring and fixture behav
 
 `npm run smoke:workflow-orchestrator` is the fixture-safe packaged MCP proof for the L11 workflow loop. It creates a disposable git workspace, calls public workflow tools through `dist/index.js`, records degraded Opus evidence without blocking, verifies `completionStatus` stays incomplete before final gate evidence, verifies it becomes `complete` after integration evidence, and removes the fixture. It does not call providers, use API keys, or make model-quality/provider capability claims.
 
+Final product-readiness evidence is recorded in `docs/superpowers/reports/2026-05-13-agent-team-workflow-orchestrator-readiness.md`.
+
 ## MCP Configuration Check
 
 The packaged MCP entrypoint is:

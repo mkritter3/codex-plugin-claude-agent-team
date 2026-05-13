@@ -42,7 +42,8 @@ describe("packaging and install docs", () => {
       "agent_team_workflow_report",
       "npm run ci",
       "Troubleshooting",
-      "docs/runbooks/claude-team-session.md"
+      "docs/runbooks/claude-team-session.md",
+      "docs/superpowers/reports/2026-05-13-agent-team-workflow-orchestrator-readiness.md"
     ]) {
       expect(readme).toContain(text);
     }

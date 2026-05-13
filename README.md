@@ -535,6 +535,8 @@ Codex owns technical decisions, integration, review synthesis, and final authori
 
 Run `npm run smoke:workflow-orchestrator` after `npm run build` for a fixture-safe packaged MCP proof of this loop. It creates a disposable git workspace, drives public workflow tools through `dist/index.js`, records degraded Opus evidence without blocking, proves `completionStatus` only becomes `complete` after final gate evidence, and removes the fixture. It does not call providers, does not use API keys, and makes no model-quality or provider capability claim.
 
+Final product-readiness evidence is recorded in `docs/superpowers/reports/2026-05-13-agent-team-workflow-orchestrator-readiness.md`.
+
 ## Evidence
 
 Treat these as first-class records:
