@@ -135,6 +135,7 @@ describe("live dogfood agent team app script", () => {
       "gemini-cli",
       "codex-cli",
       "ollama-claude-code:kimi-k2.6",
+      'baseUrl: "https://ollama.com"',
       "dogfood_app_workflow_only",
       "optionalOllamaEnabled",
       "--include-optional-ollama",
@@ -146,6 +147,7 @@ describe("live dogfood agent team app script", () => {
 
     expect(script).not.toContain("runClaudePrint");
     expect(script).not.toContain("startClaudeBackgroundSession");
+    expect(script).not.toContain("https://ollama.com/anthropic");
     expect(script).not.toContain("--yolo");
   });
 });

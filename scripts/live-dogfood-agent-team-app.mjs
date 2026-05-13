@@ -322,12 +322,12 @@ async function writeFixtureConfig(root, allowedWorktreeRoot) {
                 ollamaClaudeCode: {
                   enabled: true,
                   executable: "claude",
-                  baseUrl: "https://ollama.com/anthropic",
+                  baseUrl: "https://ollama.com",
                   apiKeyEnv: "OLLAMA_API_KEY",
                   profiles: [
                     {
                       id: "kimi-k2.6",
-                      baseUrl: "https://ollama.com/anthropic",
+                      baseUrl: "https://ollama.com",
                       model: "kimi-k2.6",
                       displayName: "Kimi K2.6 Junior Worker",
                       writeValidated: true,
