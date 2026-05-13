@@ -41,6 +41,9 @@ vi.mock("../../src/mcp/tools.js", () => ({
     "agent_team_create_team",
     "agent_team_get_team",
     "agent_team_list_teams",
+    "agent_team_create_workflow",
+    "agent_team_get_workflow",
+    "agent_team_list_workflows",
     "agent_team_dashboard",
     "agent_team_cancel_many",
     "agent_team_wind_down_many",
@@ -84,6 +87,9 @@ describe("MCP server", () => {
       "agent_team_create_team",
       "agent_team_get_team",
       "agent_team_list_teams",
+      "agent_team_create_workflow",
+      "agent_team_get_workflow",
+      "agent_team_list_workflows",
       "agent_team_dashboard",
       "agent_team_cancel_many",
       "agent_team_wind_down_many",
@@ -129,6 +135,16 @@ describe("MCP server", () => {
       teamId: expect.any(Object)
     });
     expect(metadataByName.get("agent_team_list_teams")?.inputSchema).toMatchObject({
+      cwd: expect.any(Object)
+    });
+    expect(metadataByName.get("agent_team_create_workflow")?.inputSchema).toMatchObject({
+      goal: expect.any(Object),
+      slices: expect.any(Object)
+    });
+    expect(metadataByName.get("agent_team_get_workflow")?.inputSchema).toMatchObject({
+      workflowId: expect.any(Object)
+    });
+    expect(metadataByName.get("agent_team_list_workflows")?.inputSchema).toMatchObject({
       cwd: expect.any(Object)
     });
     expect(metadataByName.get("agent_team_dashboard")?.inputSchema).toMatchObject({

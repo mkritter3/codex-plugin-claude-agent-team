@@ -24,10 +24,20 @@ export type ProviderAuthMode =
 export type RoleId =
   | "architect"
   | "planner"
-  | "code-reviewer"
-  | "debugger"
-  | "test-designer"
+  | "ui-ux-designer"
+  | "frontend-engineer"
+  | "backend-engineer"
   | "slice-implementer"
+  | "code-reviewer"
+  | "test-designer"
+  | "qa-engineer"
+  | "test-hardening-engineer"
+  | "security-reviewer"
+  | "performance-reviewer"
+  | "devops-release-engineer"
+  | "docs-dx-writer"
+  | "integration-engineer"
+  | "debugger"
   | "ux-product-critic";
 
 export type AgentExecutionPolicy = "read-only" | "isolated-edit";

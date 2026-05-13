@@ -31,6 +31,15 @@ import {
   listAgentTeamRecords
 } from "../core/team-records.js";
 import { windDownAgentRuns } from "../core/wind-down-many.js";
+import {
+  createWorkflow,
+  getWorkflow,
+  listWorkflows,
+  type CreateWorkflowInput,
+  type CreateWorkflowSliceInput,
+  type GetWorkflowInput
+} from "../core/workflow-service.js";
+import type { WorkflowGoalPacket } from "../core/workflow-types.js";
 import type {
   AgentCleanupRequest,
   AgentCleanupResult,
@@ -76,6 +85,9 @@ export const TOOL_NAMES = [
   "agent_team_create_team",
   "agent_team_get_team",
   "agent_team_list_teams",
+  "agent_team_create_workflow",
+  "agent_team_get_workflow",
+  "agent_team_list_workflows",
   "agent_team_dashboard",
   "agent_team_cancel",
   "agent_team_cancel_many",
@@ -111,6 +123,11 @@ export interface ToolDependencies {
   readonly doctor?: typeof runDoctor;
   readonly cwd?: () => string;
   readonly config?: AgentTeamConfig;
+  readonly createWorkflow?: typeof createWorkflow;
+  readonly getWorkflow?: typeof getWorkflow;
+  readonly listWorkflows?: typeof listWorkflows;
+  readonly now?: () => Date;
+  readonly createWorkflowId?: () => string;
 }
 
 export function listToolNames(): readonly ToolName[] {
@@ -119,6 +136,10 @@ export function listToolNames(): readonly ToolName[] {
 
 function validationError(message: string): JsonToolResult {
   return jsonToolResult({ status: "validation_error", message });
+}
+
+function isJsonToolResult(value: unknown): value is JsonToolResult {
+  return typeof value === "object" && value !== null && "content" in value;
 }
 
 async function recoverableLifecycleTool(input: {
@@ -187,6 +208,273 @@ function readOptionalString(
     return validationError(message);
   }
   return value;
+}
+
+function readString(value: unknown, message: string): string | JsonToolResult {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return validationError(message);
+  }
+  return value;
+}
+
+function readRole(value: unknown, message: string): RoleId | JsonToolResult {
+  if (typeof value !== "string" || !ROLE_IDS.has(value)) {
+    return validationError(message);
+  }
+  return value as RoleId;
+}
+
+function readOptionalPositiveInteger(
+  value: unknown,
+  field: string
+): number | JsonToolResult | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
+    return validationError(`${field} must be a positive integer.`);
+  }
+  return value;
+}
+
+function readStringArray(
+  value: unknown,
+  field: string
+): readonly string[] | JsonToolResult {
+  if (!Array.isArray(value) || value.length === 0) {
+    return validationError(`${field} must be a non-empty array.`);
+  }
+  const result: string[] = [];
+  for (const [index, item] of value.entries()) {
+    if (typeof item !== "string" || item.trim().length === 0) {
+      return validationError(`${field}[${index}] must be a non-empty string.`);
+    }
+    result.push(item);
+  }
+  return result;
+}
+
+function parseWorkflowGoalArgs(value: unknown): WorkflowGoalPacket | JsonToolResult {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return validationError("agent_team_create_workflow goal must be an object.");
+  }
+  const goal = value as Record<string, unknown>;
+  const title = readString(goal.title, "agent_team_create_workflow goal.title");
+  if (isJsonToolResult(title)) {
+    return title;
+  }
+  const successCriteria = readStringArray(
+    goal.successCriteria,
+    "agent_team_create_workflow goal.successCriteria"
+  );
+  if (isJsonToolResult(successCriteria)) {
+    return successCriteria;
+  }
+  const constraints = readStringArray(
+    goal.constraints,
+    "agent_team_create_workflow goal.constraints"
+  );
+  if (isJsonToolResult(constraints)) {
+    return constraints;
+  }
+  const nonGoals = readStringArray(
+    goal.nonGoals,
+    "agent_team_create_workflow goal.nonGoals"
+  );
+  if (isJsonToolResult(nonGoals)) {
+    return nonGoals;
+  }
+  return {
+    title,
+    successCriteria,
+    constraints,
+    nonGoals
+  };
+}
+
+function parseWorkflowSliceArgs(
+  value: unknown,
+  index: number
+): CreateWorkflowSliceInput | JsonToolResult {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return validationError(`agent_team_create_workflow slices[${index}] must be an object.`);
+  }
+  const slice = value as Record<string, unknown>;
+  const sliceId = readString(slice.sliceId, `agent_team_create_workflow slices[${index}].sliceId`);
+  if (isJsonToolResult(sliceId)) {
+    return sliceId;
+  }
+  const title = readString(slice.title, `agent_team_create_workflow slices[${index}].title`);
+  if (isJsonToolResult(title)) {
+    return title;
+  }
+  const ownerRole = readRole(
+    slice.ownerRole,
+    `agent_team_create_workflow slices[${index}].ownerRole`
+  );
+  if (isJsonToolResult(ownerRole)) {
+    return ownerRole;
+  }
+  const state = readOptionalString(
+    slice.state,
+    `agent_team_create_workflow slices[${index}].state`
+  );
+  if (state !== undefined && typeof state !== "string") {
+    return state;
+  }
+  const dependencies =
+    slice.dependencies === undefined
+      ? undefined
+      : readStringArray(slice.dependencies, `agent_team_create_workflow slices[${index}].dependencies`);
+  if (dependencies !== undefined && isJsonToolResult(dependencies)) {
+    return dependencies;
+  }
+  const writeScope = readStringArray(
+    slice.writeScope,
+    `agent_team_create_workflow slices[${index}].writeScope`
+  );
+  if (isJsonToolResult(writeScope)) {
+    return writeScope;
+  }
+  const readScope =
+    slice.readScope === undefined
+      ? undefined
+      : readStringArray(slice.readScope, `agent_team_create_workflow slices[${index}].readScope`);
+  if (readScope !== undefined && isJsonToolResult(readScope)) {
+    return readScope;
+  }
+  const acceptanceTests = readStringArray(
+    slice.acceptanceTests,
+    `agent_team_create_workflow slices[${index}].acceptanceTests`
+  );
+  if (isJsonToolResult(acceptanceTests)) {
+    return acceptanceTests;
+  }
+  const expectedEvidence = readStringArray(
+    slice.expectedEvidence,
+    `agent_team_create_workflow slices[${index}].expectedEvidence`
+  );
+  if (isJsonToolResult(expectedEvidence)) {
+    return expectedEvidence;
+  }
+  const riskLevel = readOptionalString(
+    slice.riskLevel,
+    `agent_team_create_workflow slices[${index}].riskLevel`
+  );
+  if (riskLevel !== undefined && typeof riskLevel !== "string") {
+    return riskLevel;
+  }
+  const requiredReviewers =
+    slice.requiredReviewers === undefined
+      ? undefined
+      : readStringArray(slice.requiredReviewers, `agent_team_create_workflow slices[${index}].requiredReviewers`);
+  if (requiredReviewers !== undefined && isJsonToolResult(requiredReviewers)) {
+    return requiredReviewers;
+  }
+  const integrationOrderHint = readOptionalPositiveInteger(
+    slice.integrationOrderHint,
+    `agent_team_create_workflow slices[${index}].integrationOrderHint`
+  );
+  if (integrationOrderHint !== undefined && typeof integrationOrderHint !== "number") {
+    return integrationOrderHint;
+  }
+  const blockedMode = readOptionalString(
+    slice.blockedMode,
+    `agent_team_create_workflow slices[${index}].blockedMode`
+  );
+  if (blockedMode !== undefined && typeof blockedMode !== "string") {
+    return blockedMode;
+  }
+  return {
+    sliceId,
+    title,
+    ownerRole,
+    ...(state === undefined ? {} : { state }),
+    ...(dependencies === undefined ? {} : { dependencies }),
+    writeScope,
+    ...(readScope === undefined ? {} : { readScope }),
+    acceptanceTests,
+    expectedEvidence,
+    ...(riskLevel === undefined ? {} : { riskLevel }),
+    ...(requiredReviewers === undefined ? {} : { requiredReviewers }),
+    ...(integrationOrderHint === undefined ? {} : { integrationOrderHint }),
+    ...(blockedMode === undefined ? {} : { blockedMode })
+  };
+}
+
+function parseCreateWorkflowArgs(
+  args: Record<string, unknown>,
+  defaultCwd: string,
+  config: AgentTeamConfig,
+  deps: Pick<ToolDependencies, "now" | "createWorkflowId">
+): CreateWorkflowInput | JsonToolResult {
+  const cwdValue = readOptionalString(args.cwd, "agent_team_create_workflow cwd");
+  if (cwdValue !== undefined && typeof cwdValue !== "string") {
+    return cwdValue;
+  }
+  const workflowId = readOptionalString(
+    args.workflowId,
+    "agent_team_create_workflow workflowId"
+  );
+  if (workflowId !== undefined && typeof workflowId !== "string") {
+    return workflowId;
+  }
+  const name = readOptionalString(args.name, "agent_team_create_workflow name");
+  if (name !== undefined && typeof name !== "string") {
+    return name;
+  }
+  const rationale = readOptionalString(
+    args.rationale,
+    "agent_team_create_workflow rationale"
+  );
+  if (rationale !== undefined && typeof rationale !== "string") {
+    return rationale;
+  }
+  const goal = parseWorkflowGoalArgs(args.goal);
+  if (isJsonToolResult(goal)) {
+    return goal;
+  }
+  if (!Array.isArray(args.slices) || args.slices.length === 0) {
+    return validationError("agent_team_create_workflow requires a non-empty slices array.");
+  }
+  const slices: CreateWorkflowSliceInput[] = [];
+  for (const [index, slice] of args.slices.entries()) {
+    const parsed = parseWorkflowSliceArgs(slice, index);
+    if (isJsonToolResult(parsed)) {
+      return parsed;
+    }
+    slices.push(parsed);
+  }
+  return {
+    workspaceRoot: cwdValue ?? defaultCwd,
+    config,
+    goal,
+    slices,
+    ...(workflowId === undefined ? {} : { workflowId }),
+    ...(name === undefined ? {} : { name }),
+    ...(rationale === undefined ? {} : { rationale }),
+    ...(deps.now === undefined ? {} : { now: deps.now }),
+    ...(deps.createWorkflowId === undefined ? {} : { createWorkflowId: deps.createWorkflowId })
+  };
+}
+
+function parseGetWorkflowArgs(
+  args: Record<string, unknown>,
+  defaultCwd: string,
+  toolName: "agent_team_get_workflow"
+): GetWorkflowInput | JsonToolResult {
+  const workflowId = readString(args.workflowId, `${toolName} requires a non-empty workflowId.`);
+  if (isJsonToolResult(workflowId)) {
+    return workflowId;
+  }
+  const cwdValue = readOptionalString(args.cwd, `${toolName} cwd`);
+  if (cwdValue !== undefined && typeof cwdValue !== "string") {
+    return cwdValue;
+  }
+  return {
+    workspaceRoot: cwdValue ?? defaultCwd,
+    workflowId
+  };
 }
 
 function readOptionalTimeout(
@@ -1052,6 +1340,9 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
 } {
   const dispatch = deps.dispatch ?? dispatchReadOnlyAgent;
   const doctor = deps.doctor ?? runDoctor;
+  const workflowCreate = deps.createWorkflow ?? createWorkflow;
+  const workflowGet = deps.getWorkflow ?? getWorkflow;
+  const workflowList = deps.listWorkflows ?? listWorkflows;
   const cwd = deps.cwd ?? process.cwd;
   const lifecycleRegistry =
     deps.lifecycleRegistry ??
@@ -1099,7 +1390,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
 
       if (name === "agent_team_dispatch") {
         const parsed = parseDispatchArgs(args, cwd());
-        if ("content" in parsed) {
+        if (isJsonToolResult(parsed)) {
           return parsed;
         }
         return jsonToolResult({ ...(await dispatch(parsed)) });
@@ -1107,7 +1398,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
 
       if (name === "agent_team_start") {
         const parsed = parseDispatchArgs(args, cwd());
-        if ("content" in parsed) {
+        if (isJsonToolResult(parsed)) {
           return parsed;
         }
         return recoverableLifecycleTool({
@@ -1120,7 +1411,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
 
       if (name === "agent_team_start_parallel") {
         const parsed = parseParallelStartArgs(args, cwd());
-        if ("content" in parsed) {
+        if (isJsonToolResult(parsed)) {
           return parsed;
         }
 
@@ -1134,7 +1425,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
 
       if (name === "agent_team_message") {
         const parsed = parseMessageArgs(args, cwd());
-        if ("content" in parsed) {
+        if (isJsonToolResult(parsed)) {
           return parsed;
         }
         return recoverableLifecycleTool({
@@ -1148,7 +1439,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
 
       if (name === "agent_team_message_many") {
         const parsed = parseMessageManyArgs(args, cwd());
-        if ("content" in parsed) {
+        if (isJsonToolResult(parsed)) {
           return parsed;
         }
 
@@ -1163,7 +1454,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
 
       if (name === "agent_team_reply") {
         const parsed = parseReplyArgs(args, cwd());
-        if ("content" in parsed) {
+        if (isJsonToolResult(parsed)) {
           return parsed;
         }
         return recoverableLifecycleTool({
@@ -1200,7 +1491,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
 
       if (name === "agent_team_status_many") {
         const parsed = parseStatusManyArgs(args, cwd());
-        if ("content" in parsed) {
+        if (isJsonToolResult(parsed)) {
           return parsed;
         }
 
@@ -1215,7 +1506,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
 
       if (name === "agent_team_summary") {
         const parsed = parseSummaryArgs(args, cwd());
-        if ("content" in parsed) {
+        if (isJsonToolResult(parsed)) {
           return parsed;
         }
 
@@ -1232,7 +1523,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
 
       if (name === "agent_team_create_team") {
         const parsed = parseCreateTeamArgs(args, cwd());
-        if ("content" in parsed) {
+        if (isJsonToolResult(parsed)) {
           return parsed;
         }
         return recoverableLifecycleTool({
@@ -1247,7 +1538,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
 
       if (name === "agent_team_get_team") {
         const parsed = parseTeamIdArgs(args, cwd(), name);
-        if ("content" in parsed) {
+        if (isJsonToolResult(parsed)) {
           return parsed;
         }
         return recoverableLifecycleTool({
@@ -1262,7 +1553,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
 
       if (name === "agent_team_list_teams") {
         const parsed = parseListTeamsArgs(args, cwd());
-        if ("content" in parsed) {
+        if (isJsonToolResult(parsed)) {
           return parsed;
         }
         return recoverableLifecycleTool({
@@ -1275,9 +1566,63 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
         });
       }
 
+      if (name === "agent_team_create_workflow") {
+        if (args.cwd !== undefined && typeof args.cwd !== "string") {
+          return validationError("agent_team_create_workflow cwd must be a string.");
+        }
+        const workspaceRoot = args.cwd ?? cwd();
+        const parsed = parseCreateWorkflowArgs(
+          args,
+          cwd(),
+          await config(workspaceRoot),
+          deps
+        );
+        if (isJsonToolResult(parsed)) {
+          return parsed;
+        }
+        return recoverableLifecycleTool({
+          workspaceRoot: parsed.workspaceRoot,
+          operation: name,
+          action: async () =>
+            jsonToolResult({
+              ...(await workflowCreate(parsed))
+            })
+        });
+      }
+
+      if (name === "agent_team_get_workflow") {
+        const parsed = parseGetWorkflowArgs(args, cwd(), name);
+        if (isJsonToolResult(parsed)) {
+          return parsed;
+        }
+        return recoverableLifecycleTool({
+          workspaceRoot: parsed.workspaceRoot,
+          operation: name,
+          action: async () =>
+            jsonToolResult({
+              ...(await workflowGet(parsed))
+            })
+        });
+      }
+
+      if (name === "agent_team_list_workflows") {
+        const parsed = parseListTeamsArgs(args, cwd());
+        if (isJsonToolResult(parsed)) {
+          return parsed;
+        }
+        return recoverableLifecycleTool({
+          workspaceRoot: parsed.cwd,
+          operation: name,
+          action: async () =>
+            jsonToolResult({
+              ...(await workflowList(parsed.cwd))
+            })
+        });
+      }
+
       if (name === "agent_team_dashboard") {
         const parsed = parseDashboardArgs(args, cwd());
-        if ("content" in parsed) {
+        if (isJsonToolResult(parsed)) {
           return parsed;
         }
         try {
@@ -1374,7 +1719,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
 
       if (name === "agent_team_cancel_many") {
         const parsed = parseCancelManyArgs(args, cwd());
-        if ("content" in parsed) {
+        if (isJsonToolResult(parsed)) {
           return parsed;
         }
 
@@ -1389,7 +1734,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
 
       if (name === "agent_team_wind_down_many") {
         const parsed = parseWindDownManyArgs(args, cwd());
-        if ("content" in parsed) {
+        if (isJsonToolResult(parsed)) {
           return parsed;
         }
 
@@ -1404,7 +1749,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
 
       if (name === "agent_team_cleanup") {
         const parsed = parseCleanupArgs(args, cwd());
-        if ("content" in parsed) {
+        if (isJsonToolResult(parsed)) {
           return parsed;
         }
         return recoverableLifecycleTool({

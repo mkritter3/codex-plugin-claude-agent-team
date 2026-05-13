@@ -36,6 +36,35 @@ export const WORKFLOW_SLICE_STATES = [
 
 export type WorkflowSliceState = (typeof WORKFLOW_SLICE_STATES)[number];
 
+export const WORKFLOW_PLANNING_STATUSES = [
+  "draft",
+  "ready-for-consensus",
+  "in-consensus",
+  "approved",
+  "escalated"
+] as const;
+
+export type WorkflowPlanningStatus = (typeof WORKFLOW_PLANNING_STATUSES)[number];
+
+export const WORKFLOW_RISK_LEVELS = ["low", "medium", "high"] as const;
+
+export type WorkflowRiskLevel = (typeof WORKFLOW_RISK_LEVELS)[number];
+
+export const WORKFLOW_BLOCKED_MODES = ["deferred-start", "prep-then-wait"] as const;
+
+export type WorkflowBlockedMode = (typeof WORKFLOW_BLOCKED_MODES)[number];
+
+export const CODEX_RATIONALE_CATEGORIES = [
+  "technical",
+  "product-behavior",
+  "user-trust",
+  "security-risk",
+  "provider-cost",
+  "release-posture"
+] as const;
+
+export type CodexRationaleCategory = (typeof CODEX_RATIONALE_CATEGORIES)[number];
+
 export const WORKFLOW_CONSENSUS_PHASES = [
   "planning",
   "implementation",
@@ -99,7 +128,13 @@ export interface WorkflowSlice {
   readonly ownerRole: string;
   readonly dependencies: readonly string[];
   readonly writeScope: readonly string[];
+  readonly readScope?: readonly string[];
   readonly acceptanceTests: readonly string[];
+  readonly expectedEvidence?: readonly string[];
+  readonly riskLevel?: WorkflowRiskLevel;
+  readonly requiredReviewers?: readonly string[];
+  readonly integrationOrderHint?: number;
+  readonly blockedMode?: WorkflowBlockedMode;
   readonly blockedBy?: readonly string[];
 }
 
@@ -148,11 +183,20 @@ export interface WorkflowIntegrationQueueItem {
   readonly reviewRunIds: readonly string[];
 }
 
+export interface WorkflowCodexRationale {
+  readonly rationaleId: string;
+  readonly createdAt: string;
+  readonly category: CodexRationaleCategory;
+  readonly summary: string;
+  readonly relatedSliceIds: readonly string[];
+}
+
 export interface WorkflowRecord {
   readonly workflowId: string;
   readonly name?: string;
   readonly createdAt: string;
   readonly updatedAt: string;
+  readonly planningStatus?: WorkflowPlanningStatus;
   readonly goal: WorkflowGoalPacket;
   readonly seniorReview: SeniorReviewPolicyConfig;
   readonly slices: readonly WorkflowSlice[];
@@ -160,5 +204,6 @@ export interface WorkflowRecord {
   readonly userEscalations: readonly WorkflowUserEscalation[];
   readonly opusReviewEvidence: readonly WorkflowOpusReviewEvidence[];
   readonly integrationQueue: readonly WorkflowIntegrationQueueItem[];
+  readonly codexRationale?: readonly WorkflowCodexRationale[];
   readonly evidencePath: string;
 }

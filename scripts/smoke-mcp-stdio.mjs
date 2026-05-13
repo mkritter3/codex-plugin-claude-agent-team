@@ -90,6 +90,9 @@ async function main() {
     assertToolRequires(tools.tools, "agent_team_create_team", ["runs"]);
     assertToolRequires(tools.tools, "agent_team_get_team", ["teamId"]);
     assertObjectSchema(tools.tools, "agent_team_list_teams");
+    assertToolRequires(tools.tools, "agent_team_create_workflow", ["goal", "slices"]);
+    assertToolRequires(tools.tools, "agent_team_get_workflow", ["workflowId"]);
+    assertObjectSchema(tools.tools, "agent_team_list_workflows");
     assertObjectSchema(tools.tools, "agent_team_dashboard");
     assertToolRequires(tools.tools, "agent_team_cancel_many", ["runs"]);
     assertToolRequires(tools.tools, "agent_team_wind_down_many", ["runs"]);
@@ -110,6 +113,15 @@ async function main() {
     await assertValidationError(client, "agent_team_dashboard", {
       teamId: "team_smoke",
       runs: [{ runId: "run_smoke" }]
+    });
+    await assertValidationError(client, "agent_team_create_workflow", {
+      goal: {
+        title: "Smoke",
+        successCriteria: ["reject missing slices"],
+        constraints: ["provider neutral"],
+        nonGoals: ["live calls"]
+      },
+      slices: []
     });
 
     console.log("MCP stdio smoke passed.");

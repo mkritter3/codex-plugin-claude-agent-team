@@ -5,10 +5,20 @@ const role = z
   .enum([
     "architect",
     "planner",
-    "code-reviewer",
-    "debugger",
-    "test-designer",
+    "ui-ux-designer",
+    "frontend-engineer",
+    "backend-engineer",
     "slice-implementer",
+    "code-reviewer",
+    "test-designer",
+    "qa-engineer",
+    "test-hardening-engineer",
+    "security-reviewer",
+    "performance-reviewer",
+    "devops-release-engineer",
+    "docs-dx-writer",
+    "integration-engineer",
+    "debugger",
     "ux-product-critic"
   ])
   .describe("Agent role to run.");
@@ -136,6 +146,52 @@ const listTeamsInputSchema = {
   cwd
 };
 
+const workflowId = z
+  .string()
+  .regex(/^workflow_[A-Za-z0-9_-]+$/)
+  .describe("Agent Team workflow id.");
+
+const workflowGoalInputSchema = z.object({
+  title: z.string().min(1),
+  successCriteria: z.array(z.string().min(1)).min(1),
+  constraints: z.array(z.string().min(1)).min(1),
+  nonGoals: z.array(z.string().min(1)).min(1)
+});
+
+const workflowSliceInputSchema = z.object({
+  sliceId: z.string().min(1),
+  title: z.string().min(1),
+  ownerRole: role,
+  state: z.enum(["planned", "blocked", "ready"]).optional(),
+  dependencies: z.array(z.string().min(1)).optional(),
+  writeScope: z.array(z.string().min(1)).min(1),
+  readScope: z.array(z.string().min(1)).min(1).optional(),
+  acceptanceTests: z.array(z.string().min(1)).min(1),
+  expectedEvidence: z.array(z.string().min(1)).min(1),
+  riskLevel: z.enum(["low", "medium", "high"]).optional(),
+  requiredReviewers: z.array(z.string().min(1)).min(1).optional(),
+  integrationOrderHint: z.number().int().positive().optional(),
+  blockedMode: z.enum(["deferred-start", "prep-then-wait"]).optional()
+});
+
+const createWorkflowInputSchema = {
+  goal: workflowGoalInputSchema,
+  slices: z.array(workflowSliceInputSchema),
+  cwd,
+  workflowId: workflowId.optional(),
+  name: z.string().min(1).optional(),
+  rationale: z.string().min(1).optional()
+};
+
+const getWorkflowInputSchema = {
+  workflowId,
+  cwd
+};
+
+const listWorkflowsInputSchema = {
+  cwd
+};
+
 const dashboardInputSchema = {
   teamId: teamId
     .optional()
@@ -249,6 +305,21 @@ export const TOOL_METADATA_BY_NAME = {
     title: "List Agent Team Records",
     description: "List durable team records for a workspace.",
     inputSchema: listTeamsInputSchema
+  },
+  agent_team_create_workflow: {
+    title: "Create Agent Workflow",
+    description: "Create a durable workflow record from a goal packet and initial slice DAG.",
+    inputSchema: createWorkflowInputSchema
+  },
+  agent_team_get_workflow: {
+    title: "Get Agent Workflow",
+    description: "Read a sanitized durable workflow view by id.",
+    inputSchema: getWorkflowInputSchema
+  },
+  agent_team_list_workflows: {
+    title: "List Agent Workflows",
+    description: "List sanitized durable workflow views for a workspace.",
+    inputSchema: listWorkflowsInputSchema
   },
   agent_team_dashboard: {
     title: "Agent Team Dashboard",

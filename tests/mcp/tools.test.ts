@@ -23,7 +23,7 @@ describe("MCP tool handlers", () => {
     const result = await handleToolCall("agent_team_list_roles", {});
 
     expect(result.structuredContent?.roles?.[0]?.id).toBe("architect");
-    expect(result.structuredContent?.roles).toHaveLength(7);
+    expect(result.structuredContent?.roles).toHaveLength(17);
   });
 
   it("lists configured providers", async () => {
@@ -202,6 +202,127 @@ describe("MCP tool handlers", () => {
     expect(TOOL_METADATA_BY_NAME.agent_team_dashboard.inputSchema).not.toHaveProperty(
       "prompt"
     );
+  });
+
+  it("exposes provider-neutral workflow creation tools with sanitized schemas", () => {
+    expect(listToolNames()).toEqual(
+      expect.arrayContaining([
+        "agent_team_create_workflow",
+        "agent_team_get_workflow",
+        "agent_team_list_workflows"
+      ])
+    );
+    expect(TOOL_METADATA_BY_NAME.agent_team_create_workflow).toMatchObject({
+      title: "Create Agent Workflow",
+      description: expect.stringMatching(/durable workflow/i)
+    });
+    expect(TOOL_METADATA_BY_NAME.agent_team_create_workflow.inputSchema).toMatchObject({
+      goal: expect.any(Object),
+      slices: expect.any(Object)
+    });
+    expect(TOOL_METADATA_BY_NAME.agent_team_get_workflow.inputSchema).toMatchObject({
+      workflowId: expect.any(Object)
+    });
+    expect(TOOL_METADATA_BY_NAME.agent_team_list_workflows.inputSchema).toMatchObject({
+      cwd: expect.any(Object)
+    });
+    expect(TOOL_METADATA_BY_NAME.agent_team_create_workflow.inputSchema).not.toHaveProperty(
+      "prompt"
+    );
+    expect(TOOL_METADATA_BY_NAME.agent_team_create_workflow.inputSchema).not.toHaveProperty(
+      "provider"
+    );
+    expect(JSON.stringify(TOOL_METADATA_BY_NAME.agent_team_create_workflow)).not.toMatch(
+      /Claude|claude-code-cli|internal prompt|raw provider/i
+    );
+  });
+
+  it("creates, reads, and lists sanitized workflow views through MCP", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-mcp-workflow-"));
+    const handlers = createToolHandlers({
+      cwd: () => workspace,
+      createWorkflowId: () => "workflow_mcp",
+      now: () => new Date("2026-05-13T10:00:00.000Z")
+    });
+
+    const created = await handlers.handleToolCall("agent_team_create_workflow", {
+      name: "MCP Workflow",
+      goal: {
+        title: "Ship MCP workflow",
+        successCriteria: ["create workflow tool works"],
+        constraints: ["provider neutral"],
+        nonGoals: ["live providers"]
+      },
+      rationale: "Codex records initial technical rationale.",
+      slices: [
+        {
+          sliceId: "slice_mcp",
+          title: "MCP tool",
+          ownerRole: "planner",
+          writeScope: ["src/mcp/tools.ts"],
+          acceptanceTests: ["mcp workflow test"],
+          expectedEvidence: ["focused test"],
+          riskLevel: "medium"
+        }
+      ]
+    });
+
+    expect(created.structuredContent?.workflow).toMatchObject({
+      workflowId: "workflow_mcp",
+      planningStatus: "draft",
+      slices: [expect.objectContaining({ sliceId: "slice_mcp", state: "ready" })],
+      codexRationale: [
+        expect.objectContaining({
+          summary: "Codex records initial technical rationale."
+        })
+      ]
+    });
+    expect(JSON.stringify(created.structuredContent)).not.toMatch(
+      /internalPrompt|rawProvider|providerSession|commandArgs|secret/i
+    );
+
+    await expect(
+      handlers.handleToolCall("agent_team_get_workflow", {
+        workflowId: "workflow_mcp"
+      })
+    ).resolves.toMatchObject({
+      structuredContent: {
+        workflow: created.structuredContent?.workflow
+      }
+    });
+    await expect(
+      handlers.handleToolCall("agent_team_list_workflows", {})
+    ).resolves.toMatchObject({
+      structuredContent: {
+        workflows: [created.structuredContent?.workflow]
+      }
+    });
+  });
+
+  it("rejects invalid workflow create input before invoking injected workflow creation", async () => {
+    let called = false;
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      createWorkflow: async () => {
+        called = true;
+        throw new Error("should not create workflow");
+      }
+    });
+
+    const result = await handlers.handleToolCall("agent_team_create_workflow", {
+      goal: {
+        title: "Missing slices",
+        successCriteria: ["reject invalid"],
+        constraints: ["no side effects"],
+        nonGoals: ["partial write"]
+      },
+      slices: []
+    });
+
+    expect(result.structuredContent).toMatchObject({
+      status: "validation_error"
+    });
+    expect(called).toBe(false);
   });
 
   it("loads workspace config for default lifecycle starts", async () => {
@@ -3223,6 +3344,9 @@ describe("MCP tool handlers", () => {
       "agent_team_create_team",
       "agent_team_get_team",
       "agent_team_list_teams",
+      "agent_team_create_workflow",
+      "agent_team_get_workflow",
+      "agent_team_list_workflows",
       "agent_team_dashboard",
       "agent_team_cancel",
       "agent_team_cancel_many",

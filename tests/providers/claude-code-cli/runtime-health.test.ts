@@ -33,7 +33,7 @@ describe("Claude Code CLI runtime health", () => {
     });
     expect(checks.find((check) => check.id === "claude-agent-definitions")).toMatchObject({
       status: "pass",
-      details: { count: 7 }
+      details: { count: 17 }
     });
   });
 
@@ -58,7 +58,7 @@ describe("Claude Code CLI runtime health", () => {
       details: {
         agentsPath: ".agent-team/providers/claude/agents.json",
         manifestPath: ".agent-team/providers/claude/manifest.json",
-        definitionCount: 7
+        definitionCount: 17
       }
     });
     expect(

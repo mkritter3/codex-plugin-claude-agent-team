@@ -1,6 +1,6 @@
 # Agent Team MCP Milestone 52 Workflow Creation Surface Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add the first public workflow-orchestrator surface: expanded L11 roles plus provider-neutral create/get/list workflow tools that persist a goal packet, richer initial slice DAG, Codex planning rationale, and sanitized workflow views without starting agents.
 
@@ -45,13 +45,13 @@ Out of scope:
 
 ## L11 Quality Gates
 
-- [ ] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
-- [ ] TDD red proof is captured for roles, workflow core, MCP handlers, server registration, and package smoke coverage.
-- [ ] Focused milestone tests are listed with expected red and green outcomes.
-- [ ] Full verification commands are listed.
-- [ ] Required edge cases from the matrix are selected.
-- [ ] Invariant scans are listed.
-- [ ] Live provider smoke is not required because this milestone creates durable workflow records only and makes no real senior-review/sign-off claim.
+- [x] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
+- [x] TDD red proof is captured for roles, workflow core, MCP handlers, server registration, and package smoke coverage.
+- [x] Focused milestone tests are listed with expected red and green outcomes.
+- [x] Full verification commands are listed.
+- [x] Required edge cases from the matrix are selected.
+- [x] Invariant scans are listed.
+- [x] Live provider smoke is not required because this milestone creates durable workflow records only and makes no real senior-review/sign-off claim.
 
 ## Success Criteria
 
@@ -133,7 +133,7 @@ Selected from the L11 matrix:
 - Modify: `src/core/roles.ts`
 - Test: `tests/core/roles.test.ts`
 
-- [ ] **Step 1: Write failing roster tests**
+- [x] **Step 1: Write failing roster tests**
 
 Add tests that assert the role list includes:
 
@@ -159,7 +159,7 @@ Add tests that assert the role list includes:
 
 Also assert `frontend-engineer`, `backend-engineer`, and `slice-implementer` use `isolated-edit` and require `edits` plus `workspaceIsolation`.
 
-- [ ] **Step 2: Run focused test and verify red**
+- [x] **Step 2: Run focused test and verify red**
 
 Run:
 
@@ -169,11 +169,11 @@ npm test -- tests/core/roles.test.ts
 
 Expected: fail because the expanded roster is not implemented.
 
-- [ ] **Step 3: Implement expanded roles**
+- [x] **Step 3: Implement expanded roles**
 
 Extend `RoleId` and `ROLES` with the L11 roster. Keep write-capable specialist roles capability-equivalent to `slice-implementer`.
 
-- [ ] **Step 4: Run focused test and verify green**
+- [x] **Step 4: Run focused test and verify green**
 
 Run:
 
@@ -190,7 +190,7 @@ Expected: expanded role tests pass.
 - Create: `src/core/workflow-service.ts`
 - Test: `tests/core/workflow-service.test.ts`
 
-- [ ] **Step 1: Write failing workflow creation tests**
+- [x] **Step 1: Write failing workflow creation tests**
 
 Add tests proving:
 
@@ -202,11 +202,11 @@ Add tests proving:
 - dependency-bearing slices become `blocked`
 - get/list use sanitized workflow views
 
-- [ ] **Step 2: Write failing validation tests**
+- [x] **Step 2: Write failing validation tests**
 
 Add tests for duplicate slice ids, invalid owner role, unsafe workflow id, invalid initial state, invalid risk level, invalid blocked mode, missing dependency, self-dependency, empty write scope, empty expected evidence, and empty acceptance tests.
 
-- [ ] **Step 3: Run focused tests and verify red**
+- [x] **Step 3: Run focused tests and verify red**
 
 Run:
 
@@ -216,7 +216,7 @@ npm test -- tests/core/workflow-service.test.ts
 
 Expected: fail because `workflow-service.ts` does not exist.
 
-- [ ] **Step 4: Implement workflow service**
+- [x] **Step 4: Implement workflow service**
 
 Create:
 
@@ -228,7 +228,7 @@ export async function listWorkflows(workspaceRoot: string): Promise<{ readonly w
 
 Use strict validation, pure planning-state helpers, sanitized views, and the existing workflow store. Do not call providers or lifecycle.
 
-- [ ] **Step 5: Run focused tests and verify green**
+- [x] **Step 5: Run focused tests and verify green**
 
 Run:
 
@@ -247,11 +247,11 @@ Expected: workflow service and store tests pass.
 - Test: `tests/mcp/tools.test.ts`
 - Test: `tests/mcp/server.test.ts`
 
-- [ ] **Step 1: Write failing MCP metadata and validation tests**
+- [x] **Step 1: Write failing MCP metadata and validation tests**
 
 Assert the new tool names, schemas, and validation behavior. Invalid `agent_team_create_workflow` inputs must return `validation_error` before injected workflow creation is called.
 
-- [ ] **Step 2: Run focused MCP tests and verify red**
+- [x] **Step 2: Run focused MCP tests and verify red**
 
 Run:
 
@@ -261,11 +261,11 @@ npm test -- tests/mcp/tools.test.ts tests/mcp/server.test.ts
 
 Expected: fail because workflow tools are not registered.
 
-- [ ] **Step 3: Implement schemas and handlers**
+- [x] **Step 3: Implement schemas and handlers**
 
 Add `agent_team_create_workflow`, `agent_team_get_workflow`, and `agent_team_list_workflows` to tool names, metadata, parsing, and handler dispatch. Use dependency injection for tests and shared recovery for store reads/writes.
 
-- [ ] **Step 4: Run focused MCP tests and verify green**
+- [x] **Step 4: Run focused MCP tests and verify green**
 
 Run:
 
@@ -283,7 +283,7 @@ Expected: MCP tests pass.
 - Modify: `tests/package-runtime.test.ts`
 - Modify: `docs/superpowers/plans/2026-05-13-agent-team-mcp-milestone-52.md`
 
-- [ ] **Step 1: Write failing package-runtime smoke coverage test**
+- [x] **Step 1: Write failing package-runtime smoke coverage test**
 
 Assert `scripts/smoke-mcp-stdio.mjs` checks:
 
@@ -293,7 +293,7 @@ assertToolRequires(tools.tools, "agent_team_get_workflow", ["workflowId"])
 assertObjectSchema(tools.tools, "agent_team_list_workflows")
 ```
 
-- [ ] **Step 2: Run package test and verify red**
+- [x] **Step 2: Run package test and verify red**
 
 Run:
 
@@ -303,11 +303,11 @@ npm test -- tests/package-runtime.test.ts
 
 Expected: fail because the smoke script does not cover workflow tools.
 
-- [ ] **Step 3: Update smoke script**
+- [x] **Step 3: Update smoke script**
 
 Add required-field and invalid-input assertions for the new tools.
 
-- [ ] **Step 4: Run focused milestone tests**
+- [x] **Step 4: Run focused milestone tests**
 
 Run:
 
@@ -317,7 +317,7 @@ npm test -- tests/core/roles.test.ts tests/core/workflow-service.test.ts tests/c
 
 Expected: focused tests pass.
 
-- [ ] **Step 5: Run full verification**
+- [x] **Step 5: Run full verification**
 
 Run:
 
@@ -332,7 +332,7 @@ npm run ci
 
 Expected: all pass.
 
-- [ ] **Step 6: Run invariant scans**
+- [x] **Step 6: Run invariant scans**
 
 Run:
 
@@ -345,7 +345,7 @@ rg -n "agent_team_create_workflow|agent_team_get_workflow|agent_team_list_workfl
 
 Expected: no forbidden matches; workflow matches are implementation, tests, and docs only.
 
-- [ ] **Step 7: Update plan status and commit**
+- [x] **Step 7: Update plan status and commit**
 
 Update this plan with verification evidence and commit:
 
@@ -360,4 +360,30 @@ Not required for this milestone. This adds workflow state creation/read/list onl
 
 ## Status
 
-Planned.
+Implemented in `codex/workflow-creation-surface`. This milestone remains state/MCP workflow creation only: no live providers, no Opus sign-off claim, no consensus execution, no slice starts, no auto-merge, and no cleanup behavior were introduced.
+
+## Implementation Notes
+
+- Expanded the provider-neutral role roster to 17 L11 roles while preserving conservative read-only capabilities and isolated-edit capability requirements for write-capable roles.
+- Added richer workflow slice metadata, planning status, blocked modes, risk levels, and Codex rationale records.
+- Added pure workflow planning helpers for initial blocked/ready derivation, Codex rationale appending, and user-escalation classification.
+- Added sanitized workflow views so public MCP tools do not return raw internal workflow records.
+- Added `agent_team_create_workflow`, `agent_team_get_workflow`, and `agent_team_list_workflows` with provider-neutral schemas and handler validation.
+- Updated Claude agent-definition and health tests to account for the expanded roster.
+- Updated packaged stdio smoke coverage for workflow tools.
+
+## Verification Evidence
+
+- Focused M52 tests passed: `npm test -- tests/core/roles.test.ts tests/core/workflow-service.test.ts tests/core/workflow-planning-state.test.ts tests/core/workflow-view.test.ts tests/core/state/workflow-store.test.ts tests/mcp/tools.test.ts tests/mcp/server.test.ts tests/package-runtime.test.ts` passed: 98 tests.
+- Claude role-definition focused tests passed: `npm test -- tests/providers/claude-code-cli/agent-definition-store.test.ts tests/providers/claude-code-cli/runtime-health.test.ts tests/providers/claude-code-cli/doctor.test.ts` passed: 13 tests.
+- `npm run typecheck` passed.
+- `npm test` passed: 69 files, 528 tests.
+- `npm run build` passed.
+- `npm run install:check` passed.
+- `npm run smoke:mcp-stdio` passed.
+- `npm run smoke:package` passed.
+- `npm run ci` passed.
+- Invariant scan `! rg -n "allowApiKeyFallback:\s*true|apiKeyFallback\s*:\s*true" src .codex-plugin package.json` passed with no matches.
+- Invariant scan `! rg -n "hiddenPrompt|internalPrompt|rawProvider|raw provider|providerPayload|provider payload" src/mcp src/core .codex-plugin` passed with no matches.
+- Invariant scan `! rg -n "mock LLM|heuristic LLM|heuristic.*benchmark|mock.*benchmark|provider-ranking" src scripts .codex-plugin` passed with no matches.
+- Workflow scan `rg -n "agent_team_create_workflow|agent_team_get_workflow|agent_team_list_workflows|WorkflowRecord|StateCorruptionError" src tests docs/superpowers/plans/2026-05-13-agent-team-mcp-milestone-52.md` showed only implementation, tests, and docs guardrail matches.

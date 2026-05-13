@@ -20,14 +20,24 @@ describe("Claude agent definition artifact store", () => {
 
     expect(result.manifest).toMatchObject({
       providerId: "claude-code-cli",
-      definitionCount: 7,
+      definitionCount: 17,
       roleIds: [
         "architect",
         "planner",
-        "code-reviewer",
-        "debugger",
-        "test-designer",
+        "ui-ux-designer",
+        "frontend-engineer",
+        "backend-engineer",
         "slice-implementer",
+        "code-reviewer",
+        "test-designer",
+        "qa-engineer",
+        "test-hardening-engineer",
+        "security-reviewer",
+        "performance-reviewer",
+        "devops-release-engineer",
+        "docs-dx-writer",
+        "integration-engineer",
+        "debugger",
         "ux-product-critic"
       ],
       agentsPath: ".agent-team/providers/claude/agents.json",

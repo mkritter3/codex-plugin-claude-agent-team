@@ -10,15 +10,22 @@ import {
 } from "./paths.js";
 import {
   SENIOR_REVIEW_MODES,
+  CODEX_RATIONALE_CATEGORIES,
+  WORKFLOW_BLOCKED_MODES,
   WORKFLOW_CONSENSUS_PHASES,
   WORKFLOW_CONSENSUS_STATUSES,
   WORKFLOW_ESCALATION_STATUSES,
   WORKFLOW_INTEGRATION_STATES,
   WORKFLOW_OPUS_REVIEW_STATUSES,
+  WORKFLOW_PLANNING_STATUSES,
+  WORKFLOW_RISK_LEVELS,
   WORKFLOW_SLICE_STATES,
   WORKFLOW_VERDICT_STATUSES,
+  type CodexRationaleCategory,
   type SeniorReviewMode,
   type SeniorReviewPolicyConfig,
+  type WorkflowBlockedMode,
+  type WorkflowCodexRationale,
   type WorkflowConsensusPhase,
   type WorkflowConsensusRound,
   type WorkflowConsensusStatus,
@@ -28,8 +35,10 @@ import {
   type WorkflowIntegrationState,
   type WorkflowOpusReviewEvidence,
   type WorkflowOpusReviewStatus,
+  type WorkflowPlanningStatus,
   type WorkflowRecord,
   type WorkflowReviewerVerdict,
+  type WorkflowRiskLevel,
   type WorkflowSlice,
   type WorkflowSliceState,
   type WorkflowUserEscalation,
@@ -41,6 +50,7 @@ const WORKFLOW_RECORD_KEYS = new Set([
   "name",
   "createdAt",
   "updatedAt",
+  "planningStatus",
   "goal",
   "seniorReview",
   "slices",
@@ -48,6 +58,7 @@ const WORKFLOW_RECORD_KEYS = new Set([
   "userEscalations",
   "opusReviewEvidence",
   "integrationQueue",
+  "codexRationale",
   "evidencePath"
 ]);
 const GOAL_KEYS = new Set(["title", "successCriteria", "constraints", "nonGoals"]);
@@ -60,8 +71,21 @@ const SLICE_KEYS = new Set([
   "ownerRole",
   "dependencies",
   "writeScope",
+  "readScope",
   "acceptanceTests",
+  "expectedEvidence",
+  "riskLevel",
+  "requiredReviewers",
+  "integrationOrderHint",
+  "blockedMode",
   "blockedBy"
+]);
+const CODEX_RATIONALE_KEYS = new Set([
+  "rationaleId",
+  "createdAt",
+  "category",
+  "summary",
+  "relatedSliceIds"
 ]);
 const CONSENSUS_ROUND_KEYS = new Set([
   "round",
@@ -105,7 +129,11 @@ const INTEGRATION_QUEUE_KEYS = new Set([
 ]);
 
 const SENIOR_REVIEW_MODE_SET = new Set<string>(SENIOR_REVIEW_MODES);
+const PLANNING_STATUS_SET = new Set<string>(WORKFLOW_PLANNING_STATUSES);
 const SLICE_STATE_SET = new Set<string>(WORKFLOW_SLICE_STATES);
+const RISK_LEVEL_SET = new Set<string>(WORKFLOW_RISK_LEVELS);
+const BLOCKED_MODE_SET = new Set<string>(WORKFLOW_BLOCKED_MODES);
+const CODEX_RATIONALE_CATEGORY_SET = new Set<string>(CODEX_RATIONALE_CATEGORIES);
 const CONSENSUS_PHASE_SET = new Set<string>(WORKFLOW_CONSENSUS_PHASES);
 const VERDICT_STATUS_SET = new Set<string>(WORKFLOW_VERDICT_STATUSES);
 const CONSENSUS_STATUS_SET = new Set<string>(WORKFLOW_CONSENSUS_STATUSES);
@@ -168,6 +196,14 @@ function expectPositiveInteger(value: unknown, path: string, field: string): num
     throw corruption(path, `${field} must be a positive integer`);
   }
   return value;
+}
+
+function expectOptionalPositiveInteger(
+  value: unknown,
+  path: string,
+  field: string
+): number | undefined {
+  return value === undefined ? undefined : expectPositiveInteger(value, path, field);
 }
 
 function expectStringArray(value: unknown, path: string, field: string): readonly string[] {
@@ -256,6 +292,41 @@ function parseSlice(value: unknown, path: string, index: number): WorkflowSlice 
     slice.blockedBy === undefined
       ? undefined
       : expectStringArray(slice.blockedBy, path, `slices[${index}].blockedBy`);
+  const readScope =
+    slice.readScope === undefined
+      ? undefined
+      : expectStringArray(slice.readScope, path, `slices[${index}].readScope`);
+  const expectedEvidence =
+    slice.expectedEvidence === undefined
+      ? undefined
+      : expectStringArray(slice.expectedEvidence, path, `slices[${index}].expectedEvidence`);
+  const requiredReviewers =
+    slice.requiredReviewers === undefined
+      ? undefined
+      : expectStringArray(slice.requiredReviewers, path, `slices[${index}].requiredReviewers`);
+  const integrationOrderHint = expectOptionalPositiveInteger(
+    slice.integrationOrderHint,
+    path,
+    `slices[${index}].integrationOrderHint`
+  );
+  const riskLevel =
+    slice.riskLevel === undefined
+      ? undefined
+      : expectEnum<WorkflowRiskLevel>(
+          slice.riskLevel,
+          path,
+          `slices[${index}].riskLevel`,
+          RISK_LEVEL_SET
+        );
+  const blockedMode =
+    slice.blockedMode === undefined
+      ? undefined
+      : expectEnum<WorkflowBlockedMode>(
+          slice.blockedMode,
+          path,
+          `slices[${index}].blockedMode`,
+          BLOCKED_MODE_SET
+        );
   return {
     sliceId: expectNonEmptyString(slice.sliceId, path, `slices[${index}].sliceId`),
     title: expectNonEmptyString(slice.title, path, `slices[${index}].title`),
@@ -268,12 +339,55 @@ function parseSlice(value: unknown, path: string, index: number): WorkflowSlice 
     ownerRole: expectNonEmptyString(slice.ownerRole, path, `slices[${index}].ownerRole`),
     dependencies: expectStringArray(slice.dependencies, path, `slices[${index}].dependencies`),
     writeScope: expectStringArray(slice.writeScope, path, `slices[${index}].writeScope`),
+    ...(readScope === undefined ? {} : { readScope }),
     acceptanceTests: expectStringArray(
       slice.acceptanceTests,
       path,
       `slices[${index}].acceptanceTests`
     ),
+    ...(expectedEvidence === undefined ? {} : { expectedEvidence }),
+    ...(riskLevel === undefined ? {} : { riskLevel }),
+    ...(requiredReviewers === undefined ? {} : { requiredReviewers }),
+    ...(integrationOrderHint === undefined ? {} : { integrationOrderHint }),
+    ...(blockedMode === undefined ? {} : { blockedMode }),
     ...(blockedBy === undefined ? {} : { blockedBy })
+  };
+}
+
+function parseCodexRationale(
+  value: unknown,
+  path: string,
+  index: number
+): WorkflowCodexRationale {
+  const rationale = expectObject(value, path, `codexRationale[${index}]`);
+  assertKnownKeys(rationale, path, CODEX_RATIONALE_KEYS, `codexRationale[${index}]`);
+  return {
+    rationaleId: expectNonEmptyString(
+      rationale.rationaleId,
+      path,
+      `codexRationale[${index}].rationaleId`
+    ),
+    createdAt: expectNonEmptyString(
+      rationale.createdAt,
+      path,
+      `codexRationale[${index}].createdAt`
+    ),
+    category: expectEnum<CodexRationaleCategory>(
+      rationale.category,
+      path,
+      `codexRationale[${index}].category`,
+      CODEX_RATIONALE_CATEGORY_SET
+    ),
+    summary: expectNonEmptyString(
+      rationale.summary,
+      path,
+      `codexRationale[${index}].summary`
+    ),
+    relatedSliceIds: expectStringArray(
+      rationale.relatedSliceIds,
+      path,
+      `codexRationale[${index}].relatedSliceIds`
+    )
   };
 }
 
@@ -506,12 +620,28 @@ function parseWorkflowRecord(value: unknown, path: string): WorkflowRecord {
   }
 
   const name = expectOptionalNonEmptyString(value.name, path, "name");
+  const planningStatus =
+    value.planningStatus === undefined
+      ? undefined
+      : expectEnum<WorkflowPlanningStatus>(
+          value.planningStatus,
+          path,
+          "planningStatus",
+          PLANNING_STATUS_SET
+        );
+  const codexRationale =
+    value.codexRationale === undefined
+      ? undefined
+      : expectArray(value.codexRationale, path, "codexRationale").map((rationale, index) =>
+          parseCodexRationale(rationale, path, index)
+        );
 
   return {
     workflowId,
     ...(name === undefined ? {} : { name }),
     createdAt: expectNonEmptyString(value.createdAt, path, "createdAt"),
     updatedAt: expectNonEmptyString(value.updatedAt, path, "updatedAt"),
+    ...(planningStatus === undefined ? {} : { planningStatus }),
     goal: parseGoal(value.goal, path),
     seniorReview: parseSeniorReview(value.seniorReview, path),
     slices: expectNonEmptyArray(value.slices, path, "slices").map((slice, index) =>
@@ -529,6 +659,7 @@ function parseWorkflowRecord(value: unknown, path: string): WorkflowRecord {
     integrationQueue: expectArray(value.integrationQueue, path, "integrationQueue").map(
       (item, index) => parseIntegrationQueueItem(item, path, index)
     ),
+    ...(codexRationale === undefined ? {} : { codexRationale }),
     evidencePath
   };
 }

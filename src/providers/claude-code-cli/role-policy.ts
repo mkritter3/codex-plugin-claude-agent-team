@@ -58,11 +58,21 @@ export function claudeRolePolicyFor(input: ClaudeRolePolicyInput): ClaudeRolePol
   switch (input.roleId) {
     case "architect":
     case "planner":
+    case "ui-ux-designer":
     case "code-reviewer":
     case "debugger":
     case "test-designer":
+    case "qa-engineer":
+    case "test-hardening-engineer":
+    case "security-reviewer":
+    case "performance-reviewer":
+    case "devops-release-engineer":
+    case "docs-dx-writer":
+    case "integration-engineer":
     case "ux-product-critic":
       return readOnlyPolicy();
+    case "frontend-engineer":
+    case "backend-engineer":
     case "slice-implementer":
       if (input.requestedPermissionMode !== "acceptEdits") {
         return readOnlyPolicy();

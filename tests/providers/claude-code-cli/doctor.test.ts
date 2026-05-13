@@ -39,7 +39,7 @@ describe("inspectClaudeEnvironment", () => {
     expect(checkClaudeAgentDefinitions()).toMatchObject({
       id: "claude-agent-definitions",
       status: "pass",
-      details: { count: 7 }
+      details: { count: 17 }
     });
   });
 });
