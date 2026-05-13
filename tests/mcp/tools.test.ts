@@ -47,6 +47,7 @@ describe("MCP tool handlers", () => {
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
         providers: DEFAULT_AGENT_TEAM_CONFIG.providers,
+        seniorReview: DEFAULT_AGENT_TEAM_CONFIG.seniorReview,
         policy: DEFAULT_AGENT_TEAM_CONFIG.policy
       }
     });

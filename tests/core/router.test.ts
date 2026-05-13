@@ -323,6 +323,7 @@ describe("selectProvider", () => {
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
         policy: DEFAULT_AGENT_TEAM_CONFIG.policy,
+        seniorReview: DEFAULT_AGENT_TEAM_CONFIG.seniorReview,
         providers: {
           claudeCodeCli: DEFAULT_AGENT_TEAM_CONFIG.providers.claudeCodeCli,
           openaiCompatible: {
@@ -379,6 +380,7 @@ describe("selectProvider", () => {
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
         policy: DEFAULT_AGENT_TEAM_CONFIG.policy,
+        seniorReview: DEFAULT_AGENT_TEAM_CONFIG.seniorReview,
         providers: {
           claudeCodeCli: DEFAULT_AGENT_TEAM_CONFIG.providers.claudeCodeCli,
           openaiCompatible: {
@@ -445,6 +447,7 @@ describe("selectProvider", () => {
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
         policy: DEFAULT_AGENT_TEAM_CONFIG.policy,
+        seniorReview: DEFAULT_AGENT_TEAM_CONFIG.seniorReview,
         providers: {
           claudeCodeCli: DEFAULT_AGENT_TEAM_CONFIG.providers.claudeCodeCli,
           openaiCompatible: {
@@ -669,6 +672,7 @@ describe("selectProvider", () => {
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
         policy: DEFAULT_AGENT_TEAM_CONFIG.policy,
+        seniorReview: DEFAULT_AGENT_TEAM_CONFIG.seniorReview,
         providers: {
           claudeCodeCli: DEFAULT_AGENT_TEAM_CONFIG.providers.claudeCodeCli,
           openaiCompatible: {
@@ -734,6 +738,7 @@ describe("selectProvider", () => {
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
         policy: DEFAULT_AGENT_TEAM_CONFIG.policy,
+        seniorReview: DEFAULT_AGENT_TEAM_CONFIG.seniorReview,
         providers: {
           claudeCodeCli: DEFAULT_AGENT_TEAM_CONFIG.providers.claudeCodeCli,
           openaiCompatible: {
@@ -785,6 +790,7 @@ describe("selectProvider", () => {
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
         policy: DEFAULT_AGENT_TEAM_CONFIG.policy,
+        seniorReview: DEFAULT_AGENT_TEAM_CONFIG.seniorReview,
         providers: {
           claudeCodeCli: DEFAULT_AGENT_TEAM_CONFIG.providers.claudeCodeCli,
           openaiCompatible: {

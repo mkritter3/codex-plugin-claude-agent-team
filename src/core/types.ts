@@ -1,4 +1,5 @@
 import type { ProviderSessionActivity } from "../providers/types.js";
+import type { SeniorReviewPolicyConfig } from "./workflow-types.js";
 
 export const PROVIDER_CAPABILITIES = [
   "structuredOutput",
@@ -189,6 +190,7 @@ export interface AgentTeamConfig {
   };
   readonly routing: ProviderRoutingPolicyConfig;
   readonly providers: AgentTeamProviderConfig;
+  readonly seniorReview: SeniorReviewPolicyConfig;
   readonly policy: AgentTeamPolicyConfig;
 }
 

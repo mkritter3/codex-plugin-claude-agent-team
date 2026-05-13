@@ -4,6 +4,7 @@ import type { MailboxKind } from "../types.js";
 export const STATE_DIR = ".agent-team";
 const SAFE_RUN_ID = /^run_[A-Za-z0-9_-]+$/;
 const SAFE_TEAM_ID = /^team_[A-Za-z0-9_-]+$/;
+const SAFE_WORKFLOW_ID = /^workflow_[A-Za-z0-9_-]+$/;
 
 export function isSafeRunId(runId: string): boolean {
   return SAFE_RUN_ID.test(runId);
@@ -11,6 +12,10 @@ export function isSafeRunId(runId: string): boolean {
 
 export function isSafeTeamId(teamId: string): boolean {
   return SAFE_TEAM_ID.test(teamId);
+}
+
+export function isSafeWorkflowId(workflowId: string): boolean {
+  return SAFE_WORKFLOW_ID.test(workflowId);
 }
 
 export function stateRoot(workspaceRoot: string): string {
@@ -33,6 +38,10 @@ export function teamsDir(workspaceRoot: string): string {
   return join(stateRoot(workspaceRoot), "teams");
 }
 
+export function workflowsDir(workspaceRoot: string): string {
+  return join(stateRoot(workspaceRoot), "workflows");
+}
+
 export function auditDir(workspaceRoot: string): string {
   return join(stateRoot(workspaceRoot), "audit");
 }
@@ -46,6 +55,13 @@ export function teamRecordPath(workspaceRoot: string, teamId: string): string {
     throw new Error(`Invalid team id: ${teamId}`);
   }
   return join(teamsDir(workspaceRoot), `${teamId}.json`);
+}
+
+export function workflowRecordPath(workspaceRoot: string, workflowId: string): string {
+  if (!isSafeWorkflowId(workflowId)) {
+    throw new Error(`Invalid workflow id: ${workflowId}`);
+  }
+  return join(workflowsDir(workspaceRoot), `${workflowId}.json`);
 }
 
 export function logsDir(workspaceRoot: string): string {

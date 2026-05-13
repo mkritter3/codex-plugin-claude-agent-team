@@ -1520,6 +1520,7 @@ describe("AgentLifecycleManager", () => {
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
         providers: DEFAULT_AGENT_TEAM_CONFIG.providers,
+        seniorReview: DEFAULT_AGENT_TEAM_CONFIG.seniorReview,
         policy: DEFAULT_AGENT_TEAM_CONFIG.policy
       },
       createRunId: () => "run_slice_1",
@@ -1590,6 +1591,7 @@ describe("AgentLifecycleManager", () => {
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
         providers: DEFAULT_AGENT_TEAM_CONFIG.providers,
+        seniorReview: DEFAULT_AGENT_TEAM_CONFIG.seniorReview,
         policy: DEFAULT_AGENT_TEAM_CONFIG.policy
       },
       createRunId: () => "run_slice_failed",
@@ -1635,6 +1637,7 @@ describe("AgentLifecycleManager", () => {
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
         providers: DEFAULT_AGENT_TEAM_CONFIG.providers,
+        seniorReview: DEFAULT_AGENT_TEAM_CONFIG.seniorReview,
         policy: DEFAULT_AGENT_TEAM_CONFIG.policy
       },
       createRunId: () => "run_slice_completed",
@@ -1703,6 +1706,7 @@ describe("AgentLifecycleManager", () => {
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
         providers: DEFAULT_AGENT_TEAM_CONFIG.providers,
+        seniorReview: DEFAULT_AGENT_TEAM_CONFIG.seniorReview,
         policy: DEFAULT_AGENT_TEAM_CONFIG.policy
       },
       createRunId: () => "run_slice_clean",
@@ -1772,6 +1776,7 @@ describe("AgentLifecycleManager", () => {
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
         providers: DEFAULT_AGENT_TEAM_CONFIG.providers,
+        seniorReview: DEFAULT_AGENT_TEAM_CONFIG.seniorReview,
         policy: DEFAULT_AGENT_TEAM_CONFIG.policy
       },
       createRunId: () => "run_slice_provider_failed",
@@ -1829,6 +1834,7 @@ describe("AgentLifecycleManager", () => {
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
         providers: DEFAULT_AGENT_TEAM_CONFIG.providers,
+        seniorReview: DEFAULT_AGENT_TEAM_CONFIG.seniorReview,
         policy: DEFAULT_AGENT_TEAM_CONFIG.policy
       },
       createRunId: () => "run_slice_cancelled",
@@ -1877,6 +1883,7 @@ describe("AgentLifecycleManager", () => {
         auth: { allowApiKeyFallback: false },
         routing: { rolePins: {}, providerOrder: [] },
         providers: DEFAULT_AGENT_TEAM_CONFIG.providers,
+        seniorReview: DEFAULT_AGENT_TEAM_CONFIG.seniorReview,
         policy: DEFAULT_AGENT_TEAM_CONFIG.policy
       },
       createRunId: () => "run_slice_cancel_inspect_failed",

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { LifecycleRegistry } from "../../src/core/lifecycle-registry.js";
+import { DEFAULT_AGENT_TEAM_CONFIG } from "../../src/core/config.js";
 import type { AgentTeamConfig } from "../../src/core/types.js";
 
 function config(input: {
@@ -49,6 +50,7 @@ function config(input: {
       liveSmokeEnabled: input.liveSmokeEnabled ?? false,
       auditEnabled: input.auditEnabled ?? true
     },
+    seniorReview: DEFAULT_AGENT_TEAM_CONFIG.seniorReview,
     providers: {
       claudeCodeCli: {
         profiles: []

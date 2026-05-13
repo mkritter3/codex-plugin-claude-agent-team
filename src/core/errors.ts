@@ -7,6 +7,8 @@ export class AgentTeamError extends Error {
   }
 }
 
+export class AgentTeamConfigError extends AgentTeamError {}
+
 export class UnknownRoleError extends AgentTeamError {
   constructor(roleId: string) {
     super(`Unknown agent role: ${roleId}`);

@@ -1,16 +1,14 @@
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { AgentTeamConfigError } from "./errors.js";
 import { STATE_DIR } from "./state/paths.js";
 import { PROVIDER_CAPABILITIES } from "./types.js";
 import type { AgentTeamConfig, RoleId } from "./types.js";
 import { listRoles } from "./roles.js";
+import { parseSeniorReviewPolicyConfig } from "./workflow-policy.js";
+import { DEFAULT_SENIOR_REVIEW_POLICY } from "./workflow-types.js";
 
-export class AgentTeamConfigError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "AgentTeamConfigError";
-  }
-}
+export { AgentTeamConfigError } from "./errors.js";
 
 export const AGENT_TEAM_CONFIG_SCHEMA_VERSION = 1;
 
@@ -35,6 +33,7 @@ export const DEFAULT_AGENT_TEAM_CONFIG: AgentTeamConfig = {
     liveSmokeEnabled: false,
     auditEnabled: true
   },
+  seniorReview: DEFAULT_SENIOR_REVIEW_POLICY,
   providers: {
     claudeCodeCli: {
       profiles: []
@@ -558,7 +557,10 @@ export async function loadAgentTeamConfig(
     parsed = JSON.parse(await readFile(path, "utf8"));
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") {
-      return DEFAULT_AGENT_TEAM_CONFIG;
+      return {
+        ...DEFAULT_AGENT_TEAM_CONFIG,
+        seniorReview: parseSeniorReviewPolicyConfig({})
+      };
     }
     const message = error instanceof Error ? error.message : String(error);
     throw new AgentTeamConfigError(`Invalid agent-team config at ${path}: ${message}`);
@@ -594,6 +596,7 @@ export async function loadAgentTeamConfig(
       grok: parseGrokProviderConfig(providers),
       gemini: parseGeminiProviderConfig(providers)
     },
+    seniorReview: parseSeniorReviewPolicyConfig(parsed),
     policy: parsePolicyConfig(parsed)
   };
 

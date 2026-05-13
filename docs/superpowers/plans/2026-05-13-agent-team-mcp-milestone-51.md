@@ -1,6 +1,6 @@
 # Agent Team MCP Milestone 51 Workflow State And Senior Review Policy Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add the durable workflow-state and senior-review-policy foundation for the L11 Agent Team Workflow Orchestrator without starting live agents or adding public workflow MCP tools yet.
 
@@ -35,13 +35,13 @@ Out of scope:
 
 ## L11 Quality Gates
 
-- [ ] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
-- [ ] TDD red proof is captured for config and workflow store behavior.
-- [ ] Focused milestone tests are listed with expected red and green outcomes.
-- [ ] Full verification commands are listed.
-- [ ] Required edge cases from the matrix are selected.
-- [ ] Invariant scans are listed.
-- [ ] Live provider smoke is not required because this milestone proves state/config mechanics only and makes no real Opus sign-off claim.
+- [x] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
+- [x] TDD red proof is captured for config and workflow store behavior.
+- [x] Focused milestone tests are listed with expected red and green outcomes.
+- [x] Full verification commands are listed.
+- [x] Required edge cases from the matrix are selected.
+- [x] Invariant scans are listed.
+- [x] Live provider smoke is not required because this milestone proves state/config mechanics only and makes no real Opus sign-off claim.
 
 ## Success Criteria
 
@@ -69,7 +69,11 @@ Selected from the L11 matrix:
 ## File Plan
 
 - Modify `src/core/types.ts`
+  - Add `seniorReview: SeniorReviewPolicyConfig` to `AgentTeamConfig`.
+- Create/modify `src/core/workflow-types.ts`
   - Add `SeniorReviewMode`, `SeniorReviewPolicyConfig`, `WorkflowRecord`, `WorkflowSlice`, `WorkflowConsensusRound`, `WorkflowReviewerVerdict`, `WorkflowUserEscalation`, `WorkflowOpusReviewEvidence`, and related provider-neutral types.
+- Create `src/core/workflow-policy.ts`
+  - Add strict senior-review config/env parsing.
 - Modify `src/core/config.ts`
   - Add default `seniorReview`.
   - Parse workspace config and env overrides.
@@ -96,7 +100,7 @@ Selected from the L11 matrix:
 - Modify: `src/core/config.ts`
 - Test: `tests/core/config.test.ts`
 
-- [ ] **Step 1: Write failing default config test**
+- [x] **Step 1: Write failing default config test**
 
 Add a test asserting:
 
@@ -109,7 +113,7 @@ await expect(loadAgentTeamConfig(workspace)).resolves.toMatchObject({
 });
 ```
 
-- [ ] **Step 2: Run focused test and verify red**
+- [x] **Step 2: Run focused test and verify red**
 
 Run:
 
@@ -119,7 +123,7 @@ npm test -- tests/core/config.test.ts
 
 Expected: fail because `seniorReview` is not part of `AgentTeamConfig`.
 
-- [ ] **Step 3: Add minimal senior review types and defaults**
+- [x] **Step 3: Add minimal senior review types and defaults**
 
 Add:
 
@@ -138,7 +142,7 @@ export interface SeniorReviewPolicyConfig {
 
 Then add `seniorReview: SeniorReviewPolicyConfig` to `AgentTeamConfig` and defaults in `DEFAULT_AGENT_TEAM_CONFIG`.
 
-- [ ] **Step 4: Run focused test and verify green**
+- [x] **Step 4: Run focused test and verify green**
 
 Run:
 
@@ -148,7 +152,7 @@ npm test -- tests/core/config.test.ts
 
 Expected: pass for the new default test.
 
-- [ ] **Step 5: Add failing workspace/env override tests**
+- [x] **Step 5: Add failing workspace/env override tests**
 
 Add tests for:
 
@@ -157,7 +161,7 @@ Add tests for:
 - workspace value wins over env value
 - invalid mode rejects with `AgentTeamConfigError`
 
-- [ ] **Step 6: Run focused test and verify red**
+- [x] **Step 6: Run focused test and verify red**
 
 Run:
 
@@ -167,11 +171,11 @@ npm test -- tests/core/config.test.ts
 
 Expected: fail because parser/env override support is missing.
 
-- [ ] **Step 7: Implement parser and env override support**
+- [x] **Step 7: Implement parser and env override support**
 
 Add a strict parser with supported values only. Use `process.env` by default and an optional env input only if tests need injection without mutating global env.
 
-- [ ] **Step 8: Run focused test and verify green**
+- [x] **Step 8: Run focused test and verify green**
 
 Run:
 
@@ -189,14 +193,14 @@ Expected: all config tests pass.
 - Modify: `src/core/state/paths.ts`
 - Test: `tests/core/state/workflow-store.test.ts`
 
-- [ ] **Step 1: Write failing path/id tests**
+- [x] **Step 1: Write failing path/id tests**
 
 Create tests proving:
 
 - `workflowRecordPath(workspace, "workflow_123")` resolves to `.agent-team/workflows/workflow_123.json`
 - unsafe ids such as `../runs/run_escape` throw before path resolution
 
-- [ ] **Step 2: Run focused test and verify red**
+- [x] **Step 2: Run focused test and verify red**
 
 Run:
 
@@ -206,11 +210,11 @@ npm test -- tests/core/state/workflow-store.test.ts
 
 Expected: fail because workflow path helpers and store do not exist.
 
-- [ ] **Step 3: Add workflow id path helpers**
+- [x] **Step 3: Add workflow id path helpers**
 
 Add `isSafeWorkflowId`, `workflowsDir`, and `workflowRecordPath` following the team path pattern.
 
-- [ ] **Step 4: Add workflow record types**
+- [x] **Step 4: Add workflow record types**
 
 Add provider-neutral types for:
 
@@ -223,7 +227,7 @@ Add provider-neutral types for:
 - `WorkflowOpusReviewEvidence`
 - `WorkflowIntegrationQueueItem`
 
-- [ ] **Step 5: Run focused test and verify green**
+- [x] **Step 5: Run focused test and verify green**
 
 Run:
 
@@ -240,7 +244,7 @@ Expected: path/id tests pass once store imports compile.
 - Create: `src/core/state/workflow-store.ts`
 - Test: `tests/core/state/workflow-store.test.ts`
 
-- [ ] **Step 1: Write failing atomic write/read/list tests**
+- [x] **Step 1: Write failing atomic write/read/list tests**
 
 Test a valid workflow record with:
 
@@ -258,7 +262,7 @@ Test a valid workflow record with:
 
 Assert write/read equality and sorted listing by `createdAt` then `workflowId`.
 
-- [ ] **Step 2: Run focused test and verify red**
+- [x] **Step 2: Run focused test and verify red**
 
 Run:
 
@@ -268,7 +272,7 @@ npm test -- tests/core/state/workflow-store.test.ts
 
 Expected: fail because store functions do not exist.
 
-- [ ] **Step 3: Implement strict workflow parser and store**
+- [x] **Step 3: Implement strict workflow parser and store**
 
 Create:
 
@@ -280,7 +284,7 @@ export async function listWorkflowRecords(workspaceRoot: string): Promise<readon
 
 Use `readJsonFile`, `writeJsonAtomic`, `StateCorruptionError`, and strict key validation.
 
-- [ ] **Step 4: Run focused test and verify green**
+- [x] **Step 4: Run focused test and verify green**
 
 Run:
 
@@ -290,7 +294,7 @@ npm test -- tests/core/state/workflow-store.test.ts
 
 Expected: valid workflow read/write/list tests pass.
 
-- [ ] **Step 5: Add failing corruption tests**
+- [x] **Step 5: Add failing corruption tests**
 
 Add tests for:
 
@@ -303,7 +307,7 @@ Add tests for:
 - invalid Opus availability status
 - unsafe workflow id
 
-- [ ] **Step 6: Run focused test and verify red**
+- [x] **Step 6: Run focused test and verify red**
 
 Run:
 
@@ -313,11 +317,11 @@ npm test -- tests/core/state/workflow-store.test.ts
 
 Expected: fail until strict parser covers all cases.
 
-- [ ] **Step 7: Implement corruption handling**
+- [x] **Step 7: Implement corruption handling**
 
 Reject invalid records with `StateCorruptionError` including `path` and `kind: "json"`.
 
-- [ ] **Step 8: Run focused test and verify green**
+- [x] **Step 8: Run focused test and verify green**
 
 Run:
 
@@ -333,7 +337,7 @@ Expected: all workflow-store tests pass.
 
 - Modify: `docs/superpowers/plans/2026-05-13-agent-team-mcp-milestone-51.md`
 
-- [ ] **Step 1: Run focused milestone tests**
+- [x] **Step 1: Run focused milestone tests**
 
 Run:
 
@@ -343,7 +347,7 @@ npm test -- tests/core/config.test.ts tests/core/state/workflow-store.test.ts
 
 Expected: all focused tests pass.
 
-- [ ] **Step 2: Run typecheck**
+- [x] **Step 2: Run typecheck**
 
 Run:
 
@@ -353,7 +357,7 @@ npm run typecheck
 
 Expected: pass.
 
-- [ ] **Step 3: Run full tests**
+- [x] **Step 3: Run full tests**
 
 Run:
 
@@ -363,7 +367,7 @@ npm test
 
 Expected: pass.
 
-- [ ] **Step 4: Run build**
+- [x] **Step 4: Run build**
 
 Run:
 
@@ -373,7 +377,7 @@ npm run build
 
 Expected: pass.
 
-- [ ] **Step 5: Run packaged stdio smoke**
+- [x] **Step 5: Run packaged stdio smoke**
 
 Run:
 
@@ -383,7 +387,7 @@ npm run smoke:mcp-stdio
 
 Expected: pass.
 
-- [ ] **Step 6: Run invariant scans**
+- [x] **Step 6: Run invariant scans**
 
 Run:
 
@@ -395,7 +399,7 @@ rg "workflow|seniorReview|opusPlanning|opusImplementation|StateCorruptionError" 
 
 Expected: matches are config, tests, docs, or explicit guardrails only.
 
-- [ ] **Step 7: Run full CI gate**
+- [x] **Step 7: Run full CI gate**
 
 Run:
 
@@ -405,7 +409,7 @@ npm run ci
 
 Expected: pass.
 
-- [ ] **Step 8: Update plan status and commit**
+- [x] **Step 8: Update plan status and commit**
 
 Update this plan with completed status, verification evidence, and any known limitations. Commit implementation with:
 
@@ -420,4 +424,26 @@ Not required for this milestone. The milestone adds policy and durable state onl
 
 ## Status
 
-Planned.
+Implemented in `codex/workflow-state-foundation`. This milestone remains state/config only: no public MCP workflow tools, no live provider sign-off claim, no auto-merge, and no cleanup behavior were introduced.
+
+## Implementation Notes
+
+- Added senior-review policy types in `src/core/workflow-types.ts` and wired `AgentTeamConfig.seniorReview` through `src/core/config.ts`.
+- Added `src/core/workflow-policy.ts` for strict senior-review mode parsing and env override support.
+- Moved `AgentTeamConfigError` into `src/core/errors.ts` and re-exported it from `src/core/config.ts` to avoid a config/workflow-policy import cycle.
+- Added workflow id helpers in `src/core/state/paths.ts`.
+- Added strict atomic workflow state storage in `src/core/state/workflow-store.ts`.
+- Added focused tests in `tests/core/state/workflow-store.test.ts` and extended `tests/core/config.test.ts`.
+
+## Verification Evidence
+
+- `npm test -- tests/core/config.test.ts tests/core/state/workflow-store.test.ts tests/core/state/team-store.test.ts` passed: 48 tests.
+- `npm run typecheck` passed.
+- `npm test` passed: 66 files, 508 tests.
+- `npm run build` passed.
+- `npm run smoke:mcp-stdio` passed.
+- `npm run smoke:package` passed.
+- `npm run install:check` passed.
+- Invariant scan `! rg -n "allowApiKeyFallback:\s*true|apiKeyFallback\s*:\s*true" src .codex-plugin package.json` passed with no matches.
+- Invariant scan `! rg -n "hiddenPrompt|internalPrompt|rawProvider|raw provider|providerPayload|provider payload" src/mcp src/core .codex-plugin` passed with no matches.
+- Invariant scan `! rg -n "mock LLM|heuristic LLM|heuristic.*benchmark|mock.*benchmark|provider-ranking" src scripts .codex-plugin` passed with no matches.

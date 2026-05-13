@@ -1,0 +1,585 @@
+import { readdir } from "node:fs/promises";
+import { basename, join } from "node:path";
+import { StateCorruptionError } from "../errors.js";
+import { readJsonFile, writeJsonAtomic } from "./atomic-json.js";
+import {
+  isSafeRunId,
+  isSafeWorkflowId,
+  workflowRecordPath,
+  workflowsDir
+} from "./paths.js";
+import {
+  SENIOR_REVIEW_MODES,
+  WORKFLOW_CONSENSUS_PHASES,
+  WORKFLOW_CONSENSUS_STATUSES,
+  WORKFLOW_ESCALATION_STATUSES,
+  WORKFLOW_INTEGRATION_STATES,
+  WORKFLOW_OPUS_REVIEW_STATUSES,
+  WORKFLOW_SLICE_STATES,
+  WORKFLOW_VERDICT_STATUSES,
+  type SeniorReviewMode,
+  type SeniorReviewPolicyConfig,
+  type WorkflowConsensusPhase,
+  type WorkflowConsensusRound,
+  type WorkflowConsensusStatus,
+  type WorkflowEscalationStatus,
+  type WorkflowGoalPacket,
+  type WorkflowIntegrationQueueItem,
+  type WorkflowIntegrationState,
+  type WorkflowOpusReviewEvidence,
+  type WorkflowOpusReviewStatus,
+  type WorkflowRecord,
+  type WorkflowReviewerVerdict,
+  type WorkflowSlice,
+  type WorkflowSliceState,
+  type WorkflowUserEscalation,
+  type WorkflowVerdictStatus
+} from "../workflow-types.js";
+
+const WORKFLOW_RECORD_KEYS = new Set([
+  "workflowId",
+  "name",
+  "createdAt",
+  "updatedAt",
+  "goal",
+  "seniorReview",
+  "slices",
+  "consensusRounds",
+  "userEscalations",
+  "opusReviewEvidence",
+  "integrationQueue",
+  "evidencePath"
+]);
+const GOAL_KEYS = new Set(["title", "successCriteria", "constraints", "nonGoals"]);
+const SENIOR_REVIEW_KEYS = new Set(["opusPlanning", "opusImplementation"]);
+const SENIOR_REVIEW_MODE_KEYS = new Set(["mode"]);
+const SLICE_KEYS = new Set([
+  "sliceId",
+  "title",
+  "state",
+  "ownerRole",
+  "dependencies",
+  "writeScope",
+  "acceptanceTests",
+  "blockedBy"
+]);
+const CONSENSUS_ROUND_KEYS = new Set([
+  "round",
+  "phase",
+  "startedAt",
+  "completedAt",
+  "verdicts",
+  "consensus"
+]);
+const REVIEWER_VERDICT_KEYS = new Set([
+  "reviewerRole",
+  "reviewerProvider",
+  "status",
+  "summary",
+  "evidenceRunId"
+]);
+const USER_ESCALATION_KEYS = new Set([
+  "escalationId",
+  "createdAt",
+  "resolvedAt",
+  "status",
+  "question",
+  "productImpact",
+  "options"
+]);
+const OPUS_EVIDENCE_KEYS = new Set([
+  "phase",
+  "status",
+  "requiredMode",
+  "checkedAt",
+  "runId",
+  "provider",
+  "summary"
+]);
+const INTEGRATION_QUEUE_KEYS = new Set([
+  "sliceId",
+  "state",
+  "worktreePath",
+  "branchName",
+  "reviewRunIds"
+]);
+
+const SENIOR_REVIEW_MODE_SET = new Set<string>(SENIOR_REVIEW_MODES);
+const SLICE_STATE_SET = new Set<string>(WORKFLOW_SLICE_STATES);
+const CONSENSUS_PHASE_SET = new Set<string>(WORKFLOW_CONSENSUS_PHASES);
+const VERDICT_STATUS_SET = new Set<string>(WORKFLOW_VERDICT_STATUSES);
+const CONSENSUS_STATUS_SET = new Set<string>(WORKFLOW_CONSENSUS_STATUSES);
+const ESCALATION_STATUS_SET = new Set<string>(WORKFLOW_ESCALATION_STATUSES);
+const OPUS_STATUS_SET = new Set<string>(WORKFLOW_OPUS_REVIEW_STATUSES);
+const INTEGRATION_STATE_SET = new Set<string>(WORKFLOW_INTEGRATION_STATES);
+
+function corruption(path: string, reason: string): StateCorruptionError {
+  return new StateCorruptionError(`Invalid workflow record at ${path}: ${reason}`, {
+    path,
+    kind: "json"
+  });
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function assertKnownKeys(
+  value: Record<string, unknown>,
+  path: string,
+  allowedKeys: ReadonlySet<string>,
+  label: string
+): void {
+  for (const key of Object.keys(value)) {
+    if (!allowedKeys.has(key)) {
+      throw corruption(path, `${label} contains unsupported field ${key}`);
+    }
+  }
+}
+
+function expectObject(
+  value: unknown,
+  path: string,
+  field: string
+): Record<string, unknown> {
+  if (!isObject(value)) {
+    throw corruption(path, `${field} must be an object`);
+  }
+  return value;
+}
+
+function expectNonEmptyString(value: unknown, path: string, field: string): string {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    throw corruption(path, `${field} must be a non-empty string`);
+  }
+  return value;
+}
+
+function expectOptionalNonEmptyString(
+  value: unknown,
+  path: string,
+  field: string
+): string | undefined {
+  return value === undefined ? undefined : expectNonEmptyString(value, path, field);
+}
+
+function expectPositiveInteger(value: unknown, path: string, field: string): number {
+  if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
+    throw corruption(path, `${field} must be a positive integer`);
+  }
+  return value;
+}
+
+function expectStringArray(value: unknown, path: string, field: string): readonly string[] {
+  if (!Array.isArray(value)) {
+    throw corruption(path, `${field} must be an array`);
+  }
+  return value.map((item, index) =>
+    expectNonEmptyString(item, path, `${field}[${index}]`)
+  );
+}
+
+function expectNonEmptyArray(
+  value: unknown,
+  path: string,
+  field: string
+): readonly unknown[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw corruption(path, `${field} must be a non-empty array`);
+  }
+  return value;
+}
+
+function expectArray(value: unknown, path: string, field: string): readonly unknown[] {
+  if (!Array.isArray(value)) {
+    throw corruption(path, `${field} must be an array`);
+  }
+  return value;
+}
+
+function expectEnum<T extends string>(
+  value: unknown,
+  path: string,
+  field: string,
+  allowed: ReadonlySet<string>
+): T {
+  if (typeof value !== "string" || !allowed.has(value)) {
+    throw corruption(path, `${field} must be a supported value`);
+  }
+  return value as T;
+}
+
+function parseGoal(value: unknown, path: string): WorkflowGoalPacket {
+  const goal = expectObject(value, path, "goal");
+  assertKnownKeys(goal, path, GOAL_KEYS, "goal");
+  return {
+    title: expectNonEmptyString(goal.title, path, "goal.title"),
+    successCriteria: expectStringArray(goal.successCriteria, path, "goal.successCriteria"),
+    constraints: expectStringArray(goal.constraints, path, "goal.constraints"),
+    nonGoals: expectStringArray(goal.nonGoals, path, "goal.nonGoals")
+  };
+}
+
+function parseSeniorReviewModeConfig(
+  value: unknown,
+  path: string,
+  field: string
+): { readonly mode: SeniorReviewMode } {
+  const config = expectObject(value, path, field);
+  assertKnownKeys(config, path, SENIOR_REVIEW_MODE_KEYS, field);
+  return {
+    mode: expectEnum<SeniorReviewMode>(config.mode, path, `${field}.mode`, SENIOR_REVIEW_MODE_SET)
+  };
+}
+
+function parseSeniorReview(value: unknown, path: string): SeniorReviewPolicyConfig {
+  const seniorReview = expectObject(value, path, "seniorReview");
+  assertKnownKeys(seniorReview, path, SENIOR_REVIEW_KEYS, "seniorReview");
+  return {
+    opusPlanning: parseSeniorReviewModeConfig(
+      seniorReview.opusPlanning,
+      path,
+      "seniorReview.opusPlanning"
+    ),
+    opusImplementation: parseSeniorReviewModeConfig(
+      seniorReview.opusImplementation,
+      path,
+      "seniorReview.opusImplementation"
+    )
+  };
+}
+
+function parseSlice(value: unknown, path: string, index: number): WorkflowSlice {
+  const slice = expectObject(value, path, `slices[${index}]`);
+  assertKnownKeys(slice, path, SLICE_KEYS, `slices[${index}]`);
+  const blockedBy =
+    slice.blockedBy === undefined
+      ? undefined
+      : expectStringArray(slice.blockedBy, path, `slices[${index}].blockedBy`);
+  return {
+    sliceId: expectNonEmptyString(slice.sliceId, path, `slices[${index}].sliceId`),
+    title: expectNonEmptyString(slice.title, path, `slices[${index}].title`),
+    state: expectEnum<WorkflowSliceState>(
+      slice.state,
+      path,
+      `slices[${index}].state`,
+      SLICE_STATE_SET
+    ),
+    ownerRole: expectNonEmptyString(slice.ownerRole, path, `slices[${index}].ownerRole`),
+    dependencies: expectStringArray(slice.dependencies, path, `slices[${index}].dependencies`),
+    writeScope: expectStringArray(slice.writeScope, path, `slices[${index}].writeScope`),
+    acceptanceTests: expectStringArray(
+      slice.acceptanceTests,
+      path,
+      `slices[${index}].acceptanceTests`
+    ),
+    ...(blockedBy === undefined ? {} : { blockedBy })
+  };
+}
+
+function parseVerdict(
+  value: unknown,
+  path: string,
+  roundIndex: number,
+  verdictIndex: number
+): WorkflowReviewerVerdict {
+  const verdict = expectObject(
+    value,
+    path,
+    `consensusRounds[${roundIndex}].verdicts[${verdictIndex}]`
+  );
+  const field = `consensusRounds[${roundIndex}].verdicts[${verdictIndex}]`;
+  assertKnownKeys(verdict, path, REVIEWER_VERDICT_KEYS, field);
+  const reviewerProvider = expectOptionalNonEmptyString(
+    verdict.reviewerProvider,
+    path,
+    `${field}.reviewerProvider`
+  );
+  const evidenceRunId = expectOptionalNonEmptyString(
+    verdict.evidenceRunId,
+    path,
+    `${field}.evidenceRunId`
+  );
+  if (evidenceRunId !== undefined && !isSafeRunId(evidenceRunId)) {
+    throw corruption(path, `${field}.evidenceRunId is not a safe run id`);
+  }
+  return {
+    reviewerRole: expectNonEmptyString(verdict.reviewerRole, path, `${field}.reviewerRole`),
+    ...(reviewerProvider === undefined ? {} : { reviewerProvider }),
+    status: expectEnum<WorkflowVerdictStatus>(
+      verdict.status,
+      path,
+      `${field}.status`,
+      VERDICT_STATUS_SET
+    ),
+    summary: expectNonEmptyString(verdict.summary, path, `${field}.summary`),
+    ...(evidenceRunId === undefined ? {} : { evidenceRunId })
+  };
+}
+
+function parseConsensusRound(
+  value: unknown,
+  path: string,
+  index: number
+): WorkflowConsensusRound {
+  const round = expectObject(value, path, `consensusRounds[${index}]`);
+  assertKnownKeys(round, path, CONSENSUS_ROUND_KEYS, `consensusRounds[${index}]`);
+  const completedAt = expectOptionalNonEmptyString(
+    round.completedAt,
+    path,
+    `consensusRounds[${index}].completedAt`
+  );
+  return {
+    round: expectPositiveInteger(round.round, path, `consensusRounds[${index}].round`),
+    phase: expectEnum<WorkflowConsensusPhase>(
+      round.phase,
+      path,
+      `consensusRounds[${index}].phase`,
+      CONSENSUS_PHASE_SET
+    ),
+    startedAt: expectNonEmptyString(round.startedAt, path, `consensusRounds[${index}].startedAt`),
+    ...(completedAt === undefined ? {} : { completedAt }),
+    verdicts: expectArray(
+      round.verdicts,
+      path,
+      `consensusRounds[${index}].verdicts`
+    ).map((verdict, verdictIndex) => parseVerdict(verdict, path, index, verdictIndex)),
+    consensus: expectEnum<WorkflowConsensusStatus>(
+      round.consensus,
+      path,
+      `consensusRounds[${index}].consensus`,
+      CONSENSUS_STATUS_SET
+    )
+  };
+}
+
+function parseUserEscalation(
+  value: unknown,
+  path: string,
+  index: number
+): WorkflowUserEscalation {
+  const escalation = expectObject(value, path, `userEscalations[${index}]`);
+  assertKnownKeys(escalation, path, USER_ESCALATION_KEYS, `userEscalations[${index}]`);
+  const resolvedAt = expectOptionalNonEmptyString(
+    escalation.resolvedAt,
+    path,
+    `userEscalations[${index}].resolvedAt`
+  );
+  return {
+    escalationId: expectNonEmptyString(
+      escalation.escalationId,
+      path,
+      `userEscalations[${index}].escalationId`
+    ),
+    createdAt: expectNonEmptyString(
+      escalation.createdAt,
+      path,
+      `userEscalations[${index}].createdAt`
+    ),
+    ...(resolvedAt === undefined ? {} : { resolvedAt }),
+    status: expectEnum<WorkflowEscalationStatus>(
+      escalation.status,
+      path,
+      `userEscalations[${index}].status`,
+      ESCALATION_STATUS_SET
+    ),
+    question: expectNonEmptyString(
+      escalation.question,
+      path,
+      `userEscalations[${index}].question`
+    ),
+    productImpact: expectNonEmptyString(
+      escalation.productImpact,
+      path,
+      `userEscalations[${index}].productImpact`
+    ),
+    options: expectStringArray(escalation.options, path, `userEscalations[${index}].options`)
+  };
+}
+
+function parseOpusEvidence(
+  value: unknown,
+  path: string,
+  index: number
+): WorkflowOpusReviewEvidence {
+  const evidence = expectObject(value, path, `opusReviewEvidence[${index}]`);
+  assertKnownKeys(evidence, path, OPUS_EVIDENCE_KEYS, `opusReviewEvidence[${index}]`);
+  const runId = expectOptionalNonEmptyString(
+    evidence.runId,
+    path,
+    `opusReviewEvidence[${index}].runId`
+  );
+  if (runId !== undefined && !isSafeRunId(runId)) {
+    throw corruption(path, `opusReviewEvidence[${index}].runId is not a safe run id`);
+  }
+  const provider = expectOptionalNonEmptyString(
+    evidence.provider,
+    path,
+    `opusReviewEvidence[${index}].provider`
+  );
+  return {
+    phase: expectEnum<WorkflowConsensusPhase>(
+      evidence.phase,
+      path,
+      `opusReviewEvidence[${index}].phase`,
+      CONSENSUS_PHASE_SET
+    ),
+    status: expectEnum<WorkflowOpusReviewStatus>(
+      evidence.status,
+      path,
+      `opusReviewEvidence[${index}].status`,
+      OPUS_STATUS_SET
+    ),
+    requiredMode: expectEnum<SeniorReviewMode>(
+      evidence.requiredMode,
+      path,
+      `opusReviewEvidence[${index}].requiredMode`,
+      SENIOR_REVIEW_MODE_SET
+    ),
+    checkedAt: expectNonEmptyString(
+      evidence.checkedAt,
+      path,
+      `opusReviewEvidence[${index}].checkedAt`
+    ),
+    ...(runId === undefined ? {} : { runId }),
+    ...(provider === undefined ? {} : { provider }),
+    summary: expectNonEmptyString(evidence.summary, path, `opusReviewEvidence[${index}].summary`)
+  };
+}
+
+function parseIntegrationQueueItem(
+  value: unknown,
+  path: string,
+  index: number
+): WorkflowIntegrationQueueItem {
+  const item = expectObject(value, path, `integrationQueue[${index}]`);
+  assertKnownKeys(item, path, INTEGRATION_QUEUE_KEYS, `integrationQueue[${index}]`);
+  const reviewRunIds = expectStringArray(
+    item.reviewRunIds,
+    path,
+    `integrationQueue[${index}].reviewRunIds`
+  );
+  for (const [runIndex, runId] of reviewRunIds.entries()) {
+    if (!isSafeRunId(runId)) {
+      throw corruption(path, `integrationQueue[${index}].reviewRunIds[${runIndex}] is not a safe run id`);
+    }
+  }
+  return {
+    sliceId: expectNonEmptyString(item.sliceId, path, `integrationQueue[${index}].sliceId`),
+    state: expectEnum<WorkflowIntegrationState>(
+      item.state,
+      path,
+      `integrationQueue[${index}].state`,
+      INTEGRATION_STATE_SET
+    ),
+    worktreePath: expectNonEmptyString(
+      item.worktreePath,
+      path,
+      `integrationQueue[${index}].worktreePath`
+    ),
+    branchName: expectNonEmptyString(
+      item.branchName,
+      path,
+      `integrationQueue[${index}].branchName`
+    ),
+    reviewRunIds
+  };
+}
+
+function parseWorkflowRecord(value: unknown, path: string): WorkflowRecord {
+  if (!isObject(value)) {
+    throw corruption(path, "record must be an object");
+  }
+  assertKnownKeys(value, path, WORKFLOW_RECORD_KEYS, "record");
+
+  const workflowId = expectNonEmptyString(value.workflowId, path, "workflowId");
+  if (!isSafeWorkflowId(workflowId)) {
+    throw corruption(path, "workflowId is not a safe workflow id");
+  }
+  if (basename(path) !== `${workflowId}.json`) {
+    throw corruption(path, "workflowId must match the workflow record file name");
+  }
+
+  const evidencePath = expectNonEmptyString(value.evidencePath, path, "evidencePath");
+  if (evidencePath !== path) {
+    throw corruption(path, "evidencePath must match the workflow record path");
+  }
+
+  const name = expectOptionalNonEmptyString(value.name, path, "name");
+
+  return {
+    workflowId,
+    ...(name === undefined ? {} : { name }),
+    createdAt: expectNonEmptyString(value.createdAt, path, "createdAt"),
+    updatedAt: expectNonEmptyString(value.updatedAt, path, "updatedAt"),
+    goal: parseGoal(value.goal, path),
+    seniorReview: parseSeniorReview(value.seniorReview, path),
+    slices: expectNonEmptyArray(value.slices, path, "slices").map((slice, index) =>
+      parseSlice(slice, path, index)
+    ),
+    consensusRounds: expectArray(value.consensusRounds, path, "consensusRounds").map(
+      (round, index) => parseConsensusRound(round, path, index)
+    ),
+    userEscalations: expectArray(value.userEscalations, path, "userEscalations").map(
+      (escalation, index) => parseUserEscalation(escalation, path, index)
+    ),
+    opusReviewEvidence: expectArray(value.opusReviewEvidence, path, "opusReviewEvidence").map(
+      (evidence, index) => parseOpusEvidence(evidence, path, index)
+    ),
+    integrationQueue: expectArray(value.integrationQueue, path, "integrationQueue").map(
+      (item, index) => parseIntegrationQueueItem(item, path, index)
+    ),
+    evidencePath
+  };
+}
+
+async function readWorkflowRecordPath(path: string): Promise<WorkflowRecord> {
+  return parseWorkflowRecord(await readJsonFile<unknown>(path), path);
+}
+
+export async function writeWorkflowRecord(
+  workspaceRoot: string,
+  record: WorkflowRecord
+): Promise<void> {
+  const path = workflowRecordPath(workspaceRoot, record.workflowId);
+  await writeJsonAtomic(path, parseWorkflowRecord(record, path));
+}
+
+export async function readWorkflowRecord(
+  workspaceRoot: string,
+  workflowId: string
+): Promise<WorkflowRecord> {
+  return readWorkflowRecordPath(workflowRecordPath(workspaceRoot, workflowId));
+}
+
+export async function listWorkflowRecords(
+  workspaceRoot: string
+): Promise<readonly WorkflowRecord[]> {
+  let entries: readonly string[];
+  try {
+    entries = await readdir(workflowsDir(workspaceRoot));
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      return [];
+    }
+    throw error;
+  }
+
+  const records = await Promise.all(
+    entries
+      .filter((entry) => entry.endsWith(".json"))
+      .map((entry) => {
+        const workflowId = entry.slice(0, -5);
+        const path = join(workflowsDir(workspaceRoot), entry);
+        if (!isSafeWorkflowId(workflowId)) {
+          throw corruption(path, "workflow record file name is not a safe workflow id");
+        }
+        return readWorkflowRecordPath(path);
+      })
+  );
+
+  return records.sort((left, right) => {
+    const created = left.createdAt.localeCompare(right.createdAt);
+    return created === 0 ? left.workflowId.localeCompare(right.workflowId) : created;
+  });
+}

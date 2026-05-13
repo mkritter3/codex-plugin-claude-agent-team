@@ -28,6 +28,17 @@ describe("loadAgentTeamConfig", () => {
     });
   });
 
+  it("defaults senior Opus review to required when available", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-config-"));
+
+    await expect(loadAgentTeamConfig(workspace)).resolves.toMatchObject({
+      seniorReview: {
+        opusPlanning: { mode: "required-when-available" },
+        opusImplementation: { mode: "required-when-available" }
+      }
+    });
+  });
+
   it("defaults policy to unrestricted roles and providers with audit enabled", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "agent-team-config-"));
 
@@ -114,8 +125,109 @@ describe("loadAgentTeamConfig", () => {
       auth: { allowApiKeyFallback: false },
       routing: { rolePins: {}, providerOrder: [] },
       providers: DEFAULT_AGENT_TEAM_CONFIG.providers,
+      seniorReview: DEFAULT_AGENT_TEAM_CONFIG.seniorReview,
       policy: DEFAULT_AGENT_TEAM_CONFIG.policy
     });
+  });
+
+  it("loads explicit senior review policy overrides", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-config-"));
+    await mkdir(join(workspace, ".agent-team"), { recursive: true });
+    await writeFile(
+      join(workspace, ".agent-team", "config.json"),
+      JSON.stringify({
+        seniorReview: {
+          opusPlanning: { mode: "optional" },
+          opusImplementation: { mode: "disabled" }
+        }
+      }),
+      "utf8"
+    );
+
+    await expect(loadAgentTeamConfig(workspace)).resolves.toMatchObject({
+      seniorReview: {
+        opusPlanning: { mode: "optional" },
+        opusImplementation: { mode: "disabled" }
+      }
+    });
+  });
+
+  it("uses senior review environment overrides only when workspace values are absent", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-config-"));
+    const workspaceOverride = await mkdtemp(join(tmpdir(), "agent-team-config-"));
+    const oldPlanning = process.env.AGENT_TEAM_OPUS_PLANNING_REVIEW;
+    const oldImplementation = process.env.AGENT_TEAM_OPUS_IMPLEMENTATION_REVIEW;
+    process.env.AGENT_TEAM_OPUS_PLANNING_REVIEW = "disabled";
+    process.env.AGENT_TEAM_OPUS_IMPLEMENTATION_REVIEW = "optional";
+    try {
+      await expect(loadAgentTeamConfig(workspace)).resolves.toMatchObject({
+        seniorReview: {
+          opusPlanning: { mode: "disabled" },
+          opusImplementation: { mode: "optional" }
+        }
+      });
+
+      await mkdir(join(workspaceOverride, ".agent-team"), { recursive: true });
+      await writeFile(
+        join(workspaceOverride, ".agent-team", "config.json"),
+        JSON.stringify({
+          seniorReview: {
+            opusPlanning: { mode: "required-blocking" }
+          }
+        }),
+        "utf8"
+      );
+
+      await expect(loadAgentTeamConfig(workspaceOverride)).resolves.toMatchObject({
+        seniorReview: {
+          opusPlanning: { mode: "required-blocking" },
+          opusImplementation: { mode: "optional" }
+        }
+      });
+    } finally {
+      if (oldPlanning === undefined) {
+        delete process.env.AGENT_TEAM_OPUS_PLANNING_REVIEW;
+      } else {
+        process.env.AGENT_TEAM_OPUS_PLANNING_REVIEW = oldPlanning;
+      }
+      if (oldImplementation === undefined) {
+        delete process.env.AGENT_TEAM_OPUS_IMPLEMENTATION_REVIEW;
+      } else {
+        process.env.AGENT_TEAM_OPUS_IMPLEMENTATION_REVIEW = oldImplementation;
+      }
+    }
+  });
+
+  it("rejects invalid senior review modes from config and env", async () => {
+    const invalidConfig = await mkdtemp(join(tmpdir(), "agent-team-config-"));
+    await mkdir(join(invalidConfig, ".agent-team"), { recursive: true });
+    await writeFile(
+      join(invalidConfig, ".agent-team", "config.json"),
+      JSON.stringify({
+        seniorReview: {
+          opusPlanning: { mode: "always" }
+        }
+      }),
+      "utf8"
+    );
+
+    await expect(loadAgentTeamConfig(invalidConfig)).rejects.toThrow(
+      "seniorReview.opusPlanning.mode must be one of"
+    );
+
+    const oldPlanning = process.env.AGENT_TEAM_OPUS_PLANNING_REVIEW;
+    process.env.AGENT_TEAM_OPUS_PLANNING_REVIEW = "sometimes";
+    try {
+      await expect(
+        loadAgentTeamConfig(await mkdtemp(join(tmpdir(), "agent-team-config-")))
+      ).rejects.toThrow("AGENT_TEAM_OPUS_PLANNING_REVIEW must be one of");
+    } finally {
+      if (oldPlanning === undefined) {
+        delete process.env.AGENT_TEAM_OPUS_PLANNING_REVIEW;
+      } else {
+        process.env.AGENT_TEAM_OPUS_PLANNING_REVIEW = oldPlanning;
+      }
+    }
   });
 
   it("loads explicit policy restrictions without changing provider config", async () => {
