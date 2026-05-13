@@ -200,19 +200,19 @@ Ollama Cloud profiles are an explicit OpenAI-compatible profile layer. They are 
 
 Profile provider ids use `ollama-cloud:<profile-id>`, for example `ollama-cloud:kimi-k2.6`. Profiles support synchronous read-only dispatch only; run live smoke separately before making any real-provider readiness, provider performance, or long-context claims.
 
-Ollama Claude Code profiles are an explicit Anthropic-compatible profile layer for routing Claude Code through Ollama-compatible endpoints while keeping the same lifecycle, mailbox, status, wind-down, cancellation, dashboard, summary, and cleanup contracts. They are disabled by default. Configure `providers.ollamaClaudeCode` with one shared API-key environment variable, usually `OLLAMA_API_KEY`, plus non-secret model profiles:
+Ollama Claude Code profiles are an explicit Anthropic-compatible profile layer for routing Claude Code through Ollama-compatible endpoints while keeping the same lifecycle, mailbox, status, wind-down, cancellation, dashboard, summary, and cleanup contracts. They are disabled by default. The supported Cloud path uses Ollama's direct Anthropic-compatible endpoint at `https://ollama.com`, so a local Ollama daemon or Ollama CLI is not required. Configure `providers.ollamaClaudeCode` with one shared API-key environment variable, usually `OLLAMA_API_KEY`, plus non-secret model profiles:
 
 ```json
 {
   "providers": {
     "ollamaClaudeCode": {
       "enabled": true,
-      "baseUrl": "http://localhost:11434",
+      "baseUrl": "https://ollama.com",
       "apiKeyEnv": "OLLAMA_API_KEY",
       "profiles": [
         {
           "id": "kimi-k2.6",
-          "model": "kimi-k2.6:cloud",
+          "model": "kimi-k2.6",
           "displayName": "Kimi K2.6",
           "writeValidated": false,
           "capabilities": {
@@ -226,7 +226,7 @@ Ollama Claude Code profiles are an explicit Anthropic-compatible profile layer f
         },
         {
           "id": "glm-5.1",
-          "model": "glm-5.1:cloud",
+          "model": "glm-5.1",
           "displayName": "GLM 5.1",
           "writeValidated": false,
           "capabilities": {
@@ -239,7 +239,7 @@ Ollama Claude Code profiles are an explicit Anthropic-compatible profile layer f
         },
         {
           "id": "deepseek-v4-flash",
-          "model": "deepseek-v4-flash:cloud",
+          "model": "deepseek-v4-flash",
           "displayName": "DeepSeek V4 Flash",
           "writeValidated": false,
           "capabilities": {
@@ -255,7 +255,7 @@ Ollama Claude Code profiles are an explicit Anthropic-compatible profile layer f
 }
 ```
 
-Profile provider ids use `ollama-claude-code:<profile-id>`, for example `ollama-claude-code:kimi-k2.6`. At launch time the adapter builds a scoped provider env for that run only, mapping the single Ollama token into the Anthropic-compatible variables Claude Code expects, including `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_API_KEY`, and `OLLAMA_API_KEY`. This scoped provider env is not applied to the normal `claude-code-cli` provider, so Claude Code CLI subscription OAuth keeps its fail-closed auth posture.
+Profile provider ids use `ollama-claude-code:<profile-id>`, for example `ollama-claude-code:kimi-k2.6`. At launch time the adapter builds a scoped provider env for that run only: `ANTHROPIC_BASE_URL` is set to `https://ollama.com`, `ANTHROPIC_AUTH_TOKEN` carries the configured Ollama token, `ANTHROPIC_API_KEY` is intentionally blank for Claude Code compatibility, and `OLLAMA_API_KEY` remains available as the single secret source. This scoped provider env is not applied to the normal `claude-code-cli` provider, so Claude Code CLI subscription OAuth keeps its fail-closed auth posture.
 
 Write-capable capabilities such as edits and workspace isolation are withheld unless a profile explicitly sets `writeValidated: true` and declares those capabilities. Treat that as an operator proof gate, not a model-quality claim. Run opt-in live validation before using any Ollama Claude Code profile for implementation work, and keep no provider ranking or comparative readiness claim in reports.
 

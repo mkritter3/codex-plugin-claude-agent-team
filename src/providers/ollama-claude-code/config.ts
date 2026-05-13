@@ -149,7 +149,7 @@ export function scopedOllamaClaudeCodeEnv(input: {
       : {
           OLLAMA_API_KEY: token,
           ANTHROPIC_AUTH_TOKEN: token,
-          ANTHROPIC_API_KEY: token
+          ANTHROPIC_API_KEY: ""
         })
   };
 }

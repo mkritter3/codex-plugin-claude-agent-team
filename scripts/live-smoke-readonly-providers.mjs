@@ -211,6 +211,7 @@ async function runLiveSmoke(workspaceRoot, providerSelectors) {
     command: "node",
     args: [runtimePath],
     cwd: repoRoot,
+    env: process.env,
     stderr: "pipe"
   });
   const stderrChunks = [];
@@ -247,7 +248,7 @@ async function runLiveSmoke(workspaceRoot, providerSelectors) {
             cwd: workspaceRoot,
             provider: providerSelector,
             role: "code-reviewer",
-            task: "Live provider proof only: inspect the workspace read-only and return a concise SHIP/BLOCK/NEEDS_INPUT verdict without editing files.",
+            task: "Live provider transport proof only. Do not inspect files. Return a concise SHIP/BLOCK/NEEDS_INPUT verdict stating whether the provider route responded successfully.",
             timeoutMs
           });
           return compactRunResult({

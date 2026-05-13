@@ -534,12 +534,12 @@ describe("selectProvider", () => {
           ...DEFAULT_AGENT_TEAM_CONFIG.providers,
           ollamaClaudeCode: {
             enabled: true,
-            baseUrl: "http://localhost:11434",
+            baseUrl: "https://ollama.com",
             apiKeyEnv: "OLLAMA_API_KEY",
             profiles: [
               {
                 id: "kimi-k2.6",
-                model: "kimi-k2.6:cloud",
+                model: "kimi-k2.6",
                 displayName: "Kimi K2.6",
                 writeValidated: false,
                 capabilities: {

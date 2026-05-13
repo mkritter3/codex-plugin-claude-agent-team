@@ -43,12 +43,12 @@ describe("buildClaudeCommand", () => {
     const command = buildClaudeCommand({
       prompt: "Review",
       outputFormat: "json",
-      model: "kimi-k2.6:cloud",
+      model: "kimi-k2.6",
       cwd: "/repo"
     });
 
     expect(command.args).toContain("--model");
-    expect(command.args[command.args.indexOf("--model") + 1]).toBe("kimi-k2.6:cloud");
+    expect(command.args[command.args.indexOf("--model") + 1]).toBe("kimi-k2.6");
   });
 
   it("adds generated agents and selected agent only when provided", () => {

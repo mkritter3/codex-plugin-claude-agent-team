@@ -606,12 +606,12 @@ describe("runDoctor", () => {
       providers: {
         ollamaClaudeCode: {
           enabled: true,
-          baseUrl: "http://localhost:11434",
+          baseUrl: "https://ollama.com",
           apiKeyEnv: "OLLAMA_API_KEY",
           profiles: [
             {
               id: "kimi-k2.6",
-              model: "kimi-k2.6:cloud",
+              model: "kimi-k2.6",
               displayName: "Kimi K2.6",
               capabilities: { structuredOutput: true, longContext: true, reasoning: true }
             }
@@ -668,11 +668,11 @@ describe("runDoctor", () => {
       providers: {
         ollamaClaudeCode: {
           enabled: true,
-          baseUrl: "http://localhost:11434",
+          baseUrl: "https://ollama.com",
           profiles: [
             {
               id: "glm-5.1",
-              model: "glm-5.1:cloud",
+              model: "glm-5.1",
               capabilities: { structuredOutput: true }
             }
           ]

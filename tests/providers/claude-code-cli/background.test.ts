@@ -111,11 +111,11 @@ describe("Claude background session runner", () => {
         workspaceRoot: workspace,
         runId: "run_bg_api_key_profile",
         providerAuthMode: "api-key",
-        model: "kimi-k2.6:cloud",
+        model: "kimi-k2.6",
         env: {
-          ANTHROPIC_BASE_URL: "http://localhost:11434",
+          ANTHROPIC_BASE_URL: "https://ollama.com",
           ANTHROPIC_AUTH_TOKEN: "secret-token",
-          ANTHROPIC_API_KEY: "secret-token",
+          ANTHROPIC_API_KEY: "",
           OLLAMA_API_KEY: "secret-token"
         }
       },
@@ -131,11 +131,11 @@ describe("Claude background session runner", () => {
     );
 
     expect(calls[0]?.args).toContain("--model");
-    expect(calls[0]?.args[calls[0]?.args.indexOf("--model") + 1]).toBe("kimi-k2.6:cloud");
+    expect(calls[0]?.args[calls[0]?.args.indexOf("--model") + 1]).toBe("kimi-k2.6");
     expect(calls[0]?.env).toMatchObject({
-      ANTHROPIC_BASE_URL: "http://localhost:11434",
+      ANTHROPIC_BASE_URL: "https://ollama.com",
       ANTHROPIC_AUTH_TOKEN: "secret-token",
-      ANTHROPIC_API_KEY: "secret-token",
+      ANTHROPIC_API_KEY: "",
       OLLAMA_API_KEY: "secret-token"
     });
   });

@@ -18,12 +18,12 @@ function config(): AgentTeamConfig {
       ...DEFAULT_AGENT_TEAM_CONFIG.providers,
       ollamaClaudeCode: {
         enabled: true,
-        baseUrl: "http://localhost:11434",
+        baseUrl: "https://ollama.com",
         apiKeyEnv: "OLLAMA_API_KEY",
         profiles: [
           {
             id: "kimi-k2.6",
-            model: "kimi-k2.6:cloud",
+            model: "kimi-k2.6",
             displayName: "Kimi K2.6",
             writeValidated: false,
             capabilities: {
@@ -76,13 +76,13 @@ describe("Ollama Claude Code runtime", () => {
       cwd: "/repo",
       roleId: "code-reviewer",
       executionPolicy: "read-only",
-      model: "kimi-k2.6:cloud",
+      model: "kimi-k2.6",
       env: {
         PATH: "/usr/bin",
         OLLAMA_API_KEY: "secret-token",
-        ANTHROPIC_BASE_URL: "http://localhost:11434",
+        ANTHROPIC_BASE_URL: "https://ollama.com",
         ANTHROPIC_AUTH_TOKEN: "secret-token",
-        ANTHROPIC_API_KEY: "secret-token"
+        ANTHROPIC_API_KEY: ""
       }
     });
   });
@@ -133,12 +133,12 @@ describe("Ollama Claude Code runtime", () => {
     expect(handle.providerSessionId).toBe("session_ollama_bg");
     expect(calls[0]).toMatchObject({
       providerAuthMode: "api-key",
-      model: "kimi-k2.6:cloud",
+      model: "kimi-k2.6",
       env: {
         OLLAMA_API_KEY: "secret-token",
-        ANTHROPIC_BASE_URL: "http://localhost:11434",
+        ANTHROPIC_BASE_URL: "https://ollama.com",
         ANTHROPIC_AUTH_TOKEN: "secret-token",
-        ANTHROPIC_API_KEY: "secret-token"
+        ANTHROPIC_API_KEY: ""
       }
     });
   });

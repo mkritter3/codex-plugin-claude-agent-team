@@ -91,7 +91,7 @@ Doctor also inspects `.agent-team/state-layout.json` when present. Missing marke
 
 ## Ollama Claude Code Profiles
 
-Use `providers.ollamaClaudeCode` when you want Claude Code to route through an Ollama Anthropic-compatible endpoint while preserving the existing Agent Team lifecycle. The user supplies one plugin-level token, usually `OLLAMA_API_KEY`; profile config stays non-secret and names the endpoint, model, display name, and declared capabilities.
+Use `providers.ollamaClaudeCode` when you want Claude Code to route through Ollama's direct Anthropic-compatible Cloud endpoint while preserving the existing Agent Team lifecycle. The user supplies one plugin-level token, usually `OLLAMA_API_KEY`; profile config stays non-secret and names the endpoint, model, display name, and declared capabilities. The Cloud route uses `https://ollama.com` directly and does not require a local Ollama daemon or Ollama CLI.
 
 ```json
 {
@@ -99,12 +99,12 @@ Use `providers.ollamaClaudeCode` when you want Claude Code to route through an O
   "providers": {
     "ollamaClaudeCode": {
       "enabled": true,
-      "baseUrl": "http://localhost:11434",
+      "baseUrl": "https://ollama.com",
       "apiKeyEnv": "OLLAMA_API_KEY",
       "profiles": [
         {
           "id": "kimi-k2.6",
-          "model": "kimi-k2.6:cloud",
+          "model": "kimi-k2.6",
           "displayName": "Kimi K2.6",
           "writeValidated": false,
           "capabilities": {
@@ -118,7 +118,7 @@ Use `providers.ollamaClaudeCode` when you want Claude Code to route through an O
         },
         {
           "id": "glm-5.1",
-          "model": "glm-5.1:cloud",
+          "model": "glm-5.1",
           "displayName": "GLM 5.1",
           "writeValidated": false,
           "capabilities": {
@@ -131,7 +131,7 @@ Use `providers.ollamaClaudeCode` when you want Claude Code to route through an O
         },
         {
           "id": "deepseek-v4-flash",
-          "model": "deepseek-v4-flash:cloud",
+          "model": "deepseek-v4-flash",
           "displayName": "DeepSeek V4 Flash",
           "writeValidated": false,
           "capabilities": {
@@ -154,7 +154,7 @@ Use `providers.ollamaClaudeCode` when you want Claude Code to route through an O
 }
 ```
 
-The resulting provider ids are explicit, such as `ollama-claude-code:kimi-k2.6`. At provider launch, the runtime creates a scoped provider env for that run only and maps `OLLAMA_API_KEY` into `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_API_KEY`, and `OLLAMA_API_KEY` for Claude Code's Anthropic-compatible path. The normal `claude-code-cli` provider continues to use Claude Code CLI subscription OAuth and keeps its auth-precedence checks.
+The resulting provider ids are explicit, such as `ollama-claude-code:kimi-k2.6`. At provider launch, the runtime creates a scoped provider env for that run only: `ANTHROPIC_BASE_URL` points at `https://ollama.com`, `ANTHROPIC_AUTH_TOKEN` carries the configured Ollama token, `ANTHROPIC_API_KEY` is intentionally blank for Claude Code compatibility, and `OLLAMA_API_KEY` remains available as the single secret source. The normal `claude-code-cli` provider continues to use Claude Code CLI subscription OAuth and keeps its auth-precedence checks.
 
 Keep `writeValidated` false until a live implementation proof validates edits, isolated worktree containment, mailbox delivery, wind-down, cancellation, cleanup, and source-checkout cleanliness for the exact profile. Enabling write capabilities is an operator proof gate and not a provider ranking, provider comparison, or model-quality claim.
 

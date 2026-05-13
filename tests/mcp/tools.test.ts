@@ -27,7 +27,12 @@ describe("MCP tool handlers", () => {
   });
 
   it("lists configured providers", async () => {
-    const result = await handleToolCall("agent_team_list_providers", {});
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      config: DEFAULT_AGENT_TEAM_CONFIG
+    });
+
+    const result = await handlers.handleToolCall("agent_team_list_providers", {});
 
     expect(result.structuredContent?.providers?.[0]?.id).toBe("claude-code-cli");
     expect(result.structuredContent?.providers?.[0]?.capabilities).not.toContain("edits");

@@ -372,11 +372,11 @@ That gate requires:
 **Success Criteria:**
 
 - Users configure the Ollama API key once through plugin/MCP environment, for example `OLLAMA_API_KEY`, not once per model and not in workspace JSON.
-- Workspace config defines shared Ollama Claude Code settings plus model profiles such as `kimi-k2.6:cloud`, `glm-5.1:cloud`, and `deepseek-v4-flash:cloud`.
+- Workspace config defines shared Ollama Claude Code settings plus model profiles such as `kimi-k2.6`, `glm-5.1`, and `deepseek-v4-flash`.
 - Provider ids are explicit, for example `ollama-claude-code:kimi-k2.6`, and are never inferred from Claude subscription mode or generic environment variables.
 - The provider reuses the Claude Code session lifecycle, sidecars, mailboxes, verdicts, status, dashboard, wind-down, cancellation, isolated worktrees, diff evidence, and cleanup contracts.
-- Scoped provider launch env can set `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_API_KEY`, and `OLLAMA_API_KEY` only for that run without weakening `claude-code-cli` subscription OAuth auth-precedence checks.
-- Doctor reports Ollama CLI/proxy readiness, shared auth env presence, model profile readiness, capability declarations, and clear repair steps without exposing secrets or provider endpoints in public MCP output.
+- Scoped provider launch env sets `ANTHROPIC_BASE_URL`, maps the shared token through `ANTHROPIC_AUTH_TOKEN`, keeps `ANTHROPIC_API_KEY` intentionally blank for Claude Code compatibility, and preserves `OLLAMA_API_KEY` only for that run without weakening `claude-code-cli` subscription OAuth auth-precedence checks.
+- Doctor reports Claude CLI readiness, shared auth env presence, model profile readiness, capability declarations, and clear repair steps without exposing secrets or provider endpoints in public MCP output.
 - Write-capable Ollama Claude Code profiles are disabled until live proof validates implementation, mailbox, wind-down, cancellation, cleanup, and source-checkout containment for that model/profile.
 - Live proof is opt-in, excluded from CI, and makes no model-quality, benchmark, ranking, or practical long-context claim.
 

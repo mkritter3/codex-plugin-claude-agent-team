@@ -139,7 +139,10 @@ describe("read-only provider live smoke script", () => {
     expect(script).toContain("liveSmokeEnabled");
     expect(script).toContain("--concurrency");
     expect(script).toContain("runBoundedProofs");
+    expect(script).toContain("Live provider transport proof only");
+    expect(script).toContain("Do not inspect files");
     expect(script).toContain("StdioClientTransport");
+    expect(script).toContain("env: process.env");
     expect(script).not.toContain("runClaudePrint");
     expect(script).not.toContain("startClaudeBackgroundSession");
     expect(script).not.toContain("requireProviderRuntime");

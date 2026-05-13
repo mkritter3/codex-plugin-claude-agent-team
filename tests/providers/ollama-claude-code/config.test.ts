@@ -25,14 +25,14 @@ function config(input: {
       ...DEFAULT_AGENT_TEAM_CONFIG.providers,
       ollamaClaudeCode: {
         enabled: input.enabled ?? true,
-        baseUrl: input.baseUrl ?? "http://localhost:11434",
+        baseUrl: input.baseUrl ?? "https://ollama.com",
         apiKeyEnv: input.apiKeyEnv ?? "OLLAMA_API_KEY",
         profiles:
           input.profiles ??
           [
             {
               id: "kimi-k2.6",
-              model: "kimi-k2.6:cloud",
+              model: "kimi-k2.6",
               displayName: "Kimi K2.6",
               capabilities: { structuredOutput: true, longContext: true }
             }
@@ -53,13 +53,13 @@ describe("Ollama Claude Code profile config", () => {
         profiles: [
           {
             id: "kimi-k2.6",
-            model: "kimi-k2.6:cloud",
+            model: "kimi-k2.6",
             displayName: "Kimi K2.6",
             capabilities: { structuredOutput: true, longContext: true, reasoning: true }
           },
           {
             id: "glm-5.1",
-            model: "glm-5.1:cloud",
+            model: "glm-5.1",
             displayName: "GLM 5.1",
             capabilities: { structuredOutput: true }
           }
@@ -72,7 +72,7 @@ describe("Ollama Claude Code profile config", () => {
         id: `${OLLAMA_CLAUDE_CODE_PROVIDER_PREFIX}:kimi-k2.6`,
         displayName: "Kimi K2.6",
         authMode: "api-key",
-        model: "kimi-k2.6:cloud",
+        model: "kimi-k2.6",
         capabilities: [
           "structuredOutput",
           "longContext",
@@ -87,7 +87,7 @@ describe("Ollama Claude Code profile config", () => {
         id: `${OLLAMA_CLAUDE_CODE_PROVIDER_PREFIX}:glm-5.1`,
         displayName: "GLM 5.1",
         authMode: "api-key",
-        model: "glm-5.1:cloud",
+        model: "glm-5.1",
         capabilities: ["structuredOutput", "tools", "sessionResume", "cancellation"],
         available: true
       })
@@ -100,12 +100,12 @@ describe("Ollama Claude Code profile config", () => {
         profiles: [
           {
             id: "deepseek-v4",
-            model: "deepseek-v4-flash:cloud",
+            model: "deepseek-v4-flash",
             capabilities: { structuredOutput: true, edits: true, workspaceIsolation: true }
           },
           {
             id: "deepseek-v4-validated",
-            model: "deepseek-v4-flash:cloud",
+            model: "deepseek-v4-flash",
             writeValidated: true,
             capabilities: { structuredOutput: true, edits: true, workspaceIsolation: true }
           }
@@ -135,7 +135,7 @@ describe("Ollama Claude Code profile config", () => {
             profiles: [
               {
                 id: "missing-shared",
-                model: "kimi-k2.6:cloud",
+                model: "kimi-k2.6",
                 writeValidated: false,
                 capabilities: {
                   structuredOutput: true,
@@ -171,24 +171,24 @@ describe("Ollama Claude Code profile config", () => {
 
     expect(profile).toMatchObject({
       id: "kimi-k2.6",
-      model: "kimi-k2.6:cloud"
+      model: "kimi-k2.6"
     });
   });
 
-  it("creates scoped Claude Code env without mutating the source env", () => {
+  it("creates direct Ollama Cloud Claude Code env without mutating the source env", () => {
     const sourceEnv = { PATH: "/usr/bin", OLLAMA_API_KEY: "secret-token" };
     const scoped = scopedOllamaClaudeCodeEnv({
       env: sourceEnv,
-      baseUrl: "http://localhost:11434",
+      baseUrl: "https://ollama.com",
       apiKeyEnv: "OLLAMA_API_KEY"
     });
 
     expect(scoped).toMatchObject({
       PATH: "/usr/bin",
       OLLAMA_API_KEY: "secret-token",
-      ANTHROPIC_BASE_URL: "http://localhost:11434",
+      ANTHROPIC_BASE_URL: "https://ollama.com",
       ANTHROPIC_AUTH_TOKEN: "secret-token",
-      ANTHROPIC_API_KEY: "secret-token"
+      ANTHROPIC_API_KEY: ""
     });
     expect(sourceEnv).toEqual({ PATH: "/usr/bin", OLLAMA_API_KEY: "secret-token" });
   });
@@ -214,7 +214,7 @@ describe("Ollama Claude Code profile config", () => {
 	        ...DEFAULT_AGENT_TEAM_CONFIG.providers,
 	        ollamaClaudeCode: {
 	          enabled: true,
-	          baseUrl: "http://localhost:11434",
+	          baseUrl: "https://ollama.com",
 	          apiKeyEnv: "OLLAMA_API_KEY",
 	          profiles: [{ id: "kimi" }, { id: "kimi" }]
 	        }

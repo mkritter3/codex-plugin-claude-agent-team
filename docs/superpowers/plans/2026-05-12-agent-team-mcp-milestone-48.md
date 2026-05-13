@@ -50,7 +50,7 @@
 
 - `ollama-claude-code:<profile-id>` providers are explicit and never inferred from Claude subscription mode.
 - Shared `providers.ollamaClaudeCode.apiKeyEnv` defaults to `OLLAMA_API_KEY`; profiles do not require per-model API key envs.
-- Scoped provider env sets `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_API_KEY`, and `OLLAMA_API_KEY` only for that provider run.
+- Scoped provider env sets `ANTHROPIC_BASE_URL`, maps the shared token through `ANTHROPIC_AUTH_TOKEN`, keeps `ANTHROPIC_API_KEY` intentionally blank for Claude Code compatibility, and preserves `OLLAMA_API_KEY` only for that provider run.
 - `claude-code-cli` subscription OAuth continues to fail closed when subscription-overriding env vars are present.
 - `ollama-claude-code` profiles reuse dispatch and background lifecycle paths, including sidecars, mailboxes, status, wind-down, cancellation, dashboard, summary, and cleanup.
 - `slice-implementer` routing remains unavailable for Ollama Claude Code profiles unless a profile explicitly declares write validation.
@@ -109,7 +109,7 @@ Expected: pass.
 
 - [x] **Step 1: Write failing runtime tests**
 
-Add tests proving `--model` is sent to Claude Code, scoped env maps one `OLLAMA_API_KEY` to `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_API_KEY`, and `OLLAMA_API_KEY`, missing API key fails closed, and subscription OAuth warnings still apply only to `claude-code-cli`.
+Add tests proving `--model` is sent to Claude Code, scoped env maps one `OLLAMA_API_KEY` to `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, an intentionally blank `ANTHROPIC_API_KEY`, and `OLLAMA_API_KEY`, missing API key fails closed, and subscription OAuth warnings still apply only to `claude-code-cli`.
 
 - [x] **Step 2: Run tests to verify red**
 
