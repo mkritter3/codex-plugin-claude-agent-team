@@ -667,6 +667,98 @@ describe("selectProvider", () => {
     ).toThrow(ProviderCapabilityError);
   });
 
+  it("supports explicit Opus planning and Sonnet execution role pins", () => {
+    const providers = listProviders({
+      config: {
+        ...DEFAULT_AGENT_TEAM_CONFIG,
+        providers: {
+          ...DEFAULT_AGENT_TEAM_CONFIG.providers,
+          claudeCodeCli: {
+            profiles: [
+              {
+                id: "opus",
+                model: "opus",
+                displayName: "Claude Opus",
+                writeValidated: false,
+                capabilities: {
+                  structuredOutput: true,
+                  longContext: true,
+                  tools: true,
+                  sessionResume: true,
+                  cancellation: true,
+                  reasoning: true,
+                  edits: false,
+                  workspaceIsolation: false
+                }
+              },
+              {
+                id: "sonnet",
+                model: "sonnet",
+                displayName: "Claude Sonnet",
+                writeValidated: true,
+                capabilities: {
+                  structuredOutput: true,
+                  longContext: true,
+                  tools: true,
+                  sessionResume: true,
+                  cancellation: true,
+                  reasoning: true,
+                  edits: true,
+                  workspaceIsolation: true
+                }
+              }
+            ]
+          }
+        }
+      }
+    });
+    const routingPolicy = {
+      rolePins: {
+        architect: "model:opus",
+        planner: "model:opus",
+        "code-reviewer": "model:opus",
+        debugger: "model:opus",
+        "frontend-engineer": "model:sonnet",
+        "backend-engineer": "model:sonnet",
+        "slice-implementer": "model:sonnet"
+      },
+      providerOrder: ["model:opus", "model:sonnet"]
+    };
+
+    expect(
+      explainProviderSelection({
+        roleId: "planner",
+        providers,
+        routingPolicy
+      })
+    ).toMatchObject({
+      ok: true,
+      selectedProviderId: "claude-code-cli:opus",
+      selector: { source: "role-pin", kind: "model", value: "model:opus" }
+    });
+    expect(
+      explainProviderSelection({
+        roleId: "debugger",
+        providers,
+        routingPolicy
+      })
+    ).toMatchObject({
+      ok: true,
+      selectedProviderId: "claude-code-cli:opus"
+    });
+    expect(
+      explainProviderSelection({
+        roleId: "slice-implementer",
+        providers,
+        routingPolicy
+      })
+    ).toMatchObject({
+      ok: true,
+      selectedProviderId: "claude-code-cli:sonnet",
+      selector: { source: "role-pin", kind: "model", value: "model:sonnet" }
+    });
+  });
+
   it("routes requested Gemini only through declared read-only capabilities", () => {
     const providers = listProviders({
 	      config: {

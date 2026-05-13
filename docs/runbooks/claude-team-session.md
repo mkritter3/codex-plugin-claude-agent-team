@@ -279,6 +279,70 @@ Use `providers.claudeCodeCli.profiles` when you want explicit provider ids for C
 
 Run `npm run smoke:claude-models -- --dry-run` to inspect the packaged MCP proof plan. Run it with `--confirm-live-provider-use` only when you intentionally want live Claude Code CLI calls for the three aliases.
 
+### Recommended Claude Routing
+
+Use Opus as the default high-reasoning lane for planning, architecture, complex debugging, senior review, and final sign-off. Use Sonnet as the default execution lane for implementation slices that need isolated writes. Keep both aliases unpinned so Claude Code resolves `opus` and `sonnet` to the latest subscription-backed aliases available in the installed CLI.
+
+```json
+{
+  "schemaVersion": 1,
+  "providers": {
+    "claudeCodeCli": {
+      "profiles": [
+        {
+          "id": "opus",
+          "model": "opus",
+          "displayName": "Claude Opus - planning and senior review",
+          "capabilities": {
+            "structuredOutput": true,
+            "longContext": true,
+            "reasoning": true
+          }
+        },
+        {
+          "id": "sonnet",
+          "model": "sonnet",
+          "displayName": "Claude Sonnet - isolated execution",
+          "writeValidated": true,
+          "capabilities": {
+            "structuredOutput": true,
+            "longContext": true,
+            "reasoning": true,
+            "tools": true,
+            "sessionResume": true,
+            "cancellation": true,
+            "edits": true,
+            "workspaceIsolation": true
+          }
+        }
+      ]
+    }
+  },
+  "routing": {
+    "rolePins": {
+      "architect": "model:opus",
+      "planner": "model:opus",
+      "code-reviewer": "model:opus",
+      "debugger": "model:opus",
+      "security-reviewer": "model:opus",
+      "performance-reviewer": "model:opus",
+      "integration-engineer": "model:opus",
+      "frontend-engineer": "model:sonnet",
+      "backend-engineer": "model:sonnet",
+      "slice-implementer": "model:sonnet"
+    },
+    "providerOrder": ["model:opus", "model:sonnet"]
+  },
+  "policy": {
+    "allowedProviderSelectors": ["model:opus", "model:sonnet"],
+    "allowWriteMode": true,
+    "auditEnabled": true
+  }
+}
+```
+
+This is a routing and capability policy, not comparative model evidence. Request-level provider selectors remain available for deliberate probes or specialty assignments, and write-capable Sonnet execution still requires isolated worktree mode plus `writeValidated: true`.
+
 ## State Layout Check
 
 Doctor also inspects `.agent-team/state-layout.json` when present. Missing markers are compatible with layout version `1`; current markers are compatible; future layout versions fail closed; corrupt markers require operator review. Doctor is read-only for this check and does not auto-migrate or repair state.
