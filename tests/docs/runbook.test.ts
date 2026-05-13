@@ -46,8 +46,10 @@ describe("Claude team session runbook", () => {
       "npm run smoke:claude-live",
       "npm run smoke:claude-live-matrix",
       "npm run smoke:providers-live",
+      "npm run smoke:gemini-write",
       "npm run ci",
-      "docs/superpowers/reports/2026-05-13-agent-team-workflow-orchestrator-readiness.md"
+      "docs/superpowers/reports/2026-05-13-agent-team-workflow-orchestrator-readiness.md",
+      "docs/superpowers/reports/2026-05-13-agent-team-live-gemini-write-proof.md"
     ]) {
       expect(doc).toContain(text);
     }
@@ -55,6 +57,11 @@ describe("Claude team session runbook", () => {
     expect(doc).toContain("not part of CI");
     expect(doc).toContain("--confirm-live-provider-use");
     expect(doc).toContain("--provider family:gemini");
+    expect(doc).toContain("--provider gemini-cli");
+    expect(doc).toContain("GEMINI_CLI_TRUST_WORKSPACE=true");
+    expect(doc).toContain("gemini-3-flash-preview");
+    expect(doc).toContain("frontend-engineer");
+    expect(doc).toContain("--approval-mode auto_edit");
     expect(doc).toContain("explicit read-only provider routing");
     expect(doc).toContain("no provider comparison, ranking, score, or long-context claim");
     expect(doc).toContain("policy.liveSmokeEnabled");

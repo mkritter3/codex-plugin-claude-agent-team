@@ -21,6 +21,21 @@ function providerCapabilities(
   if (provider.capabilities.reasoning) {
     capabilities.push("reasoning");
   }
+  if (provider.writeValidated && provider.capabilities.tools) {
+    capabilities.push("tools");
+  }
+  if (provider.writeValidated && provider.capabilities.sessionResume) {
+    capabilities.push("sessionResume");
+  }
+  if (provider.writeValidated && provider.capabilities.cancellation) {
+    capabilities.push("cancellation");
+  }
+  if (provider.writeValidated && provider.capabilities.edits) {
+    capabilities.push("edits");
+  }
+  if (provider.writeValidated && provider.capabilities.workspaceIsolation) {
+    capabilities.push("workspaceIsolation");
+  }
   return capabilities;
 }
 
@@ -31,6 +46,16 @@ function providerWarnings(provider: GeminiCliProviderConfig): readonly string[] 
   }
   if (provider.model === undefined) {
     warnings.push("Gemini CLI provider is missing model.");
+  }
+  if (
+    !provider.writeValidated &&
+    (provider.capabilities.tools ||
+      provider.capabilities.edits ||
+      provider.capabilities.sessionResume ||
+      provider.capabilities.cancellation ||
+      provider.capabilities.workspaceIsolation)
+  ) {
+    warnings.push("Gemini CLI provider declares write capabilities without writeValidated.");
   }
   if (providerCapabilities(provider).length === 0) {
     warnings.push("Gemini CLI provider declares no supported capabilities.");

@@ -473,4 +473,20 @@ Workflow-orchestrator product-level success criteria are complete for the accept
 - Default, family, and provider-order routing avoid active degraded providers while exact provider requests remain explicit probes.
 - Cooldown behavior is operational reliability memory only; it is not a model evaluation or provider ranking claim.
 
-**Status:** In progress. See `docs/superpowers/plans/2026-05-13-agent-team-mcp-milestone-62.md`.
+**Status:** Complete. See `docs/superpowers/plans/2026-05-13-agent-team-mcp-milestone-62.md`.
+
+### Milestone 63: Gemini CLI Autonomous Worker
+
+**Goal:** Promote Gemini CLI from read-only dispatch to an opt-in autonomous worker for isolated UI/UX and frontend implementation slices.
+
+**Success Criteria:**
+
+- Gemini CLI remains disabled and read-only by default.
+- `providers.geminiCli.writeValidated` is required before write/session/cancel capabilities are advertised.
+- Direct session starts require `tools`, `sessionResume`, `cancellation`, `edits`, and `workspaceIsolation` for isolated edit execution.
+- Read-only sessions use Gemini CLI `--approval-mode plan`; isolated implementation sessions use `--approval-mode auto_edit`; `--yolo` is never used.
+- UI/UX and frontend routing is expressed through `rolePins`, not hidden router behavior.
+- `npm run smoke:gemini-write` exists, is outside CI, fails closed without explicit confirmation, and proves disposable-fixture isolated write containment through packaged MCP stdio.
+- Live proof records Gemini CLI OAuth, retained isolated worktree evidence, dashboard/summary evidence, source checkout cleanliness, and explicit cleanup.
+
+**Status:** Complete. `gemini-cli` can run as an autonomous `frontend-engineer` when fixture-local write validation and isolated-worktree policy are enabled. Live Flash preview proof is recorded in `docs/superpowers/reports/2026-05-13-agent-team-live-gemini-write-proof.md`; Pro preview validation remains capacity-dependent and should not be claimed until a successful run is recorded.

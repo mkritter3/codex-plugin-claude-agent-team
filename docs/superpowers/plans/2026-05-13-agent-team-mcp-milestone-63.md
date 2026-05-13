@@ -56,7 +56,7 @@ Out of scope:
 - Modify `tests/providers/gemini-cli/config.test.ts`
 - Modify `tests/core/router.test.ts`
 
-- [ ] **Step 1: Write failing config tests**
+- [x] **Step 1: Write failing config tests**
 
 Add tests proving:
 
@@ -73,7 +73,7 @@ expect(geminiCliProvider(config({ writeValidated: true, edits: true, workspaceIs
 });
 ```
 
-- [ ] **Step 2: Verify red**
+- [x] **Step 2: Verify red**
 
 Run:
 
@@ -83,11 +83,11 @@ npm test -- tests/providers/gemini-cli/config.test.ts tests/core/config.test.ts 
 
 Expected: tests fail because Gemini CLI config has no `writeValidated` or write capabilities.
 
-- [ ] **Step 3: Implement capability gating**
+- [x] **Step 3: Implement capability gating**
 
 Add `writeValidated`, `tools`, `edits`, `workspaceIsolation`, `sessionResume`, and `cancellation` fields under `GeminiCliProviderConfig.capabilities`. Keep defaults false. Emit write capabilities only when `writeValidated` is true.
 
-- [ ] **Step 4: Verify green**
+- [x] **Step 4: Verify green**
 
 Run:
 
@@ -104,7 +104,7 @@ Expected: focused tests pass.
 - Modify `src/providers/gemini-cli/runtime.ts`
 - Modify `tests/providers/gemini-cli/runtime.test.ts`
 
-- [ ] **Step 1: Write failing runtime tests**
+- [x] **Step 1: Write failing runtime tests**
 
 Add tests proving:
 
@@ -127,7 +127,7 @@ expect(handle.supportsStdin).toBe(false);
 
 Also add read-only `plan`, cancellation, timeout, stdout/stderr evidence, and non-zero exit tests.
 
-- [ ] **Step 2: Verify red**
+- [x] **Step 2: Verify red**
 
 Run:
 
@@ -137,7 +137,7 @@ npm test -- tests/providers/gemini-cli/runtime.test.ts
 
 Expected: tests fail because `startSession` is unsupported.
 
-- [ ] **Step 3: Implement Gemini session handle**
+- [x] **Step 3: Implement Gemini session handle**
 
 Spawn the configured `gemini` executable with:
 
@@ -156,7 +156,7 @@ Spawn the configured `gemini` executable with:
 
 Write stdout/stderr to `runLogPath(input.workspaceRoot, input.runId)`, keep bounded recent stderr/activity snapshots, resolve done status from process close, and kill the child on cancellation/timeout.
 
-- [ ] **Step 4: Verify green**
+- [x] **Step 4: Verify green**
 
 Run:
 
@@ -175,7 +175,7 @@ Expected: runtime tests pass.
 - Modify `package.json`
 - Modify `tests/package-scripts.test.ts`
 
-- [ ] **Step 1: Write failing script tests**
+- [x] **Step 1: Write failing script tests**
 
 Add tests proving the script:
 
@@ -184,7 +184,7 @@ Add tests proving the script:
 - requires exact `gemini-cli` or `family:gemini-cli`
 - prints sanitized output with no prompt, command args, env values, secrets, or provider payloads
 
-- [ ] **Step 2: Verify red**
+- [x] **Step 2: Verify red**
 
 Run:
 
@@ -194,11 +194,11 @@ npm test -- tests/live-smoke-gemini-write-validation.test.ts tests/package-scrip
 
 Expected: tests fail because the script/package script does not exist.
 
-- [ ] **Step 3: Implement live smoke**
+- [x] **Step 3: Implement live smoke**
 
 Create a disposable git fixture with `index.html`, configure Gemini CLI with `writeValidated: true`, `writeMode.enabled: true`, `allowedWorktreeRoots`, `liveSmokeEnabled: true`, and role pin `frontend-engineer: "gemini-cli"`. Start a `frontend-engineer` run through packaged MCP stdio. Verify the source checkout is unchanged, the retained execution worktree changed only `index.html`, dashboard/summary evidence exists, and cleanup removes the worktree.
 
-- [ ] **Step 4: Verify green**
+- [x] **Step 4: Verify green**
 
 Run:
 
@@ -216,11 +216,11 @@ Expected: tests pass.
 - Modify `docs/runbooks/claude-team-session.md`
 - Modify `docs/superpowers/plans/2026-05-13-agent-team-mcp-milestone-63.md`
 
-- [ ] **Step 1: Document operator setup**
+- [x] **Step 1: Document operator setup**
 
 Document Gemini CLI OAuth, `GEMINI_CLI_TRUST_WORKSPACE=true`, `writeValidated`, UI/frontend role pins, capacity cooldown, and the exact live smoke command.
 
-- [ ] **Step 2: Run focused and full verification**
+- [x] **Step 2: Run focused and full verification**
 
 Run:
 
@@ -238,7 +238,7 @@ npm run ci
 
 Expected: all commands pass.
 
-- [ ] **Step 3: Invariant scans**
+- [x] **Step 3: Invariant scans**
 
 Run:
 
@@ -256,7 +256,22 @@ Expected: matches are existing guardrails, provider-local implementation/tests/d
 Only after fixture-safe verification passes:
 
 ```bash
-env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN -u CLAUDE_CODE_OAUTH_TOKEN GEMINI_CLI_TRUST_WORKSPACE=true npm run smoke:gemini-write -- --confirm-live-provider-use --timeout-ms 240000
+env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN -u CLAUDE_CODE_OAUTH_TOKEN GEMINI_CLI_TRUST_WORKSPACE=true npm run smoke:gemini-write -- --confirm-live-provider-use --provider gemini-cli --model gemini-3-flash-preview --timeout-ms 240000 --max-wait-ms 300000
 ```
 
 Expected: one Gemini CLI implementation run completes, changes only the fixture UI file in the isolated worktree, records evidence, and cleans up retained worktree. If Google returns `429`/capacity failures, the script reports degraded provider evidence rather than claiming success.
+
+## Evidence
+
+- Plan committed on `main`: `5422a1e docs: plan gemini autonomous worker`.
+- TDD red: `npm test -- tests/live-smoke-gemini-write-validation.test.ts tests/package-scripts.test.ts` failed before script/package wiring existed.
+- TDD red: `npm test -- tests/providers/gemini-cli/runtime.test.ts` failed until direct isolated-edit starts required the full autonomous worker gate.
+- Focused green: `npm test -- tests/providers/gemini-cli/config.test.ts tests/providers/gemini-cli/runtime.test.ts tests/live-smoke-gemini-write-validation.test.ts tests/core/config.test.ts tests/core/router.test.ts tests/package-scripts.test.ts tests/docs/packaging.test.ts tests/docs/runbook.test.ts` passed 76 tests across 8 files.
+- Full tests: `npm test` passed 605 tests across 82 files.
+- Typecheck: `npm run typecheck` passed.
+- Build: `npm run build` passed.
+- Package gates: `npm run install:check`, `npm run smoke:mcp-stdio`, `npm run smoke:workflow-orchestrator`, and `npm run smoke:package` passed.
+- CI: `npm run ci` passed.
+- Invariant scans: auth/fallback, model-claim, prompt/schema/secret, and cleanup/process scans were run across `src`, `tests`, `docs`, `README.md`, `package.json`, and `scripts`. Matches were expected guardrails, provider-local capability/runtime implementation, tests, docs, live-smoke safety language, or pre-existing lifecycle cleanup/process handling. No new API-key fallback, public provider-specific schema, raw secret leak, benchmark/model-quality/provider-ranking claim, automatic cleanup shortcut, or unbounded process-kill shortcut was introduced.
+- Live proof: `env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN -u CLAUDE_CODE_OAUTH_TOKEN GEMINI_CLI_TRUST_WORKSPACE=true npm run smoke:gemini-write -- --confirm-live-provider-use --provider gemini-cli --model gemini-3-flash-preview --timeout-ms 240000 --max-wait-ms 300000` completed with `run_20260513172123617_313c7d2e7d6b`, verdict `SHIP`, `changedFiles: ["index.html"]`, source workspace unmodified, and cleanup `removed`.
+- Pro preview caveat: an earlier live proof reached Gemini CLI OAuth but returned Google `429` / `MODEL_CAPACITY_EXHAUSTED` for `gemini-3.1-pro-preview`; no Pro write-readiness claim is made.

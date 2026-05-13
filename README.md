@@ -366,10 +366,16 @@ Gemini CLI is a separate auth-backed provider for local Google sign-in/OAuth usa
       "model": "gemini-3-pro-preview",
       "displayName": "Gemini CLI",
       "projectEnv": "GOOGLE_CLOUD_PROJECT",
+      "writeValidated": false,
       "capabilities": {
         "structuredOutput": true,
         "longContext": true,
-        "reasoning": true
+        "reasoning": true,
+        "tools": false,
+        "sessionResume": false,
+        "cancellation": false,
+        "edits": false,
+        "workspaceIsolation": false
       }
     }
   },
@@ -379,7 +385,23 @@ Gemini CLI is a separate auth-backed provider for local Google sign-in/OAuth usa
 }
 ```
 
-`gemini-cli` uses `authMode: "oauth"` and does not require or infer `GEMINI_API_KEY`. Install and sign in to Gemini CLI first, then run `agent_team_doctor`; some Google Workspace or Code Assist setups may also require the configured project env. This adapter supports synchronous read-only dispatch only. It does not support background sessions, live stdin, resume, cancellation, edits, tools, or workspace isolation.
+`gemini-cli` uses `authMode: "oauth"` and does not require or infer `GEMINI_API_KEY`. Install and sign in to Gemini CLI first, then run `agent_team_doctor`; some Google Workspace or Code Assist setups may also require the configured project env. The adapter supports read-only dispatch by default. It advertises autonomous worker capabilities only when `writeValidated: true` and `tools`, `sessionResume`, `cancellation`, `edits`, and `workspaceIsolation` are explicitly enabled after a live isolated-write proof.
+
+For UI/UX and frontend work, prefer explicit role pins rather than hidden router behavior:
+
+```json
+{
+  "routing": {
+    "rolePins": {
+      "ui-ux-designer": "gemini-cli",
+      "ux-product-critic": "gemini-cli",
+      "frontend-engineer": "gemini-cli"
+    }
+  }
+}
+```
+
+Gemini CLI implementation runs use retained isolated worktrees and `--approval-mode auto_edit`; read-only runs use `--approval-mode plan`. The plugin never uses Gemini CLI `--yolo`. If Gemini returns rate limits, timeouts, or provider-unavailable errors, provider health cooldowns cause normal default/family routing to avoid it temporarily while exact `gemini-cli` requests remain explicit probes.
 
 Provider health is recorded under `.agent-team/providers/health.json`. Transient failures such as rate limits, timeouts, or provider-unavailable responses mark the provider degraded for a cooldown window with evidence paths and failure counts. During cooldown, default and family/provider-order routing avoids that provider; explicit provider requests remain explicit probes and record their own evidence. This is operational reliability memory, not a model evaluation or provider ranking claim.
 
@@ -525,6 +547,27 @@ npm run smoke:ollama-write -- --confirm-live-provider-use --provider ollama-clau
 The report includes provider ids, run ids, terminal status, changed files, isolated worktree evidence, cleanup status, dashboard counts, summary groups, sidecar/log paths, and known limitations. It does not print prompts, task text, provider endpoints, raw provider payloads, provider session ids, process metadata, command details, environment values, mailbox payloads, or secrets. Passing this smoke proves isolated write containment for the selected profile only; it makes no model-quality, ranking, autonomous-implementation, or broad write-readiness claim.
 
 In this repository, `kimi-k2.6`, `glm-5.1`, and `deepseek-v4-flash` have passed this disposable-fixture write validation through the packaged MCP path. Other profiles should keep `writeValidated: false` until they pass the same proof.
+
+## Opt-In Gemini CLI Write Validation Smoke
+
+Use this proof before enabling Gemini CLI as a write-capable `frontend-engineer` in normal workspaces. It creates a disposable git fixture with `index.html`, enables `writeValidated: true` only inside that fixture, starts a `frontend-engineer`, verifies the UI file changed only in the isolated worktree, records dashboard and summary evidence, and removes the retained worktree through `agent_team_cleanup`.
+
+Latest live Gemini CLI write proof evidence is recorded in `docs/superpowers/reports/2026-05-13-agent-team-live-gemini-write-proof.md`.
+
+Inspect the plan without provider use:
+
+```bash
+npm run smoke:gemini-write -- --dry-run --provider gemini-cli
+```
+
+Run the confirmed validation after building the packaged runtime:
+
+```bash
+npm run build
+env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN -u CLAUDE_CODE_OAUTH_TOKEN GEMINI_CLI_TRUST_WORKSPACE=true npm run smoke:gemini-write -- --confirm-live-provider-use --provider gemini-cli --model gemini-3-flash-preview --timeout-ms 240000
+```
+
+The smoke defaults to `gemini-3-flash-preview` because Pro preview capacity can be transiently exhausted; pass `--model gemini-3.1-pro-preview` or another Gemini CLI model only when you intentionally want to validate that exact model. The report includes provider ids, run ids, terminal status, changed files, isolated worktree evidence, cleanup status, dashboard counts, summary groups, sidecar/log paths, and known limitations. It does not print prompts, task text, provider endpoints, raw provider payloads, provider session ids, process metadata, command details, environment values, mailbox payloads, or secrets. Passing this smoke proves isolated write containment for `gemini-cli` only; it makes no model-quality, ranking, broad frontend-quality, or mid-flight steering claim.
 
 ## Basic Workflow
 

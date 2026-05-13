@@ -552,6 +552,60 @@ describe("loadAgentTeamConfig", () => {
     });
   });
 
+  it("loads explicit Gemini CLI autonomous worker config without API-key fallback", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-config-"));
+    await mkdir(join(workspace, ".agent-team"), { recursive: true });
+    await writeFile(
+      join(workspace, ".agent-team", "config.json"),
+      JSON.stringify({
+        providers: {
+          geminiCli: {
+            enabled: true,
+            executable: "gemini",
+            model: "gemini-3-pro-preview",
+            displayName: "Gemini UI Worker",
+            projectEnv: "GOOGLE_CLOUD_PROJECT",
+            writeValidated: true,
+            capabilities: {
+              structuredOutput: true,
+              longContext: true,
+              reasoning: true,
+              tools: true,
+              edits: true,
+              sessionResume: true,
+              cancellation: true,
+              workspaceIsolation: true
+            }
+          }
+        }
+      }),
+      "utf8"
+    );
+
+    await expect(loadAgentTeamConfig(workspace)).resolves.toMatchObject({
+      providers: {
+        geminiCli: {
+          enabled: true,
+          executable: "gemini",
+          model: "gemini-3-pro-preview",
+          displayName: "Gemini UI Worker",
+          projectEnv: "GOOGLE_CLOUD_PROJECT",
+          writeValidated: true,
+          capabilities: {
+            structuredOutput: true,
+            longContext: true,
+            reasoning: true,
+            tools: true,
+            edits: true,
+            sessionResume: true,
+            cancellation: true,
+            workspaceIsolation: true
+          }
+        }
+      }
+    });
+  });
+
   it("loads explicit Grok profiles without inferring env fallback", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "agent-team-config-"));
     await mkdir(join(workspace, ".agent-team"), { recursive: true });

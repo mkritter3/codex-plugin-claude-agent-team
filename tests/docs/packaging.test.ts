@@ -19,6 +19,7 @@ describe("packaging and install docs", () => {
       "npm run smoke:claude-live",
       "npm run smoke:claude-live-matrix",
       "npm run smoke:providers-live",
+      "npm run smoke:gemini-write",
       "agent-team-mcp",
       "\"./dist/index.js\"",
       ".agent-team/config.json",
@@ -43,7 +44,8 @@ describe("packaging and install docs", () => {
       "npm run ci",
       "Troubleshooting",
       "docs/runbooks/claude-team-session.md",
-      "docs/superpowers/reports/2026-05-13-agent-team-workflow-orchestrator-readiness.md"
+      "docs/superpowers/reports/2026-05-13-agent-team-workflow-orchestrator-readiness.md",
+      "docs/superpowers/reports/2026-05-13-agent-team-live-gemini-write-proof.md"
     ]) {
       expect(readme).toContain(text);
     }
@@ -60,6 +62,11 @@ describe("packaging and install docs", () => {
     expect(readme).toContain("cleanup");
     expect(readme).toContain("no provider ranking");
     expect(readme).toContain("--provider family:gemini");
+    expect(readme).toContain("--provider gemini-cli");
+    expect(readme).toContain("GEMINI_CLI_TRUST_WORKSPACE=true");
+    expect(readme).toContain("gemini-3-flash-preview");
+    expect(readme).toContain("frontend-engineer");
+    expect(readme).toContain("--approval-mode auto_edit");
     expect(readme).toContain("explicit read-only provider routing");
     expect(readme).toContain("no provider comparison, ranking, score, or long-context claim");
     expect(readme).toContain("absolute MCP config");

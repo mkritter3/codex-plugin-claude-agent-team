@@ -18,6 +18,12 @@ function config(input: {
   readonly structuredOutput?: boolean;
   readonly longContext?: boolean;
   readonly reasoning?: boolean;
+  readonly tools?: boolean;
+  readonly edits?: boolean;
+  readonly sessionResume?: boolean;
+  readonly cancellation?: boolean;
+  readonly workspaceIsolation?: boolean;
+  readonly writeValidated?: boolean;
 } = {}): AgentTeamConfig {
   return {
     ...DEFAULT_AGENT_TEAM_CONFIG,
@@ -29,10 +35,16 @@ function config(input: {
         model: input.model ?? "gemini-3-pro-preview",
         displayName: input.displayName ?? "Gemini CLI",
         projectEnv: input.projectEnv ?? "GOOGLE_CLOUD_PROJECT",
+        writeValidated: input.writeValidated ?? false,
         capabilities: {
           structuredOutput: input.structuredOutput ?? true,
           longContext: input.longContext ?? true,
-          reasoning: input.reasoning ?? true
+          reasoning: input.reasoning ?? true,
+          tools: input.tools ?? false,
+          edits: input.edits ?? false,
+          sessionResume: input.sessionResume ?? false,
+          cancellation: input.cancellation ?? false,
+          workspaceIsolation: input.workspaceIsolation ?? false
         }
       }
     }
@@ -59,6 +71,54 @@ describe("Gemini CLI provider config", () => {
     expect(geminiCliProvider(config())).not.toHaveProperty("apiKeyEnv");
   });
 
+  it("withholds write capabilities until explicitly write validated", () => {
+    expect(
+      geminiCliProvider(
+        config({
+          tools: true,
+          edits: true,
+          sessionResume: true,
+          cancellation: true,
+          workspaceIsolation: true
+        })
+      )
+    ).toMatchObject({
+      id: GEMINI_CLI_PROVIDER_ID,
+      available: false,
+      warnings: [
+        "Gemini CLI provider declares write capabilities without writeValidated."
+      ]
+    });
+  });
+
+  it("advertises autonomous worker capabilities only after write validation", () => {
+    expect(
+      geminiCliProvider(
+        config({
+          writeValidated: true,
+          tools: true,
+          edits: true,
+          sessionResume: true,
+          cancellation: true,
+          workspaceIsolation: true
+        })
+      )
+    ).toMatchObject({
+      id: GEMINI_CLI_PROVIDER_ID,
+      available: true,
+      capabilities: [
+        "structuredOutput",
+        "longContext",
+        "reasoning",
+        "tools",
+        "sessionResume",
+        "cancellation",
+        "edits",
+        "workspaceIsolation"
+      ]
+    });
+  });
+
   it("marks incomplete config unavailable while preserving doctor visibility", () => {
     expect(
       geminiCliProvider({
@@ -69,10 +129,16 @@ describe("Gemini CLI provider config", () => {
             enabled: true,
             executable: "",
             projectEnv: "GOOGLE_CLOUD_PROJECT",
+            writeValidated: false,
             capabilities: {
               structuredOutput: false,
               longContext: false,
-              reasoning: false
+              reasoning: false,
+              tools: false,
+              edits: false,
+              sessionResume: false,
+              cancellation: false,
+              workspaceIsolation: false
             }
           }
         }
@@ -94,7 +160,8 @@ describe("Gemini CLI provider config", () => {
         geminiCli: {
           enabled: false,
           executable: "gemini",
-          projectEnv: "GOOGLE_CLOUD_PROJECT"
+          projectEnv: "GOOGLE_CLOUD_PROJECT",
+          writeValidated: false
         }
       }
     });

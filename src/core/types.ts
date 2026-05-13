@@ -168,6 +168,11 @@ export interface GeminiCliProviderCapabilitiesConfig {
   readonly structuredOutput: boolean;
   readonly longContext: boolean;
   readonly reasoning: boolean;
+  readonly tools: boolean;
+  readonly edits: boolean;
+  readonly sessionResume: boolean;
+  readonly cancellation: boolean;
+  readonly workspaceIsolation: boolean;
 }
 
 export interface GeminiCliProviderConfig {
@@ -176,6 +181,7 @@ export interface GeminiCliProviderConfig {
   readonly model?: string;
   readonly displayName?: string;
   readonly projectEnv: string;
+  readonly writeValidated: boolean;
   readonly capabilities: GeminiCliProviderCapabilitiesConfig;
 }
 

@@ -787,6 +787,78 @@ describe("selectProvider", () => {
     ).toThrow(ProviderCapabilityError);
   });
 
+  it("routes frontend implementation to Gemini CLI only after write validation", () => {
+    const readOnlyProviders = listProviders({
+      config: {
+        ...DEFAULT_AGENT_TEAM_CONFIG,
+        writeMode: { enabled: true, requireIsolatedWorktree: true },
+        providers: {
+          ...DEFAULT_AGENT_TEAM_CONFIG.providers,
+          geminiCli: {
+            enabled: true,
+            executable: "gemini",
+            model: "gemini-3-pro-preview",
+            projectEnv: "GOOGLE_CLOUD_PROJECT",
+            writeValidated: false,
+            capabilities: {
+              structuredOutput: true,
+              longContext: true,
+              reasoning: true,
+              tools: true,
+              edits: true,
+              sessionResume: true,
+              cancellation: true,
+              workspaceIsolation: true
+            }
+          }
+        }
+      }
+    });
+
+    expect(() =>
+      selectProvider({
+        roleId: "frontend-engineer",
+        providers: readOnlyProviders,
+        requestedProviderId: "gemini-cli"
+      })
+    ).toThrow(ProviderNotFoundError);
+
+    const writeValidatedProviders = listProviders({
+      config: {
+        ...DEFAULT_AGENT_TEAM_CONFIG,
+        writeMode: { enabled: true, requireIsolatedWorktree: true },
+        providers: {
+          ...DEFAULT_AGENT_TEAM_CONFIG.providers,
+          geminiCli: {
+            enabled: true,
+            executable: "gemini",
+            model: "gemini-3-pro-preview",
+            projectEnv: "GOOGLE_CLOUD_PROJECT",
+            writeValidated: true,
+            capabilities: {
+              structuredOutput: true,
+              longContext: true,
+              reasoning: true,
+              tools: true,
+              edits: true,
+              sessionResume: true,
+              cancellation: true,
+              workspaceIsolation: true
+            }
+          }
+        }
+      }
+    });
+
+    expect(
+      selectProvider({
+        roleId: "frontend-engineer",
+        providers: writeValidatedProviders,
+        requestedProviderId: "gemini-cli"
+      }).id
+    ).toBe("gemini-cli");
+  });
+
   it("routes requested Grok profiles only through declared read-only capabilities", () => {
     const providers = listProviders({
 	      config: {

@@ -71,10 +71,16 @@ export const DEFAULT_AGENT_TEAM_CONFIG: AgentTeamConfig = {
       enabled: false,
       executable: "gemini",
       projectEnv: "GOOGLE_CLOUD_PROJECT",
+      writeValidated: false,
       capabilities: {
         structuredOutput: false,
         longContext: false,
-        reasoning: false
+        reasoning: false,
+        tools: false,
+        edits: false,
+        sessionResume: false,
+        cancellation: false,
+        workspaceIsolation: false
       }
     }
   }
@@ -481,11 +487,6 @@ function parseGeminiCliProviderConfig(
 ): AgentTeamConfig["providers"]["geminiCli"] {
   const geminiCli = objectField(providers, "geminiCli");
   const capabilities = objectField(geminiCli, "capabilities");
-  assertSupportedProfileCapabilities({
-    providerName: "Gemini CLI",
-    profileId: "provider",
-    capabilities
-  });
   const executable =
     readString(geminiCli.executable) ??
     DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.executable;
@@ -504,6 +505,10 @@ function parseGeminiCliProviderConfig(
     ...(model === undefined ? {} : { model }),
     ...(displayName === undefined ? {} : { displayName }),
     projectEnv,
+    writeValidated: readBoolean(
+      geminiCli.writeValidated,
+      DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.writeValidated
+    ),
     capabilities: {
       structuredOutput: readBoolean(
         capabilities.structuredOutput,
@@ -516,6 +521,26 @@ function parseGeminiCliProviderConfig(
       reasoning: readBoolean(
         capabilities.reasoning,
         DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.capabilities.reasoning
+      ),
+      tools: readBoolean(
+        capabilities.tools,
+        DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.capabilities.tools
+      ),
+      edits: readBoolean(
+        capabilities.edits,
+        DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.capabilities.edits
+      ),
+      sessionResume: readBoolean(
+        capabilities.sessionResume,
+        DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.capabilities.sessionResume
+      ),
+      cancellation: readBoolean(
+        capabilities.cancellation,
+        DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.capabilities.cancellation
+      ),
+      workspaceIsolation: readBoolean(
+        capabilities.workspaceIsolation,
+        DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.capabilities.workspaceIsolation
       )
     }
   };
