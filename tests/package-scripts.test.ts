@@ -34,13 +34,23 @@ describe("package scripts", () => {
     expect(packageJson.scripts?.["scan:workflow-guidance"]).toBe(
       "node scripts/invariant-scan-workflow-guidance.mjs"
     );
+    expect(packageJson.scripts?.["validate:workflow-fixtures"]).toBe(
+      "npm run build && node scripts/validate-workflow-fixtures.mjs"
+    );
+    expect(packageJson.scripts?.["validate:workflow-live"]).toBe(
+      "node scripts/live-validate-agent-team-workflow.mjs"
+    );
+    expect(packageJson.scripts?.["scan:workflow-validation"]).toBe(
+      "node scripts/invariant-scan-workflow-validation.mjs"
+    );
     expect(packageJson.scripts?.ci).toBe(
-      "npm run typecheck && npm test && npm run build && npm run install:check && npm run smoke:mcp-stdio && npm run smoke:workflow-orchestrator && npm run smoke:package && npm run scan:workflow-guidance"
+      "npm run typecheck && npm test && npm run build && npm run install:check && npm run smoke:mcp-stdio && npm run smoke:workflow-orchestrator && npm run smoke:package && npm run scan:workflow-guidance && npm run validate:workflow-fixtures && npm run scan:workflow-validation"
     );
     expect(packageJson.scripts?.ci).not.toContain("smoke:claude-live");
     expect(packageJson.scripts?.ci).not.toContain("smoke:claude-live-matrix");
     expect(packageJson.scripts?.ci).not.toContain("smoke:providers-live");
     expect(packageJson.scripts?.ci).not.toContain("smoke:gemini-write");
+    expect(packageJson.scripts?.ci).not.toContain("validate:workflow-live");
     const ci = packageJson.scripts?.ci ?? "";
     expect(ci.indexOf("npm run build")).toBeLessThan(
       ci.indexOf("npm run install:check")
@@ -56,6 +66,12 @@ describe("package scripts", () => {
     );
     expect(ci.indexOf("npm run smoke:package")).toBeLessThan(
       ci.indexOf("npm run scan:workflow-guidance")
+    );
+    expect(ci.indexOf("npm run scan:workflow-guidance")).toBeLessThan(
+      ci.indexOf("npm run validate:workflow-fixtures")
+    );
+    expect(ci.indexOf("npm run validate:workflow-fixtures")).toBeLessThan(
+      ci.indexOf("npm run scan:workflow-validation")
     );
   });
 

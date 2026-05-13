@@ -1,0 +1,49 @@
+{
+  "scenarioId": "simple-production-app",
+  "goal": "Plan and build a small production-ready settings app with isolated implementation slices.",
+  "requiredEvidence": [
+    "workflow",
+    "approval",
+    "slice",
+    "review",
+    "integration",
+    "verification",
+    "cleanup",
+    "public_sanitization"
+  ],
+  "expectedPhases": [
+    "brainstorming",
+    "planning",
+    "awaiting_user_plan_approval",
+    "executing",
+    "reviewing",
+    "awaiting_integration",
+    "validating",
+    "completed"
+  ],
+  "slices": [
+    {
+      "sliceId": "settings-ui",
+      "role": "frontend-engineer",
+      "writeScope": ["src/settings-ui.tsx"],
+      "acceptanceTests": ["renders save state", "shows validation error"]
+    },
+    {
+      "sliceId": "settings-storage",
+      "role": "backend-engineer",
+      "writeScope": ["src/settings-storage.ts"],
+      "acceptanceTests": ["persists value", "rejects malformed input"]
+    }
+  ],
+  "observations": [
+    { "kind": "workflow", "ref": "workflow_settings" },
+    { "kind": "approval", "ref": "decision_settings" },
+    { "kind": "slice", "ref": "settings-ui" },
+    { "kind": "slice", "ref": "settings-storage" },
+    { "kind": "review", "ref": "review_settings" },
+    { "kind": "integration", "ref": "integration_settings" },
+    { "kind": "verification", "ref": "npm_run_ci", "status": "passed" },
+    { "kind": "cleanup", "ref": "cleanup_ready" },
+    { "kind": "public_sanitization", "ref": "sanitized_public_output" }
+  ]
+}

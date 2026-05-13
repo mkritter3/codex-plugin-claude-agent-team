@@ -1,0 +1,60 @@
+{
+  "scenarioId": "failure-modes",
+  "scenarios": [
+    {
+      "scenarioId": "missing-auth",
+      "requiredEvidence": ["workflow", "degraded_provider", "public_sanitization", "provider_auth"],
+      "expectedBlockedReason": "missing provider authentication",
+      "observations": [
+        { "kind": "workflow", "ref": "workflow_missing_auth" },
+        { "kind": "degraded_provider", "ref": "doctor_missing_auth", "status": "degraded" },
+        { "kind": "provider_auth", "ref": "no_hidden_fallback", "status": "passed" },
+        { "kind": "public_sanitization", "ref": "sanitized_doctor_output" }
+      ]
+    },
+    {
+      "scenarioId": "blocked-dependency",
+      "requiredEvidence": ["workflow", "slice", "blocked_dependency", "mailbox", "review"],
+      "expectedBlockedReason": "dependency not approved",
+      "observations": [
+        { "kind": "workflow", "ref": "workflow_blocked_dependency" },
+        { "kind": "slice", "ref": "dependent_slice" },
+        { "kind": "blocked_dependency", "ref": "dependency_waiting", "status": "degraded" },
+        { "kind": "mailbox", "ref": "unblock_message" },
+        { "kind": "review", "ref": "dependency_review" }
+      ]
+    },
+    {
+      "scenarioId": "conflicting-write-scopes",
+      "requiredEvidence": ["workflow", "slice", "integration", "public_sanitization"],
+      "expectedBlockedReason": "conflict risk",
+      "observations": [
+        { "kind": "workflow", "ref": "workflow_conflict" },
+        { "kind": "slice", "ref": "slice_a" },
+        { "kind": "slice", "ref": "slice_b" },
+        { "kind": "integration", "ref": "conflict_order" },
+        { "kind": "public_sanitization", "ref": "sanitized_conflict_report" }
+      ]
+    },
+    {
+      "scenarioId": "failed-tests",
+      "requiredEvidence": ["workflow", "slice", "verification", "test_execution"],
+      "expectedBlockedReason": "required tests failed",
+      "observations": [
+        { "kind": "workflow", "ref": "workflow_failed_tests" },
+        { "kind": "slice", "ref": "slice_tests" },
+        { "kind": "verification", "ref": "npm_test_failed", "status": "degraded" },
+        { "kind": "test_execution", "ref": "isolated_worktree_npm_test" }
+      ]
+    },
+    {
+      "scenarioId": "cleanup-partial-failure",
+      "requiredEvidence": ["workflow", "cleanup"],
+      "expectedBlockedReason": "retained evidence still required",
+      "observations": [
+        { "kind": "workflow", "ref": "workflow_cleanup" },
+        { "kind": "cleanup", "ref": "manual_cleanup_required", "status": "degraded" }
+      ]
+    }
+  ]
+}

@@ -133,6 +133,18 @@ rg -n "T[B]D|T[O]DO|implement[ ]later|fill[ ]in|appropriate[ ]error[ ]handling|h
 
 - No runtime verification is required for docs-only changes unless package metadata, scripts, examples, or generated artifacts are changed.
 
+### Workflow Validation Gate
+
+Workflow implementation milestones must include:
+
+- deterministic fixture validation for workflow mechanics
+- explicit opt-in for live provider proof
+- public-output sanitization checks
+- blocked dependency, review rejection, failed-test, cleanup-failure, provider-degradation, and steering-truth scenarios where relevant
+- no model comparison or broad provider-quality claims from fixture evidence
+
+Fixture validation reports use `workflow_mechanics_only` and must record `liveProviderCalls: 0`. Live validation reports use `provider_transport_capability_only` unless a separately approved live scenario includes real task acceptance criteria, diff evidence, tests, senior review, and user-approved scope.
+
 ## Required Verification Commands
 
 For implementation milestones, run:

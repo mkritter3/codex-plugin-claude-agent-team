@@ -772,6 +772,16 @@ Provider steering is reported truthfully. A run may support `live` steering when
 
 Default role guidance treats Opus as the senior planning, architecture, security, high-complexity review, and sign-off brain. Sonnet and Codex CLI are default autonomous implementation workers in retained isolated worktrees. Haiku is preferred for search and reconnaissance. Gemini CLI is a full autonomous worker when configured, with default preference for UI, UX, frontend, visual, and browser-flow work. Ollama-hosted Kimi K2.6, GLM 5.1, and DeepSeek profiles are junior bounded workers that require isolated worktrees and senior review before integration.
 
+## Workflow Validation
+
+`npm run validate:workflow-fixtures` builds the package and runs deterministic workflow validation fixtures through the packaged validation runner. The report is written to `.agent-team/reports/workflow-fixture-validation.json`, uses the `workflow_mechanics_only` claim boundary, records `liveProviderCalls: 0`, and proves workflow mechanics such as approval gates, blocked dependencies, mailbox evidence, review gates, integration evidence, failed-test evidence, cleanup posture, and public-output sanitization.
+
+`npm run scan:workflow-validation` checks the validation harness and methodology for unsafe public-output claims, raw provider payload terms, private instruction leakage, and secret names.
+
+`npm run validate:workflow-live` is opt-in only. It requires `AGENT_TEAM_LIVE_WORKFLOW_VALIDATE=1` and `AGENT_TEAM_LIVE_WORKFLOW_PROVIDERS=...`, then emits a `provider_transport_capability_only` plan for real provider proof. It is not part of CI and does not run live providers from fixture validation.
+
+Validation methodology is documented in `docs/superpowers/reports/2026-05-13-agent-team-workflow-validation-methodology.md`.
+
 ## Evidence
 
 Treat these as first-class records:
@@ -810,4 +820,4 @@ Every integrated change should pass:
 npm run ci
 ```
 
-`npm run ci` runs typecheck, tests, build, install handoff preflight, packaged stdio smoke, and package dry-run smoke in that order.
+`npm run ci` runs typecheck, tests, build, install handoff preflight, packaged stdio smoke, workflow orchestrator smoke, package dry-run smoke, workflow guidance scan, deterministic workflow fixture validation, and workflow validation scan in that order.

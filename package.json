@@ -44,7 +44,10 @@
     "smoke:gemini-write": "node scripts/live-smoke-gemini-write-validation.mjs",
     "smoke:ollama-write": "node scripts/live-smoke-ollama-write-validation.mjs",
     "scan:workflow-guidance": "node scripts/invariant-scan-workflow-guidance.mjs",
-    "ci": "npm run typecheck && npm test && npm run build && npm run install:check && npm run smoke:mcp-stdio && npm run smoke:workflow-orchestrator && npm run smoke:package && npm run scan:workflow-guidance"
+    "validate:workflow-fixtures": "npm run build && node scripts/validate-workflow-fixtures.mjs",
+    "validate:workflow-live": "node scripts/live-validate-agent-team-workflow.mjs",
+    "scan:workflow-validation": "node scripts/invariant-scan-workflow-validation.mjs",
+    "ci": "npm run typecheck && npm test && npm run build && npm run install:check && npm run smoke:mcp-stdio && npm run smoke:workflow-orchestrator && npm run smoke:package && npm run scan:workflow-guidance && npm run validate:workflow-fixtures && npm run scan:workflow-validation"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",

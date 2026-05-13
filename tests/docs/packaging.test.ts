@@ -15,6 +15,9 @@ describe("packaging and install docs", () => {
       "npm run build",
       "npm run install:check",
       "npm run smoke:workflow-orchestrator",
+      "npm run validate:workflow-fixtures",
+      "npm run validate:workflow-live",
+      "npm run scan:workflow-validation",
       "npm run smoke:package",
       "npm run smoke:claude-live",
       "npm run smoke:claude-live-matrix",
@@ -53,6 +56,7 @@ describe("packaging and install docs", () => {
       "Troubleshooting",
       "docs/runbooks/claude-team-session.md",
       "docs/superpowers/reports/2026-05-13-agent-team-workflow-orchestrator-readiness.md",
+      "docs/superpowers/reports/2026-05-13-agent-team-workflow-validation-methodology.md",
       "docs/superpowers/reports/2026-05-13-agent-team-live-gemini-write-proof.md"
     ]) {
       expect(readme).toContain(text);
@@ -108,6 +112,9 @@ describe("packaging and install docs", () => {
     expect(readme).toContain("Codex-owned manual integration");
     expect(readme).toContain("final gate verification");
     expect(readme).toContain("cleanup only after integration evidence is saved");
+    expect(readme).toContain("workflow_mechanics_only");
+    expect(readme).toContain("provider_transport_capability_only");
+    expect(readme).toContain("AGENT_TEAM_LIVE_WORKFLOW_VALIDATE=1");
 	  });
 
   it("documents versioning and changelog policy", async () => {
