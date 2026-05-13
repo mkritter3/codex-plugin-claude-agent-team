@@ -30,6 +30,14 @@ describe("Claude team session runbook", () => {
       "agent_team_message_many",
       "agent_team_wind_down_many",
       "agent_team_cleanup",
+      "agent_team_create_workflow",
+      "agent_team_plan_consensus",
+      "agent_team_start_slices",
+      "agent_team_unblock_slice",
+      "agent_team_review_slice",
+      "agent_team_integration_queue",
+      "agent_team_record_integration",
+      "agent_team_workflow_report",
       "npm run build",
       "npm run install:check",
       "npm run smoke:mcp-stdio",
@@ -80,7 +88,14 @@ describe("Claude team session runbook", () => {
 	    expect(doc).toContain("Kimi K2.6");
 	    expect(doc).toContain("GLM 5.1");
 	    expect(doc).toContain("DeepSeek");
-	    expect(doc).toContain("model-quality claim");
+    expect(doc).toContain("model-quality claim");
+    expect(doc).toContain("completionStatus");
+    expect(doc).toContain("ready-to-integrate");
+    expect(doc).toContain("missing-evidence");
+    expect(doc).toContain("Codex-owned manual integration");
+    expect(doc).toContain("CEO/product-level");
+    expect(doc).toContain("final gate verification");
+    expect(doc).toContain("cleanup only after integration evidence is saved");
 	  });
 
   it("keeps documentation provider-neutral and avoids private implementation disclosure", async () => {

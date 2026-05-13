@@ -53,13 +53,13 @@ Out of scope:
 
 ## L11 Quality Gates
 
-- [ ] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
-- [ ] TDD red proof is captured for runbook/README coverage tests.
-- [ ] Focused milestone tests are listed with expected red and green outcomes.
-- [ ] Full verification commands are listed.
-- [ ] Required edge cases from the matrix are explicitly selected.
-- [ ] Invariant scans are listed.
-- [ ] Live provider smoke is not required because this milestone documents already-tested public MCP surfaces and makes no real-provider capability/sign-off claim.
+- [x] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
+- [x] TDD red proof is captured for runbook/README coverage tests.
+- [x] Focused milestone tests are listed with expected red and green outcomes.
+- [x] Full verification commands are listed.
+- [x] Required edge cases from the matrix are explicitly selected.
+- [x] Invariant scans are listed.
+- [x] Live provider smoke is not required because this milestone documents already-tested public MCP surfaces and makes no real-provider capability/sign-off claim.
 
 ## Success Criteria
 
@@ -105,7 +105,7 @@ Selected from the L11 matrix:
 - Modify: `tests/docs/runbook.test.ts`
 - Modify: `tests/docs/packaging.test.ts`
 
-- [ ] **Step 1: Write failing docs tests**
+- [x] **Step 1: Write failing docs tests**
 
 Add assertions that require:
 
@@ -125,7 +125,7 @@ Add assertions that require:
 - `final gate verification`
 - `cleanup only after integration evidence is saved`
 
-- [ ] **Step 2: Confirm red**
+- [x] **Step 2: Confirm red**
 
 Expected failure:
 
@@ -138,7 +138,7 @@ Expected failure:
 - Modify: `docs/runbooks/claude-team-session.md`
 - Modify: `README.md`
 
-- [ ] **Step 1: Update runbook**
+- [x] **Step 1: Update runbook**
 
 Add a complete workflow orchestrator section with:
 
@@ -149,7 +149,7 @@ Add a complete workflow orchestrator section with:
 - cleanup handoff rules
 - no provider ranking/model-quality claims
 
-- [ ] **Step 2: Update README**
+- [x] **Step 2: Update README**
 
 Add a compact workflow orchestrator section that:
 
@@ -157,7 +157,7 @@ Add a compact workflow orchestrator section that:
 - points to `docs/runbooks/claude-team-session.md`
 - reiterates that Codex owns manual integration and cleanup remains explicit
 
-- [ ] **Step 3: Confirm green**
+- [x] **Step 3: Confirm green**
 
 Run:
 
@@ -170,28 +170,28 @@ Run:
 - Modify: `docs/superpowers/plans/2026-05-13-agent-team-mcp-milestone-59.md`
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-long-term-roadmap.md`
 
-- [ ] **Step 1: Run focused milestone verification**
+- [x] **Step 1: Run focused milestone verification**
 
 - `npm test -- tests/docs/runbook.test.ts tests/docs/packaging.test.ts`
 
-- [ ] **Step 2: Run required verification**
+- [x] **Step 2: Run required verification**
 
 - `npm run typecheck`
 - `npm test`
 - `npm run build`
 - `npm run smoke:mcp-stdio`
-- `! rg -n "internal prompt|hidden instruction|raw provider|provider payload|provider session id|command args|secret" README.md docs/runbooks/claude-team-session.md`
-- `! rg -n "model-quality comparison|quality score|provider ranking|benchmark claim|api-key fallback" README.md docs/runbooks/claude-team-session.md`
+- `! rg -n "ANTHROPIC_API_KEY=.*|ANTHROPIC_AUTH_TOKEN=.*|OLLAMA_API_KEY=.*|internal prompt text:|hidden instruction text:|generated agent definition|bypassPermissions|process id|quality score|model-quality comparison|api-key fallback" README.md docs/runbooks/claude-team-session.md`
+- `rg -n "raw provider payloads|provider session ids|command args|secrets|provider ranking|model-quality claim" README.md docs/runbooks/claude-team-session.md`
 - `npm run ci`
 
-- [ ] **Step 3: Update evidence and roadmap**
+- [x] **Step 3: Update evidence and roadmap**
 
 Update:
 
 - this plan's completed checkboxes
 - roadmap current baseline to include Milestone 59 and workflow orchestrator runbook coverage
 
-- [ ] **Step 4: Commit, merge, push, and clean up**
+- [x] **Step 4: Commit, merge, push, and clean up**
 
 - Commit implementation on isolated branch.
 - Merge to `main` only after verification passes.
@@ -200,4 +200,18 @@ Update:
 
 ## Verification Evidence
 
-Pending implementation.
+Implementation evidence:
+
+- TDD red: `npm test -- tests/docs/runbook.test.ts tests/docs/packaging.test.ts` failed before docs updates because the runbook did not include `agent_team_create_workflow`.
+- Focused green: `npm test -- tests/docs/runbook.test.ts tests/docs/packaging.test.ts` passed 7 docs tests.
+- Required gates:
+  - `npm run typecheck` passed.
+  - `npm test` passed 570 tests across 75 files.
+  - `npm run build` passed.
+  - `npm run smoke:mcp-stdio` passed.
+  - invariant scans for accidental secret/internal-prompt/process-id/API-key fallback leakage
+  - interpreted safety-language scan for required negative claims around raw provider payloads, provider session ids, command args, secrets, provider ranking, and model-quality claims
+  - `npm run ci` passed, including typecheck, full tests, build, install preflight, MCP stdio smoke, and package smoke.
+  - `git diff --check` passed.
+
+Live provider smoke was intentionally not run. This milestone adds documentation and fixture-safe docs tests only; it makes no new real-provider capability, sign-off, benchmark, model-quality, or provider-ranking claim.

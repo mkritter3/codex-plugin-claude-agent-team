@@ -86,6 +86,137 @@ Workspace policy can restrict role starts, provider selectors, write-capable sta
 
 When `auditEnabled` is true, dispatch and lifecycle start decisions write sanitized records to `.agent-team/audit/events.jsonl` before provider execution. Treat those records as operator evidence for allow/block decisions, not as transcripts.
 
+## L11 Workflow Orchestrator Loop
+
+Use this workflow when Codex is coordinating a full engineering effort with planning, parallel implementation slices, review, integration, and final completion evidence. It uses public MCP tools only; Codex remains the senior engineer, orchestrator, reviewer, integrator, and final authority.
+
+The public tool sequence is:
+
+1. Run `agent_team_doctor` for the workspace.
+2. Create the durable workflow with `agent_team_create_workflow`.
+3. Record planning consensus rounds with `agent_team_plan_consensus`.
+4. Start ready implementation slices with `agent_team_start_slices`.
+5. Send dependency evidence to blocked or waiting slices with `agent_team_unblock_slice`.
+6. Review each implementation slice with `agent_team_review_slice`.
+7. Build the read-only integration order with `agent_team_integration_queue`.
+8. Perform Codex-owned manual integration outside the plugin.
+9. Record final gate verification with `agent_team_record_integration`.
+10. Read the final completion report with `agent_team_workflow_report`.
+11. Use `agent_team_cleanup` only after reviewing retained worktrees and saving integration evidence.
+
+Create the workflow from a product goal, constraints, non-goals, and a slice DAG:
+
+```json
+{
+  "cwd": "/absolute/path/to/workspace",
+  "name": "Checkout Reliability Workflow",
+  "goal": {
+    "title": "Ship checkout reliability hardening",
+    "successCriteria": [
+      "User checkout succeeds through retry-safe payment confirmation",
+      "Focused and full verification pass before release"
+    ],
+    "constraints": [
+      "Codex owns integration",
+      "Implementation agents write only in retained isolated worktrees"
+    ],
+    "nonGoals": [
+      "Provider comparison",
+      "Automatic merge"
+    ]
+  },
+  "slices": [
+    {
+      "sliceId": "slice_tests",
+      "title": "Checkout regression tests",
+      "state": "ready",
+      "ownerRole": "test-hardening-engineer",
+      "dependencies": [],
+      "writeScope": ["tests/checkout"],
+      "acceptanceTests": ["npm test -- tests/checkout"],
+      "riskLevel": "medium",
+      "requiredReviewers": ["code-reviewer", "test-hardening-engineer"],
+      "integrationOrderHint": 1
+    },
+    {
+      "sliceId": "slice_runtime",
+      "title": "Checkout runtime fix",
+      "state": "blocked",
+      "ownerRole": "slice-implementer",
+      "dependencies": ["slice_tests"],
+      "blockedMode": "deferred-start",
+      "blockedBy": ["slice_tests"],
+      "writeScope": ["src/checkout"],
+      "acceptanceTests": ["npm test -- tests/checkout"],
+      "riskLevel": "high",
+      "requiredReviewers": ["code-reviewer", "test-hardening-engineer", "security-reviewer"],
+      "integrationOrderHint": 2
+    }
+  ]
+}
+```
+
+Planning consensus is evidence, not a brainstorming transcript. Use `agent_team_plan_consensus` to record reviewer verdicts, Codex rationale, Opus availability posture, and any CEO/product-level escalation. Routine technical decisions stay with Codex; user escalation is reserved for practical product impact, trust, cost, release posture, or user-facing tradeoffs.
+
+After planning is approved, start slices with bounded concurrency:
+
+```json
+{
+  "cwd": "/absolute/path/to/workspace",
+  "workflowId": "workflow_checkout_reliability",
+  "sliceIds": ["slice_tests", "slice_runtime"],
+  "concurrency": 2
+}
+```
+
+Blocked slices are first-class. When a dependency is ready, call `agent_team_unblock_slice` with dependency evidence, changed files, and evidence paths. Dependent write agents must re-check current source state before editing.
+
+Review is required before integration. Use `agent_team_review_slice` to record implementation evidence, reviewer verdicts, Codex sign-off, Opus review posture when available, and revision or blocker decisions. A slice that needs changes remains `needs-revision` until a later review approves it.
+
+Once slices are approved, call `agent_team_integration_queue`. The queue is read-only: it reports dependency order, conflict risk, focused tests, changed files, retained worktree paths, and review run ids. It does not merge, patch, commit, push, delete branches, or clean retained worktrees.
+
+Codex-owned manual integration happens outside the plugin. Codex reviews one retained worktree diff at a time, applies the chosen integration method, and runs focused tests. After integration, call `agent_team_record_integration` with final gate verification:
+
+```json
+{
+  "cwd": "/absolute/path/to/workspace",
+  "workflowId": "workflow_checkout_reliability",
+  "sliceId": "slice_tests",
+  "integrationMethod": "manual-patch",
+  "summary": "Codex integrated the checkout regression tests.",
+  "changedFiles": ["tests/checkout/retry.test.ts"],
+  "verification": [
+    {
+      "command": "npm test -- tests/checkout/retry.test.ts",
+      "status": "passed",
+      "summary": "Focused checkout tests passed.",
+      "evidencePath": "/absolute/path/to/workspace/.agent-team/evidence/slice_tests-focused.log"
+    }
+  ],
+  "evidencePaths": [
+    "/absolute/path/to/workspace/.agent-team/evidence/slice_tests-integration.json"
+  ],
+  "retainedWorktreePath": "/absolute/path/to/workspace/.worktrees/slice_tests",
+  "cleanupRecommendation": "eligible-after-evidence-saved"
+}
+```
+
+The completion report is the final workflow gate:
+
+```json
+{
+  "cwd": "/absolute/path/to/workspace",
+  "workflowId": "workflow_checkout_reliability",
+  "includeWorkflow": true
+}
+```
+
+`agent_team_workflow_report` returns `completionStatus`. It reports `complete` only when planning is approved and every slice is integrated with durable passing final gate verification. It reports `incomplete` for `ready-to-integrate`, `in-progress`, `deferred`, or `missing-evidence` states. It reports `blocked` when any slice is blocked, failed, cancelled, or needs revision. The report also identifies cleanup-ready rows, retained worktree paths, evidence paths, blockers, and missing evidence reasons.
+
+Cleanup is explicit and cleanup only after integration evidence is saved. Use `agent_team_cleanup` for a retained implementation worktree after Codex has reviewed the diff, recorded final gate evidence, and no longer needs that worktree as review evidence.
+
+This workflow makes no provider ranking, comparative performance claim, model-quality claim, or real Opus sign-off claim unless a separate opt-in live proof records that evidence. If Opus is unavailable in required-when-available mode, record degraded evidence and notify the user; do not silently block forever.
+
 ## Claude Code CLI Model Profiles
 
 Use `providers.claudeCodeCli.profiles` when you want explicit provider ids for Claude Code's subscription-backed aliases. The profile ids stay non-secret and do not add API-key env behavior:

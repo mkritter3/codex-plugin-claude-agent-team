@@ -31,6 +31,14 @@ describe("packaging and install docs", () => {
       "agent_team_dashboard",
       "agent_team_summary",
       "agent_team_cleanup",
+      "agent_team_create_workflow",
+      "agent_team_plan_consensus",
+      "agent_team_start_slices",
+      "agent_team_unblock_slice",
+      "agent_team_review_slice",
+      "agent_team_integration_queue",
+      "agent_team_record_integration",
+      "agent_team_workflow_report",
       "npm run ci",
       "Troubleshooting",
       "docs/runbooks/claude-team-session.md"
@@ -67,7 +75,12 @@ describe("packaging and install docs", () => {
 	    expect(readme).toContain("Kimi K2.6");
 	    expect(readme).toContain("GLM 5.1");
 	    expect(readme).toContain("DeepSeek");
-	    expect(readme).toContain("model-quality claim");
+    expect(readme).toContain("model-quality claim");
+    expect(readme).toContain("Workflow Orchestrator");
+    expect(readme).toContain("completionStatus");
+    expect(readme).toContain("Codex-owned manual integration");
+    expect(readme).toContain("final gate verification");
+    expect(readme).toContain("cleanup only after integration evidence is saved");
 	  });
 
   it("documents versioning and changelog policy", async () => {

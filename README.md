@@ -511,6 +511,27 @@ For a full operator flow, see `docs/runbooks/claude-team-session.md`.
 
 `agent_team_dashboard` is inspection-only. It reports corrupt state as evidence without archiving inspected artifacts, and all lifecycle actions still go through explicit control tools.
 
+## Workflow Orchestrator
+
+For a complete L11 engineering workflow, use the workflow orchestrator tools in the operator runbook: `docs/runbooks/claude-team-session.md`.
+
+The public workflow loop is:
+
+1. `agent_team_create_workflow`
+2. `agent_team_plan_consensus`
+3. `agent_team_start_slices`
+4. `agent_team_unblock_slice`
+5. `agent_team_review_slice`
+6. `agent_team_integration_queue`
+7. Codex-owned manual integration outside the plugin
+8. `agent_team_record_integration`
+9. `agent_team_workflow_report`
+10. `agent_team_cleanup`
+
+`agent_team_workflow_report` returns `completionStatus` and only reports `complete` after planning is approved, every slice is integrated, and durable passing final gate verification exists for every slice. It also reports blocked, incomplete, ready-to-integrate, missing-evidence, and cleanup-ready rows.
+
+Codex owns technical decisions, integration, review synthesis, and final authority. Users should only be asked CEO/product-level decisions with practical product, trust, cost, user-impact, or release-tradeoff consequences. Cleanup is explicit, and cleanup only after integration evidence is saved.
+
 ## Evidence
 
 Treat these as first-class records:
