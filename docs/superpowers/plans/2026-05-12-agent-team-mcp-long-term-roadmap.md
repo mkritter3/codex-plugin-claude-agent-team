@@ -349,6 +349,37 @@ That gate requires:
 
 **Status:** Complete. `npm run smoke:claude-live` now performs a direct packaged-MCP Claude dispatch proof, starts a small parallel Claude team through public MCP tools, uses explicit MCP request timeouts, treats only `completed` as successful live-smoke terminal state, fails with sanitized evidence for nonterminal or unsuccessful terminal runs, and preserves wind-down/cancellation evidence. The Claude background runtime now sends the initial prompt as documented stream-json stdin and closes stdin so real prompt-mode sessions complete instead of timing out while waiting for input; lifecycle also allows provider timeout finalization after wind-down has begun.
 
+### Milestone 47: Live Capability Matrix And Stress Proof
+
+**Goal:** Prove the current Claude-backed control plane across mailbox, wind-down, cancellation, implementation handoff, team grouping, cleanup, and edge-case behavior before adding more write-capable providers.
+
+**Success Criteria:**
+
+- A repeatable live validation plan exists for direct dispatch, read-only parallel teams, isolated `slice-implementer`, mailbox delivery to active runs, graceful wind-down, explicit cancellation, retained worktree handoff, team records, dashboard, summary, cleanup, and source-checkout cleanliness.
+- The plan uses public MCP tools only and keeps live provider use opt-in.
+- Stress cases include bounded concurrency, long-running implementer mailbox updates, cancellation of an active implementer, wind-down of an active implementer, cleanup after retained worktree review, and policy failure for disallowed write roots.
+- Reports include run ids, roles, provider ids, terminal states, evidence paths, changed files, cleanup state, and known limitations without prompts, secrets, provider session ids, raw payloads, process ids, or command args.
+- No model-quality, benchmark, or provider-ranking claim is made from this validation.
+
+**Status:** Planned. This milestone should run before the Ollama Claude Code adapter so the existing Claude control plane has live evidence for every operational control path that future providers will inherit.
+
+### Milestone 48: Ollama Claude Code Profiles
+
+**Goal:** Add explicit Ollama Cloud profiles that route Claude Code through Ollama's Anthropic-compatible interface so Kimi, GLM, and DeepSeek cloud models can participate in the same team lifecycle where their real capabilities pass validation.
+
+**Success Criteria:**
+
+- Users configure the Ollama API key once through plugin/MCP environment, for example `OLLAMA_API_KEY`, not once per model and not in workspace JSON.
+- Workspace config defines shared Ollama Claude Code settings plus model profiles such as `kimi-k2.6:cloud`, `glm-5.1:cloud`, and `deepseek-v4-flash:cloud`.
+- Provider ids are explicit, for example `ollama-claude-code:kimi-k2.6`, and are never inferred from Claude subscription mode or generic environment variables.
+- The provider reuses the Claude Code session lifecycle, sidecars, mailboxes, verdicts, status, dashboard, wind-down, cancellation, isolated worktrees, diff evidence, and cleanup contracts.
+- Scoped provider launch env can set `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_API_KEY`, and `OLLAMA_API_KEY` only for that run without weakening `claude-code-cli` subscription OAuth auth-precedence checks.
+- Doctor reports Ollama CLI/proxy readiness, shared auth env presence, model profile readiness, capability declarations, and clear repair steps without exposing secrets or provider endpoints in public MCP output.
+- Write-capable Ollama Claude Code profiles are disabled until live proof validates implementation, mailbox, wind-down, cancellation, cleanup, and source-checkout containment for that model/profile.
+- Live proof is opt-in, excluded from CI, and makes no model-quality, benchmark, ranking, or practical long-context claim.
+
+**Status:** Planned. This should build on Milestone 47's live capability matrix and reuse the already-validated Claude Code lifecycle rather than creating a parallel implementation-agent engine.
+
 ## Definition Of Done For V1
 
 V1 is complete when Codex can reliably:
@@ -369,4 +400,4 @@ V1.5 is complete when at least one non-Claude provider can be configured explici
 
 ## Near-Term Recommendation
 
-Milestones 40 through 46 are complete. The current roadmap has reached the planned V2 product maturity baseline for durable team records, dashboard visibility, policy/audit controls, release/upgrade safety, opt-in live Claude proof, repeatable install handoff, explicit read-only provider proof, and real-call reliability hardening. The next implementation target should move toward richer operator recovery, clearer install ergonomics, or the next roadmap extension for provider-neutral team orchestration.
+Milestones 40 through 46 are complete. The next implementation target should be Milestone 47, because it live-validates the operational controls future write-capable providers will inherit. Milestone 48 should follow with explicit Ollama Claude Code profiles for Kimi, GLM, and DeepSeek cloud models, using a single plugin-level Ollama API key and the existing Claude Code lifecycle surface.
