@@ -73,7 +73,7 @@ export function codexCliProviderDescriptor(
   return {
     id: CODEX_CLI_PROVIDER_ID,
     displayName: provider.displayName ?? "Codex CLI",
-    authMode: "oauth",
+    authMode: "subscription-oauth",
     capabilities,
     available: warnings.length === 0,
     ...(provider.model === undefined ? {} : { model: provider.model }),

@@ -20,6 +20,10 @@ describe("packaging and install docs", () => {
       "npm run smoke:claude-live-matrix",
       "npm run smoke:providers-live",
       "npm run smoke:gemini-write",
+      "Codex CLI",
+      "codex-cli",
+      "subscription-oauth",
+      "docs/superpowers/reports/2026-05-13-agent-team-live-codex-cli-provider-proof.md",
       "agent-team-mcp",
       "\"./dist/index.js\"",
       ".agent-team/config.json",
@@ -84,6 +88,11 @@ describe("packaging and install docs", () => {
 	    expect(readme).toContain("Kimi K2.6");
 	    expect(readme).toContain("GLM 5.1");
 	    expect(readme).toContain("DeepSeek");
+    expect(readme).toContain("local Codex CLI login remains the auth boundary");
+    expect(readme).toContain("OPENAI_API_KEY");
+    expect(readme).toContain("OPENAI_BASE_URL");
+    expect(readme).toContain("OPENAI_ORG_ID");
+    expect(readme).toContain("OPENAI_PROJECT");
     expect(readme).toContain("model-quality claim");
     expect(readme).toContain("Workflow Orchestrator");
     expect(readme).toContain("completionStatus");

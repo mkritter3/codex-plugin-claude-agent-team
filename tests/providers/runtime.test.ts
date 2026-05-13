@@ -46,10 +46,10 @@ describe("provider runtime registry", () => {
     expect(runtime?.descriptor().available).toBe(false);
   });
 
-  it("resolves the Codex CLI runtime as OAuth and disabled by default", () => {
+  it("resolves the Codex CLI runtime as subscription OAuth and disabled by default", () => {
     const runtime = getProviderRuntime("codex-cli");
 
-    expect(runtime?.descriptor().authMode).toBe("oauth");
+    expect(runtime?.descriptor().authMode).toBe("subscription-oauth");
     expect(runtime?.descriptor().available).toBe(false);
   });
 

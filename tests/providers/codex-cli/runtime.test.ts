@@ -71,17 +71,27 @@ describe("Codex CLI runtime", () => {
     expect(codexCliProvider(DEFAULT_AGENT_TEAM_CONFIG)).toBeUndefined();
     expect(createCodexCliRuntime().descriptor()).toMatchObject({
       id: "codex-cli",
-      authMode: "oauth",
+      authMode: "subscription-oauth",
       available: false,
       capabilities: []
     });
   });
 
-  it("runs Codex exec read-only with configured model and no API-key fallback", async () => {
-    const calls: Array<{ command: string; args: readonly string[]; cwd: string }> = [];
+  it("runs Codex exec read-only with configured model and sanitized subscription env", async () => {
+    const calls: Array<{
+      command: string;
+      args: readonly string[];
+      cwd: string;
+      env?: NodeJS.ProcessEnv;
+    }> = [];
     const runtime = createCodexCliRuntime({
       runCommand: async (command, args, options) => {
-        calls.push({ command, args, cwd: options?.cwd ?? "" });
+        calls.push({
+          command,
+          args,
+          cwd: options?.cwd ?? "",
+          ...(options?.env === undefined ? {} : { env: options.env })
+        });
         return {
           ok: true,
           stdout: " Codex response text \n",
@@ -97,7 +107,11 @@ describe("Codex CLI runtime", () => {
       roleId: "planner",
       executionPolicy: "read-only",
       config: config(),
-      env: { OPENAI_API_KEY: "must-not-be-used" }
+      env: {
+        OPENAI_API_KEY: "must-not-be-used",
+        OPENAI_BASE_URL: "https://must-not-be-used.example",
+        CODEX_HOME: "/tmp/codex-home"
+      }
     });
 
     expect(result).toMatchObject({
@@ -118,13 +132,14 @@ describe("Codex CLI runtime", () => {
           "/tmp/project",
           "--sandbox",
           "read-only",
-          "--ask-for-approval",
-          "never",
           "Review this plan."
         ],
-        cwd: "/tmp/project"
+        cwd: "/tmp/project",
+        env: expect.objectContaining({ CODEX_HOME: "/tmp/codex-home" })
       }
     ]);
+    expect(calls[0]?.env).not.toHaveProperty("OPENAI_API_KEY");
+    expect(calls[0]?.env).not.toHaveProperty("OPENAI_BASE_URL");
   });
 
   it("fails closed before running the CLI when disabled or missing structured output", async () => {
@@ -204,8 +219,6 @@ describe("Codex CLI runtime", () => {
       "/tmp/worktree",
       "--sandbox",
       "workspace-write",
-      "--ask-for-approval",
-      "never",
       "Implement a bounded slice."
     ]);
     expect(handle.supportsStdin).toBe(false);

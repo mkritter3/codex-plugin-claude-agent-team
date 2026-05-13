@@ -1,8 +1,6 @@
-import { execFile } from "node:child_process";
 import { spawn as nodeSpawn } from "node:child_process";
 import { createInterface } from "node:readline";
 import type { Readable, Writable } from "node:stream";
-import { promisify } from "node:util";
 import { appendBoundedLog } from "../../core/logs.js";
 import { runLogPath } from "../../core/state/paths.js";
 import type { AgentProviderDescriptor, AgentTeamConfig } from "../../core/types.js";
@@ -41,7 +39,6 @@ export interface CodexCliRuntimeOptions {
 
 export { codexCliProvider };
 
-const execFileAsync = promisify(execFile);
 const DEFAULT_MAX_LOG_BYTES = 1_048_576;
 const DEFAULT_MAX_ROTATED_LOG_FILES = 5;
 
@@ -74,38 +71,65 @@ const defaultSpawn: SpawnLike = (command, args, options) =>
     stdio: [...options.stdio]
   }) as SpawnedCodexProcess;
 
-const defaultRunCommand: ProviderCommandRunner = async (path, args, options = {}) => {
-  try {
-    const { stdout, stderr } = await execFileAsync(path, [...args], {
-      ...(options.cwd === undefined ? {} : { cwd: options.cwd }),
-      ...(options.env === undefined ? {} : { env: options.env }),
-      ...(options.timeoutMs === undefined ? {} : { timeout: options.timeoutMs }),
-      encoding: "utf8"
+const defaultRunCommand: ProviderCommandRunner = (path, args, options = {}) =>
+  new Promise((resolve) => {
+    let stdout = "";
+    let stderr = "";
+    let settled = false;
+    const child = nodeSpawn(path, [...args], {
+      cwd: options.cwd,
+      env: options.env,
+      stdio: ["ignore", "pipe", "pipe"],
+      windowsHide: true
     });
-    return {
-      ok: true,
-      stdout: String(stdout),
-      stderr: String(stderr),
-      exitCode: 0
+
+    const finish = (result: { readonly exitCode: number | null; readonly error?: Error }): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      const exitCode = result.exitCode ?? 1;
+      resolve({
+        ok: result.error === undefined && exitCode === 0,
+        stdout,
+        stderr:
+          stderr.trim().length === 0 && result.error !== undefined
+            ? result.error.message
+            : stderr,
+        exitCode
+      });
     };
-  } catch (error) {
-    const commandError = error as {
-      readonly stdout?: unknown;
-      readonly stderr?: unknown;
-      readonly code?: unknown;
-      readonly message?: string;
-    };
-    return {
-      ok: false,
-      stdout: commandError.stdout === undefined ? "" : String(commandError.stdout),
-      stderr:
-        commandError.stderr === undefined || String(commandError.stderr).trim().length === 0
-          ? String(commandError.message ?? "Codex CLI command failed.")
-          : String(commandError.stderr),
-      exitCode: typeof commandError.code === "number" ? commandError.code : 1
-    };
-  }
-};
+
+    const timeout =
+      options.timeoutMs === undefined
+        ? undefined
+        : setTimeout(() => {
+            child.kill("SIGTERM");
+            finish({
+              exitCode: 1,
+              error: new Error(`Codex CLI command timed out after ${options.timeoutMs}ms.`)
+            });
+          }, options.timeoutMs);
+
+    child.stdout?.on("data", (chunk) => {
+      stdout += Buffer.from(chunk).toString("utf8");
+    });
+    child.stderr?.on("data", (chunk) => {
+      stderr += Buffer.from(chunk).toString("utf8");
+    });
+    child.on("error", (error) => {
+      if (timeout !== undefined) {
+        clearTimeout(timeout);
+      }
+      finish({ exitCode: 1, error });
+    });
+    child.on("close", (code) => {
+      if (timeout !== undefined) {
+        clearTimeout(timeout);
+      }
+      finish({ exitCode: code });
+    });
+  });
 
 function fail(message: string, details: Partial<ProviderPrintResult> = {}): ProviderPrintResult {
   return {
@@ -149,10 +173,23 @@ function buildCodexExecArgs(input: {
     input.cwd,
     "--sandbox",
     input.sandbox,
-    "--ask-for-approval",
-    "never",
     input.prompt
   ];
+}
+
+const CODEX_API_KEY_ENV_VARS = [
+  "OPENAI_API_KEY",
+  "OPENAI_BASE_URL",
+  "OPENAI_ORG_ID",
+  "OPENAI_PROJECT"
+] as const;
+
+function codexSubscriptionEnv(input: NodeJS.ProcessEnv | undefined): NodeJS.ProcessEnv {
+  const env = { ...(input ?? process.env) };
+  for (const key of CODEX_API_KEY_ENV_VARS) {
+    delete env[key];
+  }
+  return env;
 }
 
 function assertStartable(provider: AgentTeamConfig["providers"]["codexCli"], input: ProviderStartSessionInput): void {
@@ -235,7 +272,7 @@ export function createCodexCliRuntime(
         }),
         {
           cwd: input.cwd,
-          ...(input.env === undefined ? {} : { env: input.env }),
+          env: codexSubscriptionEnv(input.env),
           ...(input.timeoutMs === undefined ? {} : { timeoutMs: input.timeoutMs })
         }
       );
@@ -297,7 +334,7 @@ export function createCodexCliRuntime(
       const child = spawn(provider.executable, args, {
         cwd: input.cwd,
         stdio: ["ignore", "pipe", "pipe"],
-        ...(input.env === undefined ? {} : { env: input.env }),
+        env: codexSubscriptionEnv(input.env),
         windowsHide: true
       });
       activity("tool_start", "Codex CLI session started.");

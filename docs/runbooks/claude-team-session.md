@@ -485,6 +485,48 @@ For UI/UX and frontend work, prefer explicit role pins:
 
 Gemini CLI implementation runs use retained isolated worktrees and `--approval-mode auto_edit`; read-only runs use `--approval-mode plan`. The plugin never uses Gemini CLI `--yolo`. If Gemini returns rate limits, timeouts, or provider-unavailable errors, provider health cooldowns cause normal default/family routing to avoid it temporarily while exact `gemini-cli` requests remain explicit probes.
 
+## Codex CLI Subscription Provider
+
+Use `providers.codexCli` when you want a separate Codex CLI process to act as a normal agent-team worker through the local Codex subscription login. This is separate from host Codex, which remains the senior engineer, orchestrator, reviewer, integrator, and final authority.
+
+```json
+{
+  "providers": {
+    "codexCli": {
+      "enabled": true,
+      "executable": "codex",
+      "model": "gpt-5.5",
+      "displayName": "Codex CLI",
+      "writeValidated": true,
+      "capabilities": {
+        "structuredOutput": true,
+        "longContext": true,
+        "reasoning": true,
+        "tools": true,
+        "sessionResume": true,
+        "cancellation": true,
+        "edits": true,
+        "workspaceIsolation": true
+      }
+    }
+  },
+  "policy": {
+    "allowedRoles": ["planner", "code-reviewer", "slice-implementer", "frontend-engineer", "backend-engineer", "test-hardening-engineer"],
+    "allowedProviderSelectors": ["codex-cli"],
+    "allowWriteMode": true,
+    "allowedWorktreeRoots": ["/absolute/path/to/.agent-team-worktrees"],
+    "liveSmokeEnabled": false,
+    "auditEnabled": true
+  }
+}
+```
+
+Keep `writeValidated: false`, `allowWriteMode: false`, and empty write capabilities until the exact local Codex CLI executable and model have passed an opt-in isolated-write proof in a disposable workspace. After that proof, `codex-cli` can be assigned planning, review, implementation, UI, backend, or test-hardening roles through normal provider-neutral routing and workflow slices.
+
+Codex CLI read-only dispatch uses `codex exec --sandbox read-only`. Isolated write dispatch uses `--sandbox workspace-write` only after write validation and explicit workspace roots. The adapter never uses `--dangerously-bypass-approvals-and-sandbox`. It reports `authMode: "subscription-oauth"` and removes `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_ORG_ID`, and `OPENAI_PROJECT` from provider launches so local Codex CLI login remains the auth boundary.
+
+Latest live Codex CLI read-only provider proof evidence is recorded in `docs/superpowers/reports/2026-05-13-agent-team-live-codex-cli-provider-proof.md`.
+
 ## Opt-In Live Smoke
 
 This section is the opt-in live smoke. It is not part of CI because it uses local subscription credentials and may start external provider processes.

@@ -47,6 +47,10 @@ describe("Claude team session runbook", () => {
       "npm run smoke:claude-live-matrix",
       "npm run smoke:providers-live",
       "npm run smoke:gemini-write",
+      "Codex CLI Subscription Provider",
+      "codex-cli",
+      "subscription-oauth",
+      "docs/superpowers/reports/2026-05-13-agent-team-live-codex-cli-provider-proof.md",
       "npm run ci",
       "docs/superpowers/reports/2026-05-13-agent-team-workflow-orchestrator-readiness.md",
       "docs/superpowers/reports/2026-05-13-agent-team-live-gemini-write-proof.md"
@@ -97,6 +101,11 @@ describe("Claude team session runbook", () => {
 	    expect(doc).toContain("Kimi K2.6");
 	    expect(doc).toContain("GLM 5.1");
 	    expect(doc).toContain("DeepSeek");
+    expect(doc).toContain("local Codex subscription login");
+    expect(doc).toContain("OPENAI_API_KEY");
+    expect(doc).toContain("OPENAI_BASE_URL");
+    expect(doc).toContain("OPENAI_ORG_ID");
+    expect(doc).toContain("OPENAI_PROJECT");
     expect(doc).toContain("model-quality claim");
     expect(doc).toContain("completionStatus");
     expect(doc).toContain("ready-to-integrate");

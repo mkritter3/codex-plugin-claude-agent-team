@@ -54,12 +54,12 @@ describe("Codex CLI provider config", () => {
     expect(codexCliProvider(DEFAULT_AGENT_TEAM_CONFIG)).toBeUndefined();
   });
 
-  it("builds an OAuth descriptor without API-key env requirements", () => {
+  it("builds a subscription OAuth descriptor without API-key env requirements", () => {
     expect(codexCliProvider(config())).toEqual(
       expect.objectContaining({
         id: CODEX_CLI_PROVIDER_ID,
         displayName: "Codex CLI",
-        authMode: "oauth",
+        authMode: "subscription-oauth",
         model: "gpt-5.5",
         capabilities: ["structuredOutput", "longContext", "reasoning"],
         available: true

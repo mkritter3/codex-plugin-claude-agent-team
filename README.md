@@ -474,7 +474,7 @@ For UI/UX and frontend work, prefer explicit role pins rather than hidden router
 
 Gemini CLI implementation runs use retained isolated worktrees and `--approval-mode auto_edit`; read-only runs use `--approval-mode plan`. The plugin never uses Gemini CLI `--yolo`. If Gemini returns rate limits, timeouts, or provider-unavailable errors, provider health cooldowns cause normal default/family routing to avoid it temporarily while exact `gemini-cli` requests remain explicit probes.
 
-Codex CLI is an explicit auth-backed provider for local Codex login/OAuth usage. It is disabled by default and separate from Codex as the host/orchestrator:
+Codex CLI is an explicit subscription-backed provider for local Codex login usage. It is disabled by default and separate from Codex as the host/orchestrator: host Codex remains the senior engineer and integration authority, while `codex-cli` can be routed as a normal agent-team worker.
 
 ```json
 {
@@ -484,30 +484,35 @@ Codex CLI is an explicit auth-backed provider for local Codex login/OAuth usage.
       "executable": "codex",
       "model": "gpt-5.5",
       "displayName": "Codex CLI",
-      "writeValidated": false,
+      "writeValidated": true,
       "capabilities": {
         "structuredOutput": true,
         "longContext": true,
         "reasoning": true,
-        "tools": false,
-        "sessionResume": false,
-        "cancellation": false,
-        "edits": false,
-        "workspaceIsolation": false
+        "tools": true,
+        "sessionResume": true,
+        "cancellation": true,
+        "edits": true,
+        "workspaceIsolation": true
       }
     }
   },
   "policy": {
-    "allowedRoles": ["planner", "code-reviewer"],
+    "allowedRoles": ["planner", "code-reviewer", "slice-implementer", "frontend-engineer", "backend-engineer", "test-hardening-engineer"],
     "allowedProviderSelectors": ["codex-cli"],
-    "allowWriteMode": false,
+    "allowWriteMode": true,
+    "allowedWorktreeRoots": ["/absolute/path/to/.agent-team-worktrees"],
     "liveSmokeEnabled": false,
     "auditEnabled": true
   }
 }
 ```
 
-Codex CLI read-only dispatch uses `codex exec --sandbox read-only --ask-for-approval never` with the configured model and workspace. Isolated write dispatch uses `--sandbox workspace-write` only after the provider has `writeValidated: true` and explicitly declares tools, edits, session resume, cancellation, and workspace isolation. This adapter never infers `OPENAI_API_KEY`; local Codex CLI login remains the auth boundary.
+Keep `writeValidated: false`, `allowWriteMode: false`, and empty write capabilities until the exact local Codex CLI executable and model have passed an opt-in isolated-write proof in a disposable workspace. After that proof, Codex CLI can be assigned planning, review, implementation, UI, backend, or test-hardening roles through the same provider-neutral routing and slice DAG as Claude, Gemini CLI, Ollama, and other adapters.
+
+Codex CLI read-only dispatch uses `codex exec --sandbox read-only` with the configured model and workspace. Isolated write dispatch uses `--sandbox workspace-write` only after the provider has `writeValidated: true` and explicitly declares tools, edits, session resume, cancellation, and workspace isolation. The adapter never uses `--dangerously-bypass-approvals-and-sandbox`. It reports `authMode: "subscription-oauth"` and removes `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_ORG_ID`, and `OPENAI_PROJECT` from provider launches so local Codex CLI login remains the auth boundary.
+
+Latest live Codex CLI read-only provider proof evidence is recorded in `docs/superpowers/reports/2026-05-13-agent-team-live-codex-cli-provider-proof.md`.
 
 Provider health is recorded under `.agent-team/providers/health.json`. Transient failures such as rate limits, timeouts, or provider-unavailable responses mark the provider degraded for a cooldown window with evidence paths and failure counts. During cooldown, default and family/provider-order routing avoids that provider; explicit provider requests remain explicit probes and record their own evidence. This is operational reliability memory, not a model evaluation or provider ranking claim.
 
