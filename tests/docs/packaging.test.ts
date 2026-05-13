@@ -61,6 +61,18 @@ describe("packaging and install docs", () => {
     ]) {
       expect(readme).toContain(text);
     }
+    for (const text of [
+      "Delegation Playbook",
+      "routing_guidance_only",
+      "claude-code-cli:opus",
+      "claude-code-cli:sonnet",
+      "claude-code-cli:haiku",
+      "gemini-cli",
+      "ollama-claude-code:kimi-k2.6",
+      "Codex remains the final authority"
+    ]) {
+      expect(readme).toContain(text);
+    }
     expect(readme).toContain("opt-in live smoke");
     expect(readme).toContain("not part of CI");
     expect(readme).toContain("--confirm-live-provider-use");

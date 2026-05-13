@@ -3,6 +3,10 @@ import type {
   WorkflowRecord,
   WorkflowSlice
 } from "./workflow-types.js";
+import {
+  recommendDelegationForWorkflowPhase,
+  type DelegationRecommendation
+} from "./delegation-playbook.js";
 
 export const WORKFLOW_GUIDANCE_PHASES = [
   "brainstorming",
@@ -62,6 +66,7 @@ export type WorkflowGuidance = {
   readonly workflowId: string;
   readonly phase: WorkflowGuidancePhase;
   readonly hooks: readonly WorkflowGuidanceHook[];
+  readonly delegation: readonly DelegationRecommendation[];
   readonly userEscalations: readonly WorkflowGuidanceUserEscalation[];
   readonly blockedReasons: readonly {
     readonly code: string;
@@ -82,6 +87,7 @@ export function deriveWorkflowGuidance(record: WorkflowRecord): WorkflowGuidance
     workflowId: record.workflowId,
     phase,
     hooks: hooksForPhase(record, phase),
+    delegation: recommendDelegationForWorkflowPhase(phase),
     userEscalations: userEscalationsForGuidance(record),
     blockedReasons: blockedReasonsForGuidance(record),
     seniorReview: seniorReviewForGuidance(record)

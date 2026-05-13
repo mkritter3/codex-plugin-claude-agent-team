@@ -772,6 +772,20 @@ Provider steering is reported truthfully. A run may support `live` steering when
 
 Default role guidance treats Opus as the senior planning, architecture, security, high-complexity review, and sign-off brain. Sonnet and Codex CLI are default autonomous implementation workers in retained isolated worktrees. Haiku is preferred for search and reconnaissance. Gemini CLI is a full autonomous worker when configured, with default preference for UI, UX, frontend, visual, and browser-flow work. Ollama-hosted Kimi K2.6, GLM 5.1, and DeepSeek profiles are junior bounded workers that require isolated worktrees and senior review before integration.
 
+## Delegation Playbook
+
+The Delegation Playbook is the reusable strategy layer Codex uses before dispatching an agent team. It is advisory and returns `routing_guidance_only`: role and provider preferences, evidence requirements, steering posture, risk controls, and user-escalation categories. It does not start providers, mutate source, merge code, delete worktrees, or make provider-ranking or model-quality claims.
+
+Default playbook preferences:
+
+- Planning, architecture, high-complexity review, security-sensitive decisions, and final senior sign-off: `claude-code-cli:opus`.
+- Senior implementation and execution: `claude-code-cli:sonnet` and `codex-cli`.
+- Search, reconnaissance, lightweight scans, and summaries: `claude-code-cli:haiku`.
+- UI, UX, frontend, visual, product-flow, and browser-oriented work: `gemini-cli` when configured and healthy.
+- Junior contained implementation: `ollama-claude-code:kimi-k2.6`, `ollama-claude-code:glm-5.1`, and `ollama-claude-code:deepseek-v4-flash`.
+
+Codex remains the final authority. Junior and UI workers can be autonomous, but write-capable work still requires retained isolated worktrees, bounded write scopes, changed-file evidence, tests run, senior review, and Codex-owned integration before cleanup.
+
 ## Workflow Validation
 
 `npm run validate:workflow-fixtures` builds the package and runs deterministic workflow validation fixtures through the packaged validation runner. The report is written to `.agent-team/reports/workflow-fixture-validation.json`, uses the `workflow_mechanics_only` claim boundary, records `liveProviderCalls: 0`, and proves workflow mechanics such as approval gates, blocked dependencies, mailbox evidence, review gates, integration evidence, failed-test evidence, cleanup posture, and public-output sanitization.

@@ -42,6 +42,77 @@ function workflow(overrides: Partial<WorkflowRecord> = {}): WorkflowRecord {
 }
 
 describe("deriveWorkflowGuidance", () => {
+  it("includes Opus planning delegation guidance during planning", () => {
+    const guidance = deriveWorkflowGuidance(
+      workflow({
+        planningStatus: "in-consensus",
+        consensusRounds: [
+          {
+            round: 1,
+            phase: "planning",
+            startedAt: "2026-05-13T10:01:00.000Z",
+            consensus: "needs-revision",
+            verdicts: [{ reviewerRole: "architect", status: "revise", summary: "Tighten scope." }]
+          }
+        ]
+      })
+    );
+
+    expect(guidance.phase).toBe("planning");
+    expect(guidance.delegation.map((item) => item.workType)).toEqual(["planning"]);
+    expect(guidance.delegation[0]?.providerPreferences).toContain("claude-code-cli:opus");
+    expect(guidance.delegation[0]?.claimBoundary).toBe("routing_guidance_only");
+  });
+
+  it("includes implementation and junior-worker delegation guidance while executing", () => {
+    const guidance = deriveWorkflowGuidance(
+      workflow({
+        planningStatus: "approved",
+        codexRationale: [
+          {
+            rationaleId: "rat_approval",
+            createdAt: "2026-05-13T10:03:00.000Z",
+            category: "product-behavior",
+            summary:
+              "User decision recorded: approve. Ship this. Practical effect: Users get the workflow.",
+            relatedSliceIds: ["slice_core"]
+          }
+        ],
+        slices: [slice({ state: "ready", riskLevel: "low" })]
+      })
+    );
+
+    expect(guidance.phase).toBe("executing");
+    expect(guidance.delegation.map((item) => item.workType)).toEqual([
+      "implementation",
+      "junior-implementation"
+    ]);
+    expect(guidance.delegation[0]?.providerPreferences).toEqual(
+      expect.arrayContaining(["claude-code-cli:sonnet", "codex-cli"])
+    );
+    expect(guidance.delegation[1]?.providerPreferences).toContain(
+      "ollama-claude-code:kimi-k2.6"
+    );
+  });
+
+  it("includes review and test-hardening delegation guidance during review", () => {
+    const guidance = deriveWorkflowGuidance(
+      workflow({
+        planningStatus: "approved",
+        slices: [slice({ state: "awaiting-review" })]
+      })
+    );
+
+    expect(guidance.phase).toBe("reviewing");
+    expect(guidance.delegation.map((item) => item.workType)).toEqual([
+      "high-complexity-review",
+      "test-hardening"
+    ]);
+    expect(guidance.delegation[0]?.evidenceRequirements).toContain(
+      "Codex final sign-off"
+    );
+  });
+
   it("requires user plan approval after planning consensus signs off", () => {
     const guidance = deriveWorkflowGuidance(
       workflow({
@@ -104,7 +175,7 @@ describe("deriveWorkflowGuidance", () => {
       }
     ]);
     expect(JSON.stringify(guidance)).not.toMatch(
-      /systemPrompt|rawProvider|providerPayload|apiKey|commandArgs/i
+      /systemPrompt|rawProvider|providerPayload|apiKey|commandArgs|best model|provider superiority|benchmark winner/i
     );
   });
 

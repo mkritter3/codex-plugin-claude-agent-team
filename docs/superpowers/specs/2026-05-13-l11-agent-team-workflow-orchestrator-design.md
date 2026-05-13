@@ -269,6 +269,22 @@ Default provider-role policy:
 - Gemini CLI as a full autonomous worker, primarily for UI, UX, frontend, visual, and browser-flow work.
 - Kimi K2.6, GLM 5.1, and DeepSeek-style Ollama Cloud profiles as junior bounded workers requiring isolated worktrees and senior review before integration.
 
+## Delegation Playbook Layer
+
+The delegation playbook is the reusable strategy layer above routing and lifecycle execution. It returns `routing_guidance_only` recommendations: work type, roles, provider preferences, concurrency posture, steering mode, evidence requirements, risk controls, Codex-owned decisions, and user-escalation categories.
+
+The playbook does not start providers, mutate source, merge code, delete worktrees, or claim provider quality. Existing router, policy, provider health, write validation, workflow state, sidecars, mailboxes, verdicts, review gates, and cleanup tools remain the execution authorities.
+
+The default playbook maps:
+
+- planning and high-complexity review to `claude-code-cli:opus`
+- senior implementation to `claude-code-cli:sonnet` and `codex-cli`
+- search and reconnaissance to `claude-code-cli:haiku`
+- UI/UX/frontend/product-flow work to `gemini-cli`
+- junior contained implementation to `ollama-claude-code:kimi-k2.6`, `ollama-claude-code:glm-5.1`, and `ollama-claude-code:deepseek-v4-flash`
+
+Codex remains the final authority over slice decomposition, routing under policy, technical implementation choices, merge order, conflict resolution, and verification scope. The user is asked only product, trust, cost, release, permission, or practical user-impact decisions.
+
 ## Evidence Model
 
 New workflow records should remain provider-neutral and durable under `.agent-team/`.

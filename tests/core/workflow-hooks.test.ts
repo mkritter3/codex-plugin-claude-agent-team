@@ -7,6 +7,7 @@ function guidance(overrides: Partial<WorkflowGuidance> = {}): WorkflowGuidance {
     workflowId: "workflow_hooks",
     phase: "awaiting_user_plan_approval",
     hooks: [],
+    delegation: [],
     userEscalations: [],
     blockedReasons: [],
     seniorReview: {
