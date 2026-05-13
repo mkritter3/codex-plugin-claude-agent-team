@@ -2,7 +2,7 @@
 
 Provider-neutral Agent Team MCP plugin for Codex. The plugin lets Codex start, inspect, message, wind down, and clean up durable external agent runs while Codex remains the orchestrator and final integration authority.
 
-Claude Code CLI subscription OAuth is the primary v1 transport. The core stays provider-neutral so future providers can plug into the same roles, lifecycle, mailbox, verdict, status, cleanup, and evidence contracts.
+Claude Code CLI subscription OAuth is the primary v1 transport. The core stays provider-neutral so other providers can plug into the same roles, lifecycle, mailbox, verdict, status, cleanup, and evidence contracts. The MCP server is host-agnostic at the protocol boundary; Codex-specific plugin packaging is one host shell, not the provider model.
 
 ## Safety Model
 
@@ -473,6 +473,41 @@ For UI/UX and frontend work, prefer explicit role pins rather than hidden router
 ```
 
 Gemini CLI implementation runs use retained isolated worktrees and `--approval-mode auto_edit`; read-only runs use `--approval-mode plan`. The plugin never uses Gemini CLI `--yolo`. If Gemini returns rate limits, timeouts, or provider-unavailable errors, provider health cooldowns cause normal default/family routing to avoid it temporarily while exact `gemini-cli` requests remain explicit probes.
+
+Codex CLI is an explicit auth-backed provider for local Codex login/OAuth usage. It is disabled by default and separate from Codex as the host/orchestrator:
+
+```json
+{
+  "providers": {
+    "codexCli": {
+      "enabled": true,
+      "executable": "codex",
+      "model": "gpt-5.5",
+      "displayName": "Codex CLI",
+      "writeValidated": false,
+      "capabilities": {
+        "structuredOutput": true,
+        "longContext": true,
+        "reasoning": true,
+        "tools": false,
+        "sessionResume": false,
+        "cancellation": false,
+        "edits": false,
+        "workspaceIsolation": false
+      }
+    }
+  },
+  "policy": {
+    "allowedRoles": ["planner", "code-reviewer"],
+    "allowedProviderSelectors": ["codex-cli"],
+    "allowWriteMode": false,
+    "liveSmokeEnabled": false,
+    "auditEnabled": true
+  }
+}
+```
+
+Codex CLI read-only dispatch uses `codex exec --sandbox read-only --ask-for-approval never` with the configured model and workspace. Isolated write dispatch uses `--sandbox workspace-write` only after the provider has `writeValidated: true` and explicitly declares tools, edits, session resume, cancellation, and workspace isolation. This adapter never infers `OPENAI_API_KEY`; local Codex CLI login remains the auth boundary.
 
 Provider health is recorded under `.agent-team/providers/health.json`. Transient failures such as rate limits, timeouts, or provider-unavailable responses mark the provider degraded for a cooldown window with evidence paths and failure counts. During cooldown, default and family/provider-order routing avoids that provider; explicit provider requests remain explicit probes and record their own evidence. This is operational reliability memory, not a model evaluation or provider ranking claim.
 

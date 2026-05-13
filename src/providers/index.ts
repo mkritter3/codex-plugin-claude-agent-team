@@ -7,6 +7,7 @@ import { listOllamaClaudeCodeProviders } from "./ollama-claude-code/config.js";
 import { listGrokProviders } from "./grok/config.js";
 import { geminiProvider } from "./gemini/config.js";
 import { geminiCliProvider } from "./gemini-cli/config.js";
+import { codexCliProvider } from "./codex-cli/config.js";
 
 const BASE_CLAUDE_CAPABILITIES = [
   "structuredOutput",
@@ -59,6 +60,10 @@ export function listProviders(
   const geminiCli = geminiCliProvider(config);
   if (geminiCli !== undefined) {
     providers.push(geminiCli);
+  }
+  const codexCli = codexCliProvider(config);
+  if (codexCli !== undefined) {
+    providers.push(codexCli);
   }
   return providers;
 }

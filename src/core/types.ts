@@ -185,6 +185,26 @@ export interface GeminiCliProviderConfig {
   readonly capabilities: GeminiCliProviderCapabilitiesConfig;
 }
 
+export interface CodexCliProviderCapabilitiesConfig {
+  readonly structuredOutput: boolean;
+  readonly longContext: boolean;
+  readonly reasoning: boolean;
+  readonly tools: boolean;
+  readonly edits: boolean;
+  readonly sessionResume: boolean;
+  readonly cancellation: boolean;
+  readonly workspaceIsolation: boolean;
+}
+
+export interface CodexCliProviderConfig {
+  readonly enabled: boolean;
+  readonly executable: string;
+  readonly model?: string;
+  readonly displayName?: string;
+  readonly writeValidated: boolean;
+  readonly capabilities: CodexCliProviderCapabilitiesConfig;
+}
+
 export interface AgentTeamProviderConfig {
   readonly claudeCodeCli: ClaudeCodeCliProviderConfig;
   readonly openaiCompatible: OpenAICompatibleProviderConfig;
@@ -193,6 +213,7 @@ export interface AgentTeamProviderConfig {
   readonly grok: GrokProviderConfig;
   readonly gemini: GeminiProviderConfig;
   readonly geminiCli: GeminiCliProviderConfig;
+  readonly codexCli: CodexCliProviderConfig;
 }
 
 export type ProviderSelectorSource = "request" | "role-pin" | "provider-order" | "default";

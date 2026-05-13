@@ -82,6 +82,21 @@ export const DEFAULT_AGENT_TEAM_CONFIG: AgentTeamConfig = {
         cancellation: false,
         workspaceIsolation: false
       }
+    },
+    codexCli: {
+      enabled: false,
+      executable: "codex",
+      writeValidated: false,
+      capabilities: {
+        structuredOutput: false,
+        longContext: false,
+        reasoning: false,
+        tools: false,
+        edits: false,
+        sessionResume: false,
+        cancellation: false,
+        workspaceIsolation: false
+      }
     }
   }
 };
@@ -546,6 +561,66 @@ function parseGeminiCliProviderConfig(
   };
 }
 
+function parseCodexCliProviderConfig(
+  providers: Record<string, unknown>
+): AgentTeamConfig["providers"]["codexCli"] {
+  const codexCli = objectField(providers, "codexCli");
+  const capabilities = objectField(codexCli, "capabilities");
+  const executable =
+    readString(codexCli.executable) ??
+    DEFAULT_AGENT_TEAM_CONFIG.providers.codexCli.executable;
+  const model = readString(codexCli.model);
+  const displayName = readString(codexCli.displayName);
+
+  return {
+    enabled: readBoolean(
+      codexCli.enabled,
+      DEFAULT_AGENT_TEAM_CONFIG.providers.codexCli.enabled
+    ),
+    executable,
+    ...(model === undefined ? {} : { model }),
+    ...(displayName === undefined ? {} : { displayName }),
+    writeValidated: readBoolean(
+      codexCli.writeValidated,
+      DEFAULT_AGENT_TEAM_CONFIG.providers.codexCli.writeValidated
+    ),
+    capabilities: {
+      structuredOutput: readBoolean(
+        capabilities.structuredOutput,
+        DEFAULT_AGENT_TEAM_CONFIG.providers.codexCli.capabilities.structuredOutput
+      ),
+      longContext: readBoolean(
+        capabilities.longContext,
+        DEFAULT_AGENT_TEAM_CONFIG.providers.codexCli.capabilities.longContext
+      ),
+      reasoning: readBoolean(
+        capabilities.reasoning,
+        DEFAULT_AGENT_TEAM_CONFIG.providers.codexCli.capabilities.reasoning
+      ),
+      tools: readBoolean(
+        capabilities.tools,
+        DEFAULT_AGENT_TEAM_CONFIG.providers.codexCli.capabilities.tools
+      ),
+      edits: readBoolean(
+        capabilities.edits,
+        DEFAULT_AGENT_TEAM_CONFIG.providers.codexCli.capabilities.edits
+      ),
+      sessionResume: readBoolean(
+        capabilities.sessionResume,
+        DEFAULT_AGENT_TEAM_CONFIG.providers.codexCli.capabilities.sessionResume
+      ),
+      cancellation: readBoolean(
+        capabilities.cancellation,
+        DEFAULT_AGENT_TEAM_CONFIG.providers.codexCli.capabilities.cancellation
+      ),
+      workspaceIsolation: readBoolean(
+        capabilities.workspaceIsolation,
+        DEFAULT_AGENT_TEAM_CONFIG.providers.codexCli.capabilities.workspaceIsolation
+      )
+    }
+  };
+}
+
 function parseRoutingConfig(
   parsed: unknown
 ): AgentTeamConfig["routing"] {
@@ -675,7 +750,8 @@ export async function loadAgentTeamConfig(
       ollamaClaudeCode: parseOllamaClaudeCodeProviderConfig(providers),
       grok: parseGrokProviderConfig(providers),
       gemini: parseGeminiProviderConfig(providers),
-      geminiCli: parseGeminiCliProviderConfig(providers)
+      geminiCli: parseGeminiCliProviderConfig(providers),
+      codexCli: parseCodexCliProviderConfig(providers)
     },
     seniorReview: parseSeniorReviewPolicyConfig(parsed),
     policy: parsePolicyConfig(parsed)
