@@ -2,6 +2,7 @@ import type {
   SeniorReviewPolicyConfig,
   WorkflowCodexRationale,
   WorkflowGoalPacket,
+  WorkflowIntegrationQueueItem,
   WorkflowPlanningStatus,
   WorkflowRecord,
   WorkflowSlice,
@@ -57,7 +58,7 @@ export interface WorkflowView {
   readonly consensusRounds: readonly unknown[];
   readonly userEscalations: readonly unknown[];
   readonly opusReviewEvidence: readonly WorkflowOpusReviewEvidenceView[];
-  readonly integrationQueue: readonly unknown[];
+  readonly integrationQueue: readonly WorkflowIntegrationQueueItem[];
   readonly codexRationale: readonly WorkflowCodexRationale[];
   readonly evidencePath: string;
 }
@@ -126,6 +127,25 @@ function reviewEvidenceToView(
   };
 }
 
+function integrationQueueItemToView(
+  item: WorkflowIntegrationQueueItem
+): WorkflowIntegrationQueueItem {
+  return {
+    sliceId: item.sliceId,
+    state: item.state,
+    worktreePath: item.worktreePath,
+    branchName: item.branchName,
+    reviewRunIds: item.reviewRunIds,
+    ...(item.queuePosition === undefined ? {} : { queuePosition: item.queuePosition }),
+    ...(item.conflictRisk === undefined ? {} : { conflictRisk: item.conflictRisk }),
+    ...(item.riskReasons === undefined ? {} : { riskReasons: item.riskReasons }),
+    ...(item.changedFiles === undefined ? {} : { changedFiles: item.changedFiles }),
+    ...(item.dependencySliceIds === undefined ? {} : { dependencySliceIds: item.dependencySliceIds }),
+    ...(item.focusedTests === undefined ? {} : { focusedTests: item.focusedTests }),
+    ...(item.queuedAt === undefined ? {} : { queuedAt: item.queuedAt })
+  };
+}
+
 function sliceToView(slice: WorkflowSlice): WorkflowSliceView {
   return {
     sliceId: slice.sliceId,
@@ -188,7 +208,7 @@ export function toWorkflowView(record: WorkflowRecord): WorkflowView {
       ...(evidence.provider === undefined ? {} : { provider: evidence.provider }),
       summary: evidence.summary
     })),
-    integrationQueue: record.integrationQueue,
+    integrationQueue: record.integrationQueue.map(integrationQueueItemToView),
     codexRationale: record.codexRationale ?? [],
     evidencePath: record.evidencePath
   };

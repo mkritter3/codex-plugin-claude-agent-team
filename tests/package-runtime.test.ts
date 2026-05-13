@@ -140,6 +140,9 @@ describe("package runtime contract", () => {
       'assertToolRequires(tools.tools, "agent_team_review_slice", ['
     );
     expect(smokeScript).toContain(
+      'assertToolRequires(tools.tools, "agent_team_integration_queue", ["workflowId"])'
+    );
+    expect(smokeScript).toContain(
       'assertObjectSchema(tools.tools, "agent_team_dashboard")'
     );
     expect(smokeScript).toContain(

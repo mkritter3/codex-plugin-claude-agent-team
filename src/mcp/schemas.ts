@@ -296,6 +296,12 @@ const reviewSliceInputSchema = {
   userEscalations: z.array(userEscalationInputSchema).min(1).optional()
 };
 
+const integrationQueueInputSchema = {
+  workflowId,
+  cwd,
+  sliceIds: z.array(z.string().min(1)).min(1).optional()
+};
+
 const dashboardInputSchema = {
   teamId: teamId
     .optional()
@@ -446,6 +452,12 @@ export const TOOL_METADATA_BY_NAME = {
     description:
       "Record provider-neutral review consensus and sign-off evidence for one workflow slice.",
     inputSchema: reviewSliceInputSchema
+  },
+  agent_team_integration_queue: {
+    title: "Build Workflow Integration Queue",
+    description:
+      "Build a read-only provider-neutral integration order and conflict-risk report for approved workflow slices.",
+    inputSchema: integrationQueueInputSchema
   },
   agent_team_dashboard: {
     title: "Agent Team Dashboard",

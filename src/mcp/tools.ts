@@ -46,6 +46,10 @@ import {
   type PlanConsensusVerdictInput
 } from "../core/workflow-consensus.js";
 import {
+  buildWorkflowIntegrationQueue,
+  type BuildWorkflowIntegrationQueueInput
+} from "../core/workflow-integration-queue.js";
+import {
   reviewWorkflowSlice,
   type ReviewUserEscalationInput,
   type ReviewVerdictInput,
@@ -116,6 +120,7 @@ export const TOOL_NAMES = [
   "agent_team_start_slices",
   "agent_team_unblock_slice",
   "agent_team_review_slice",
+  "agent_team_integration_queue",
   "agent_team_dashboard",
   "agent_team_cancel",
   "agent_team_cancel_many",
@@ -158,6 +163,7 @@ export interface ToolDependencies {
   readonly startWorkflowSlices?: typeof startWorkflowSlices;
   readonly unblockWorkflowSlice?: typeof unblockWorkflowSlice;
   readonly reviewWorkflowSlice?: typeof reviewWorkflowSlice;
+  readonly buildWorkflowIntegrationQueue?: typeof buildWorkflowIntegrationQueue;
   readonly now?: () => Date;
   readonly createWorkflowId?: () => string;
 }
@@ -1118,6 +1124,37 @@ function parseReviewWorkflowSliceArgs(
   };
 }
 
+function parseBuildWorkflowIntegrationQueueArgs(
+  args: Record<string, unknown>,
+  defaultCwd: string,
+  deps: Pick<ToolDependencies, "now">
+): BuildWorkflowIntegrationQueueInput | JsonToolResult {
+  const workflowId = readString(
+    args.workflowId,
+    "agent_team_integration_queue requires a non-empty workflowId."
+  );
+  if (isJsonToolResult(workflowId)) {
+    return workflowId;
+  }
+  const cwdValue = readOptionalString(args.cwd, "agent_team_integration_queue cwd");
+  if (cwdValue !== undefined && typeof cwdValue !== "string") {
+    return cwdValue;
+  }
+  const sliceIds =
+    args.sliceIds === undefined
+      ? undefined
+      : readStringArray(args.sliceIds, "agent_team_integration_queue sliceIds");
+  if (sliceIds !== undefined && isJsonToolResult(sliceIds)) {
+    return sliceIds;
+  }
+  return {
+    workspaceRoot: cwdValue ?? defaultCwd,
+    workflowId,
+    ...(sliceIds === undefined ? {} : { sliceIds }),
+    ...(deps.now === undefined ? {} : { now: deps.now })
+  };
+}
+
 function readOptionalTimeout(
   value: unknown,
   message: string
@@ -1988,6 +2025,8 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
   const workflowStartSlices = deps.startWorkflowSlices ?? startWorkflowSlices;
   const workflowUnblockSlice = deps.unblockWorkflowSlice ?? unblockWorkflowSlice;
   const workflowReviewSlice = deps.reviewWorkflowSlice ?? reviewWorkflowSlice;
+  const workflowIntegrationQueue =
+    deps.buildWorkflowIntegrationQueue ?? buildWorkflowIntegrationQueue;
   const cwd = deps.cwd ?? process.cwd;
   const lifecycleRegistry =
     deps.lifecycleRegistry ??
@@ -2328,6 +2367,21 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
           action: async () =>
             jsonToolResult({
               ...(await workflowReviewSlice(parsed))
+            })
+        });
+      }
+
+      if (name === "agent_team_integration_queue") {
+        const parsed = parseBuildWorkflowIntegrationQueueArgs(args, cwd(), deps);
+        if (isJsonToolResult(parsed)) {
+          return parsed;
+        }
+        return recoverableLifecycleTool({
+          workspaceRoot: parsed.workspaceRoot,
+          operation: name,
+          action: async () =>
+            jsonToolResult({
+              ...(await workflowIntegrationQueue(parsed))
             })
         });
       }

@@ -51,13 +51,13 @@ Out of scope:
 
 ## L11 Quality Gates
 
-- [ ] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
-- [ ] TDD red proof is captured for integration queue core, workflow store/view strictness, MCP handlers, server registration, and package smoke coverage.
-- [ ] Focused milestone tests are listed with expected red and green outcomes.
-- [ ] Full verification commands are listed.
-- [ ] Required edge cases from the matrix are explicitly selected.
-- [ ] Invariant scans are listed.
-- [ ] Live provider smoke is not required because this milestone uses durable fixture workflow evidence and does not claim real provider capability.
+- [x] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
+- [x] TDD red proof is captured for integration queue core, workflow store/view strictness, MCP handlers, server registration, and package smoke coverage.
+- [x] Focused milestone tests are listed with expected red and green outcomes.
+- [x] Full verification commands are listed.
+- [x] Required edge cases from the matrix are explicitly selected.
+- [x] Invariant scans are listed.
+- [x] Live provider smoke is not required because this milestone uses durable fixture workflow evidence and does not claim real provider capability.
 
 ## Success Criteria
 
@@ -132,7 +132,7 @@ Selected from the L11 matrix:
 - Test: `tests/core/state/workflow-store.test.ts`
 - Test: `tests/core/workflow-view.test.ts`
 
-- [ ] **Step 1: Write failing core tests**
+- [x] **Step 1: Write failing core tests**
 
 Add tests proving:
 
@@ -147,7 +147,7 @@ Add tests proving:
 - queue state is persisted to the workflow record
 - returned workflow output does not contain prompts, secrets, raw provider payloads, command args, or provider session ids
 
-- [ ] **Step 2: Run focused tests and verify red**
+- [x] **Step 2: Run focused tests and verify red**
 
 Run:
 
@@ -157,7 +157,7 @@ npm test -- tests/core/workflow-integration-queue.test.ts
 
 Expected: fail because `workflow-integration-queue.ts` does not exist.
 
-- [ ] **Step 3: Implement integration queue service and evidence parsing**
+- [x] **Step 3: Implement integration queue service and evidence parsing**
 
 Create:
 
@@ -167,7 +167,7 @@ export async function buildWorkflowIntegrationQueue(input: BuildWorkflowIntegrat
 
 Use `readWorkflowRecord`, `writeWorkflowRecord`, and `toWorkflowView`. Do not call providers, lifecycle methods, git commands, cleanup, or filesystem diff readers.
 
-- [ ] **Step 4: Run focused tests and verify green**
+- [x] **Step 4: Run focused tests and verify green**
 
 Run:
 
@@ -186,7 +186,7 @@ Expected: integration queue, store, and view tests pass.
 - Test: `tests/mcp/tools.test.ts`
 - Test: `tests/mcp/server.test.ts`
 
-- [ ] **Step 1: Write failing MCP tests**
+- [x] **Step 1: Write failing MCP tests**
 
 Add tests proving:
 
@@ -196,7 +196,7 @@ Add tests proving:
 - valid inputs delegate to injected service and return sanitized queue/report/workflow results
 - state corruption is routed through shared recovery behavior
 
-- [ ] **Step 2: Run focused MCP tests and verify red**
+- [x] **Step 2: Run focused MCP tests and verify red**
 
 Run:
 
@@ -206,11 +206,11 @@ npm test -- tests/mcp/tools.test.ts tests/mcp/server.test.ts
 
 Expected: fail because the tool is not registered.
 
-- [ ] **Step 3: Implement MCP schema and handler**
+- [x] **Step 3: Implement MCP schema and handler**
 
 Add the tool to names, metadata, parser helpers, dependency injection, and handler dispatch. Keep public schema provider-neutral.
 
-- [ ] **Step 4: Run focused MCP tests and verify green**
+- [x] **Step 4: Run focused MCP tests and verify green**
 
 Run:
 
@@ -228,11 +228,11 @@ Expected: MCP tests pass.
 - Test: `tests/package-runtime.test.ts`
 - Modify: this plan
 
-- [ ] **Step 1: Write failing smoke coverage**
+- [x] **Step 1: Write failing smoke coverage**
 
 Assert packaged MCP metadata includes `agent_team_integration_queue` and required fields.
 
-- [ ] **Step 2: Run focused smoke tests and verify red**
+- [x] **Step 2: Run focused smoke tests and verify red**
 
 Run:
 
@@ -242,11 +242,11 @@ npm test -- tests/package-runtime.test.ts
 
 Expected: fail until the smoke script and schemas are updated.
 
-- [ ] **Step 3: Implement smoke coverage**
+- [x] **Step 3: Implement smoke coverage**
 
 Update packaged stdio smoke assertions.
 
-- [ ] **Step 4: Run focused smoke tests and verify green**
+- [x] **Step 4: Run focused smoke tests and verify green**
 
 Run:
 
@@ -276,3 +276,30 @@ npm run ci
 
 Live provider proof: not required for M56 unless the implementation claims real provider integration or real Opus sign-off behavior. This milestone proves deterministic queue mechanics, state transitions, and public MCP contracts with durable fixture evidence only.
 
+## Verification Evidence
+
+Completed in isolated worktree `.worktrees/codex/workflow-integration-queue`:
+
+```bash
+npm test -- tests/core/workflow-integration-queue.test.ts
+npm test -- tests/core/workflow-integration-queue.test.ts tests/core/state/workflow-store.test.ts tests/core/workflow-view.test.ts
+npm test -- tests/mcp/tools.test.ts tests/mcp/server.test.ts
+npm test -- tests/package-runtime.test.ts
+npm test -- tests/core/workflow-integration-queue.test.ts tests/core/state/workflow-store.test.ts tests/core/workflow-view.test.ts tests/mcp/tools.test.ts tests/mcp/server.test.ts tests/package-runtime.test.ts
+npm run typecheck
+npm test
+npm run build
+npm run install:check
+npm run smoke:mcp-stdio
+npm run smoke:package
+rg -n "benchmark|model-quality|raw provider|provider session|ANTHROPIC_API_KEY|OPENAI_API_KEY|OLLAMA_API_KEY|auto-merge|git merge|git cherry-pick|cleanupRunWorkspace" src tests docs/superpowers/plans/2026-05-13-agent-team-mcp-milestone-56.md
+npm run ci
+```
+
+Results:
+
+- Focused tests: 96 focused tests passed across integration queue, store/view, MCP tools/server, and package-runtime suites.
+- Full tests: 73 files and 562 tests passed.
+- Typecheck, build, install check, packaged stdio smoke, package smoke, and `npm run ci` passed.
+- Invariant scan found expected historical/docs/test/provider configuration and existing cleanup lifecycle references only; M56 queue code does not call providers, git merge/cherry-pick, cleanup, or source mutation paths.
+- No live provider proof was run or required because M56 records deterministic fixture queue evidence and does not make real provider/model capability claims.

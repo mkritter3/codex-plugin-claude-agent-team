@@ -266,7 +266,8 @@ describe("MCP tool handlers", () => {
       expect.arrayContaining([
         "agent_team_start_slices",
         "agent_team_unblock_slice",
-        "agent_team_review_slice"
+        "agent_team_review_slice",
+        "agent_team_integration_queue"
       ])
     );
     expect(TOOL_METADATA_BY_NAME.agent_team_start_slices).toMatchObject({
@@ -295,6 +296,13 @@ describe("MCP tool handlers", () => {
       codexDecision: expect.any(Object),
       verdicts: expect.any(Object)
     });
+    expect(TOOL_METADATA_BY_NAME.agent_team_integration_queue).toMatchObject({
+      title: "Build Workflow Integration Queue",
+      description: expect.stringMatching(/integration order/i)
+    });
+    expect(TOOL_METADATA_BY_NAME.agent_team_integration_queue.inputSchema).toMatchObject({
+      workflowId: expect.any(Object)
+    });
     expect(JSON.stringify(TOOL_METADATA_BY_NAME.agent_team_start_slices)).not.toMatch(
       /claude-code-cli|internal prompt|raw provider|providerPayload/i
     );
@@ -303,6 +311,9 @@ describe("MCP tool handlers", () => {
     );
     expect(JSON.stringify(TOOL_METADATA_BY_NAME.agent_team_review_slice)).not.toMatch(
       /claude-code-cli|internal prompt|raw provider|providerPayload/i
+    );
+    expect(JSON.stringify(TOOL_METADATA_BY_NAME.agent_team_integration_queue)).not.toMatch(
+      /claude-code-cli|internal prompt|raw provider|providerPayload|merge|cherry-pick/i
     );
   });
 
@@ -742,10 +753,86 @@ describe("MCP tool handlers", () => {
     );
   });
 
+  it("builds workflow integration queues through MCP using the injected workflow service", async () => {
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      buildWorkflowIntegrationQueue: async (input) => ({
+        queue: [
+          {
+            queuePosition: 1,
+            sliceId: input.sliceIds?.[0] ?? "slice_core",
+            state: "queued",
+            worktreePath: "/repo/.worktrees/slice_core",
+            branchName: "codex/workflow_mcp/slice_core",
+            reviewRunIds: ["run_review_slice_core"],
+            conflictRisk: "low",
+            changedFiles: ["src/core/workflow-integration-queue.ts"],
+            dependencySliceIds: [],
+            focusedTests: ["npm test -- tests/core/workflow-integration-queue.test.ts"],
+            queuedAt: "2026-05-13T13:00:00.000Z"
+          }
+        ],
+        excluded: [],
+        workflow: {
+          workflowId: input.workflowId,
+          createdAt: "2026-05-13T10:00:00.000Z",
+          updatedAt: "2026-05-13T13:00:00.000Z",
+          planningStatus: "approved",
+          goal: {
+            title: "Workflow",
+            successCriteria: ["queue built"],
+            constraints: ["provider neutral"],
+            nonGoals: ["auto merge"]
+          },
+          seniorReview: DEFAULT_AGENT_TEAM_CONFIG.seniorReview,
+          slices: [],
+          consensusRounds: [],
+          userEscalations: [],
+          opusReviewEvidence: [],
+          integrationQueue: [
+            {
+              queuePosition: 1,
+              sliceId: input.sliceIds?.[0] ?? "slice_core",
+              state: "queued",
+              worktreePath: "/repo/.worktrees/slice_core",
+              branchName: "codex/workflow_mcp/slice_core",
+              reviewRunIds: ["run_review_slice_core"],
+              conflictRisk: "low",
+              changedFiles: ["src/core/workflow-integration-queue.ts"],
+              dependencySliceIds: [],
+              focusedTests: ["npm test -- tests/core/workflow-integration-queue.test.ts"],
+              queuedAt: "2026-05-13T13:00:00.000Z"
+            }
+          ],
+          codexRationale: [],
+          evidencePath: "/repo/.agent-team/workflows/workflow_mcp.json"
+        }
+      })
+    });
+
+    const result = await handlers.handleToolCall("agent_team_integration_queue", {
+      workflowId: "workflow_mcp",
+      sliceIds: ["slice_core"]
+    });
+
+    expect(result.structuredContent).toMatchObject({
+      queue: [expect.objectContaining({ sliceId: "slice_core", conflictRisk: "low" })],
+      excluded: [],
+      workflow: {
+        workflowId: "workflow_mcp",
+        integrationQueue: [expect.objectContaining({ sliceId: "slice_core" })]
+      }
+    });
+    expect(JSON.stringify(result.structuredContent)).not.toMatch(
+      /internalPrompt|rawProvider|providerSession|commandArgs|secret/i
+    );
+  });
+
   it("rejects invalid workflow slice orchestration input before invoking injected services", async () => {
     let startCalled = false;
     let unblockCalled = false;
     let reviewCalled = false;
+    let queueCalled = false;
     const handlers = createToolHandlers({
       cwd: () => "/repo",
       startWorkflowSlices: async () => {
@@ -759,6 +846,10 @@ describe("MCP tool handlers", () => {
       reviewWorkflowSlice: async () => {
         reviewCalled = true;
         throw new Error("should not review");
+      },
+      buildWorkflowIntegrationQueue: async () => {
+        queueCalled = true;
+        throw new Error("should not queue");
       }
     });
 
@@ -781,13 +872,19 @@ describe("MCP tool handlers", () => {
       },
       verdicts: []
     });
+    const queueResult = await handlers.handleToolCall("agent_team_integration_queue", {
+      workflowId: "workflow_mcp",
+      sliceIds: []
+    });
 
     expect(startResult.structuredContent).toMatchObject({ status: "validation_error" });
     expect(unblockResult.structuredContent).toMatchObject({ status: "validation_error" });
     expect(reviewResult.structuredContent).toMatchObject({ status: "validation_error" });
+    expect(queueResult.structuredContent).toMatchObject({ status: "validation_error" });
     expect(startCalled).toBe(false);
     expect(unblockCalled).toBe(false);
     expect(reviewCalled).toBe(false);
+    expect(queueCalled).toBe(false);
   });
 
   it("loads workspace config for default lifecycle starts", async () => {
@@ -3816,6 +3913,7 @@ describe("MCP tool handlers", () => {
       "agent_team_start_slices",
       "agent_team_unblock_slice",
       "agent_team_review_slice",
+      "agent_team_integration_queue",
       "agent_team_dashboard",
       "agent_team_cancel",
       "agent_team_cancel_many",

@@ -101,7 +101,22 @@ describe("workflow view", () => {
           rawProviderPayload: { secret: true }
         }
       ],
-      integrationQueue: [],
+      integrationQueue: [
+        {
+          queuePosition: 1,
+          sliceId: "slice_view",
+          state: "queued",
+          worktreePath: "/repo/.worktrees/run_view",
+          branchName: "codex/workflow_view/slice_view",
+          reviewRunIds: ["run_view"],
+          conflictRisk: "low",
+          changedFiles: ["src/core/workflow-review.ts"],
+          dependencySliceIds: [],
+          focusedTests: ["npm test -- tests/core/workflow-review.test.ts"],
+          queuedAt: "2026-05-13T10:06:00.000Z",
+          rawProviderPayload: "hidden"
+        }
+      ],
       codexRationale: [
         {
           rationaleId: "rationale_1",
@@ -162,7 +177,16 @@ describe("workflow view", () => {
       seniorReview: {
         opusPlanning: { mode: "required-when-available" },
         opusImplementation: { mode: "required-when-available" }
-      }
+      },
+      integrationQueue: [
+        expect.objectContaining({
+          queuePosition: 1,
+          sliceId: "slice_view",
+          state: "queued",
+          conflictRisk: "low",
+          changedFiles: ["src/core/workflow-review.ts"]
+        })
+      ]
     });
     expect(JSON.stringify(view)).not.toMatch(
       /internalPrompt|rawProviderPayload|rawMailboxPayload|providerSessionId|commandArgs|hidden-session|secret/

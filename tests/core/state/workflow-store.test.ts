@@ -98,7 +98,14 @@ function workflowRecord(
         state: "awaiting-review",
         worktreePath: "/repo/.worktrees/slice_state_store",
         branchName: "codex/slice-state-store",
-        reviewRunIds: ["run_opus_1"]
+        reviewRunIds: ["run_opus_1"],
+        queuePosition: 1,
+        conflictRisk: "medium",
+        riskReasons: ["write scope overlaps earlier queued slice slice_other: src/core"],
+        changedFiles: ["src/core/state/workflow-store.ts"],
+        dependencySliceIds: ["slice_other"],
+        focusedTests: ["npm test -- tests/core/state/workflow-store.test.ts"],
+        queuedAt: createdAt
       }
     ],
     evidencePath: path,

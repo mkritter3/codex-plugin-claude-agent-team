@@ -172,7 +172,14 @@ const INTEGRATION_QUEUE_KEYS = new Set([
   "state",
   "worktreePath",
   "branchName",
-  "reviewRunIds"
+  "reviewRunIds",
+  "queuePosition",
+  "conflictRisk",
+  "riskReasons",
+  "changedFiles",
+  "dependencySliceIds",
+  "focusedTests",
+  "queuedAt"
 ]);
 
 const SENIOR_REVIEW_MODE_SET = new Set<string>(SENIOR_REVIEW_MODES);
@@ -833,7 +840,47 @@ function parseIntegrationQueueItem(
       path,
       `integrationQueue[${index}].branchName`
     ),
-    reviewRunIds
+    reviewRunIds,
+    ...(item.queuePosition === undefined
+      ? {}
+      : {
+          queuePosition: expectPositiveInteger(
+            item.queuePosition,
+            path,
+            `integrationQueue[${index}].queuePosition`
+          )
+        }),
+    ...(item.conflictRisk === undefined
+      ? {}
+      : {
+          conflictRisk: expectEnum<WorkflowRiskLevel>(
+            item.conflictRisk,
+            path,
+            `integrationQueue[${index}].conflictRisk`,
+            RISK_LEVEL_SET
+          )
+        }),
+    ...(item.riskReasons === undefined
+      ? {}
+      : { riskReasons: expectStringArray(item.riskReasons, path, `integrationQueue[${index}].riskReasons`) }),
+    ...(item.changedFiles === undefined
+      ? {}
+      : { changedFiles: expectStringArray(item.changedFiles, path, `integrationQueue[${index}].changedFiles`) }),
+    ...(item.dependencySliceIds === undefined
+      ? {}
+      : {
+          dependencySliceIds: expectStringArray(
+            item.dependencySliceIds,
+            path,
+            `integrationQueue[${index}].dependencySliceIds`
+          )
+        }),
+    ...(item.focusedTests === undefined
+      ? {}
+      : { focusedTests: expectStringArray(item.focusedTests, path, `integrationQueue[${index}].focusedTests`) }),
+    ...(item.queuedAt === undefined
+      ? {}
+      : { queuedAt: expectNonEmptyString(item.queuedAt, path, `integrationQueue[${index}].queuedAt`) })
   };
 }
 

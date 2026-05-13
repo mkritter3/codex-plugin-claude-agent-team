@@ -231,6 +231,13 @@ export interface WorkflowIntegrationQueueItem {
   readonly worktreePath: string;
   readonly branchName: string;
   readonly reviewRunIds: readonly string[];
+  readonly queuePosition?: number;
+  readonly conflictRisk?: WorkflowRiskLevel;
+  readonly riskReasons?: readonly string[];
+  readonly changedFiles?: readonly string[];
+  readonly dependencySliceIds?: readonly string[];
+  readonly focusedTests?: readonly string[];
+  readonly queuedAt?: string;
 }
 
 export interface WorkflowCodexRationale {
