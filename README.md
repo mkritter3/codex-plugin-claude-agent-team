@@ -109,7 +109,7 @@ Provider selection policy is optional and capability-first. Request-level `provi
 }
 ```
 
-Per-request `provider` selectors take precedence over role pins, role pins take precedence over `providerOrder`, and every selection still has to satisfy the role's required capabilities. Multi-provider second opinions should be started as multiple explicit runs; routing policy does not synthesize provider rankings or preference judgments.
+Per-request `provider` selectors take precedence over role pins, role pins take precedence over `providerOrder`, and every selection still has to satisfy the role's required capabilities. `providerOrder` is a preference, not a hard pin: if a preferred provider is in an active cooldown window, routing can fall through to the next capable provider while doctor records the degraded evidence. Multi-provider second opinions should be started as multiple explicit runs; routing policy does not synthesize provider rankings or preference judgments.
 
 Claude Code CLI model profiles let a workspace expose explicit subscription-OAuth aliases while keeping execution on the same Claude Code CLI transport. The common aliases are intentionally unpinned so Claude Code resolves them to its current configured defaults:
 
@@ -354,6 +354,34 @@ Gemini is a separate explicit adapter because its REST payloads are not OpenAI-c
 ```
 
 Gemini does not support background sessions, live stdin, resume, cancellation, edits, tools, streaming, Live API, file upload, multimodal inputs, or workspace isolation in this plugin version. Run live smoke separately before making real-provider readiness, provider performance, or practical long-context claims.
+
+Gemini CLI is a separate auth-backed provider for local Google sign-in/OAuth usage. It is disabled by default and intentionally distinct from the API-key `gemini` adapter:
+
+```json
+{
+  "providers": {
+    "geminiCli": {
+      "enabled": true,
+      "executable": "gemini",
+      "model": "gemini-2.5-flash",
+      "displayName": "Gemini CLI",
+      "projectEnv": "GOOGLE_CLOUD_PROJECT",
+      "capabilities": {
+        "structuredOutput": true,
+        "longContext": true,
+        "reasoning": true
+      }
+    }
+  },
+  "policy": {
+    "allowedProviderSelectors": ["gemini-cli", "family:gemini-cli"]
+  }
+}
+```
+
+`gemini-cli` uses `authMode: "oauth"` and does not require or infer `GEMINI_API_KEY`. Install and sign in to Gemini CLI first, then run `agent_team_doctor`; some Google Workspace or Code Assist setups may also require the configured project env. This adapter supports synchronous read-only dispatch only. It does not support background sessions, live stdin, resume, cancellation, edits, tools, or workspace isolation.
+
+Provider health is recorded under `.agent-team/providers/health.json`. Transient failures such as rate limits, timeouts, or provider-unavailable responses mark the provider degraded for a cooldown window with evidence paths and failure counts. During cooldown, default and family/provider-order routing avoids that provider; explicit provider requests remain explicit probes and record their own evidence. This is operational reliability memory, not a model evaluation or provider ranking claim.
 
 ## Auth And Doctor
 

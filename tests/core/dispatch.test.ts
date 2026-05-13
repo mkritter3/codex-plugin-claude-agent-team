@@ -5,6 +5,7 @@ import { mkdtemp } from "node:fs/promises";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { readMailboxRecords } from "../../src/core/state/mailbox-store.js";
 import { readAuditRecords } from "../../src/core/state/audit-store.js";
+import { readProviderHealthRecords } from "../../src/core/state/provider-health-store.js";
 import { runLogPath } from "../../src/core/state/paths.js";
 import { readRunSidecar } from "../../src/core/state/run-store.js";
 import { dispatchReadOnlyAgent } from "../../src/core/dispatch.js";
@@ -785,6 +786,47 @@ describe("dispatchReadOnlyAgent", () => {
     await expect(readFile(runLogPath(workspace, "run_gemini_failed"), "utf8")).resolves.toContain(
       "Gemini response did not contain candidate text."
     );
+  });
+
+  it("records transient provider failures as durable cooldown evidence", async () => {
+    const config = geminiConfig();
+    const runtime = createGeminiRuntime({
+      fetch: async () => new Response(JSON.stringify({ error: "busy" }), { status: 503 })
+    });
+    const provider = geminiProvider(config);
+
+    const result = await dispatchReadOnlyAgent(
+      {
+        role: "planner",
+        task: "Review plan",
+        cwd: workspace,
+        provider: "gemini"
+      },
+      {
+        config,
+        providers: provider === undefined ? [] : [provider],
+        runtimes: [runtime],
+        createRunId: () => "run_gemini_transient_failed",
+        env: { GEMINI_API_KEY: "secret-token" },
+        now: () => new Date("2026-05-13T10:00:00.000Z")
+      }
+    );
+
+    expect(result).toMatchObject({
+      status: "failed",
+      provider: "gemini",
+      verdict: { status: "BLOCKED" }
+    });
+    await expect(readProviderHealthRecords(workspace)).resolves.toEqual([
+      expect.objectContaining({
+        providerId: "gemini",
+        status: "degraded",
+        reason: "provider_unavailable",
+        failureCount: 1,
+        degradedUntil: "2026-05-13T10:30:00.000Z",
+        evidencePaths: [runLogPath(workspace, "run_gemini_transient_failed")]
+      })
+    ]);
   });
 
   it("blocks dispatch when the selected runtime reports auth precedence warnings", async () => {

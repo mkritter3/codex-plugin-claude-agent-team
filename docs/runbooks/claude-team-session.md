@@ -352,6 +352,41 @@ The resulting provider ids are explicit, such as `ollama-claude-code:kimi-k2.6`.
 
 Keep `writeValidated` false until a live implementation proof validates edits, isolated worktree containment, mailbox delivery, wind-down, cancellation, cleanup, and source-checkout cleanliness for the exact profile. Enabling write capabilities is an operator proof gate and not a provider ranking, provider comparison, or model-quality claim.
 
+If an Ollama or other provider returns transient failures such as rate limits, `503`, timeouts, or provider-unavailable responses, the plugin records provider health under `.agent-team/providers/health.json`. Default/family routing and `providerOrder` treat that as a cooldown and prefer another capable provider until the cooldown expires. An exact provider request remains an explicit probe, so Codex can still test it deliberately, but it should not repeatedly call a degraded provider during normal orchestration.
+
+## Gemini CLI OAuth Provider
+
+Use `providers.geminiCli` when you want Gemini through local Gemini CLI Google sign-in/OAuth rather than API-key `generateContent`. This is separate from `providers.gemini`, which remains the explicit API-key adapter.
+
+```json
+{
+  "providers": {
+    "geminiCli": {
+      "enabled": true,
+      "executable": "gemini",
+      "model": "gemini-2.5-flash",
+      "displayName": "Gemini CLI",
+      "projectEnv": "GOOGLE_CLOUD_PROJECT",
+      "capabilities": {
+        "structuredOutput": true,
+        "longContext": true,
+        "reasoning": true
+      }
+    }
+  },
+  "policy": {
+    "allowedRoles": ["planner", "code-reviewer"],
+    "allowedProviderSelectors": ["gemini-cli", "family:gemini-cli"],
+    "allowWriteMode": false,
+    "allowedWorktreeRoots": [],
+    "liveSmokeEnabled": false,
+    "auditEnabled": true
+  }
+}
+```
+
+Install Gemini CLI and complete its Google sign-in/OAuth flow before enabling this provider. `agent_team_doctor` checks the executable and warns when the configured project env is missing, because some Workspace or Code Assist accounts require it. The adapter supports synchronous read-only dispatch only; it does not support background sessions, live stdin, resume, cancellation, edits, tools, or workspace isolation.
+
 ## Opt-In Live Smoke
 
 This section is the opt-in live smoke. It is not part of CI because it uses local subscription credentials and may start external provider processes.

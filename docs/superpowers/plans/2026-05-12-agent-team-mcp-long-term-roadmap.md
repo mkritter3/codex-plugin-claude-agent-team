@@ -456,3 +456,21 @@ Milestones 50 through 61 establish the L11 workflow orchestrator foundation:
 - final readiness evidence in `docs/superpowers/reports/2026-05-13-agent-team-workflow-orchestrator-readiness.md`
 
 Workflow-orchestrator product-level success criteria are complete for the accepted v1 scope. Stop repeating workflow-orchestrator implementation prompts unless a new product requirement, provider target, live proof request, changed safety policy, release task, or bug report appears. Merge execution remains Codex-owned and must not be automated by the plugin.
+
+## Post-Orchestrator Provider Hardening
+
+### Milestone 62: Gemini CLI And Provider Cooldown
+
+**Goal:** Add an auth-backed Gemini CLI provider and shared provider health cooldowns so Codex can use Google sign-in/OAuth where available and avoid repeatedly calling unstable providers during normal orchestration.
+
+**Success Criteria:**
+
+- `gemini-cli` is a distinct explicit provider from API-key `gemini`.
+- `gemini-cli` uses OAuth/auth-backed local CLI semantics and does not infer `GEMINI_API_KEY`.
+- Gemini CLI remains read-only until background sessions, cancellation, tools, edits, and isolated workspace semantics are separately proven.
+- Doctor reports Gemini CLI executable/project-env readiness and provider cooldown evidence without leaking secrets, raw provider payloads, prompts, command arguments, or provider endpoints.
+- Transient provider failures such as rate limits, timeouts, and `503` provider-unavailable responses create durable `.agent-team` provider health evidence.
+- Default, family, and provider-order routing avoid active degraded providers while exact provider requests remain explicit probes.
+- Cooldown behavior is operational reliability memory only; it is not a model evaluation or provider ranking claim.
+
+**Status:** In progress. See `docs/superpowers/plans/2026-05-13-agent-team-mcp-milestone-62.md`.

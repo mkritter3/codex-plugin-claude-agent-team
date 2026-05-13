@@ -2,6 +2,7 @@ import { ProviderCapabilityError, ProviderNotFoundError } from "./errors.js";
 import { getRole } from "./roles.js";
 import type {
   AgentProviderDescriptor,
+  ProviderHealthRecord,
   ProviderCapability,
   ProviderRoutingPolicyConfig,
   ProviderSelectionCandidate,
@@ -11,6 +12,7 @@ import type {
   ProviderSelectorKind,
   ProviderSelectorSource
 } from "./types.js";
+import { isProviderDegraded } from "./provider-health.js";
 
 function uniqueCapabilities(
   capabilities: readonly ProviderCapability[]
@@ -113,17 +115,32 @@ function candidateFor(input: {
   readonly provider: AgentProviderDescriptor;
   readonly required: readonly ProviderCapability[];
   readonly selector?: ProviderSelectionSelector | undefined;
+  readonly health?: ProviderHealthRecord;
+  readonly now?: Date;
 }): ProviderSelectionCandidate {
   const matchedSelector = matchesSelector(input.provider, input.selector);
+  const selectorAllowsFallback = input.selector?.source === "provider-order";
+  const selectorEligible = selectorAllowsFallback || matchedSelector;
   const missing = missingCapabilities(input.provider, input.required);
-  const eligible = input.provider.available && matchedSelector && missing.length === 0;
+  const explicitProviderProbe =
+    input.selector?.source === "request" &&
+    input.selector.kind === "id" &&
+    input.selector.target === input.provider.id;
+  const degraded = isProviderDegraded(input.health, input.now);
+  const eligible =
+    input.provider.available &&
+    selectorEligible &&
+    missing.length === 0 &&
+    (!degraded || explicitProviderProbe);
   const rejectionReason = !input.provider.available
     ? "unavailable"
-    : !matchedSelector
+    : !selectorEligible
       ? "selector_mismatch"
-      : missing.length > 0
-        ? "missing_capabilities"
-        : undefined;
+      : degraded && !explicitProviderProbe
+        ? "degraded"
+        : missing.length > 0
+          ? "missing_capabilities"
+          : undefined;
 
   return {
     providerId: input.provider.id,
@@ -131,6 +148,17 @@ function candidateFor(input: {
     matchedSelector,
     eligible,
     missingCapabilities: missing,
+    ...(degraded
+      ? {
+          degraded: true,
+          ...(input.health?.reason === undefined
+            ? {}
+            : { degradationReason: input.health.reason }),
+          ...(input.health?.degradedUntil === undefined
+            ? {}
+            : { degradedUntil: input.health.degradedUntil })
+        }
+      : {}),
     ...(rejectionReason === undefined ? {} : { rejectionReason })
   };
 }
@@ -154,9 +182,19 @@ export function explainProviderSelection(
         })
       : { providers: request.providers, selector: requestSelector };
   const selector = requestSelector ?? ordered.selector;
-  const candidates = ordered.providers.map((provider) =>
-    candidateFor({ provider, required, selector })
+  const healthByProvider = new Map(
+    (request.providerHealth ?? []).map((record) => [record.providerId, record])
   );
+  const candidates = ordered.providers.map((provider) => {
+    const health = healthByProvider.get(provider.id);
+    return candidateFor({
+      provider,
+      required,
+      selector,
+      ...(health === undefined ? {} : { health }),
+      ...(request.now === undefined ? {} : { now: request.now })
+    });
+  });
   const selectedCandidate = candidates.find((candidate) => candidate.eligible);
   const selectedProvider =
     selectedCandidate === undefined

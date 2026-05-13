@@ -52,6 +52,7 @@ function config(input: {
     },
     seniorReview: DEFAULT_AGENT_TEAM_CONFIG.seniorReview,
     providers: {
+      ...DEFAULT_AGENT_TEAM_CONFIG.providers,
       claudeCodeCli: {
         profiles: []
       },

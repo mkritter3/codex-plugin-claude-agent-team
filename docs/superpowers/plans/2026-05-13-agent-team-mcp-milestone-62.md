@@ -38,11 +38,11 @@ Out of scope:
 
 ## L11 Quality Gates
 
-- [ ] TDD red proof is captured for Gemini CLI config/runtime and provider cooldown policy.
-- [ ] Focused tests cover config parsing, runtime fail-closed behavior, doctor checks, provider health persistence, cooldown routing, and explicit override semantics.
-- [ ] Typecheck, full tests, build, packaged stdio smoke, workflow smoke, package smoke, invariant scans, and `npm run ci` pass before merge.
-- [ ] Live provider proof is opt-in only and is not required for fixture-safe implementation.
-- [ ] Public schemas remain provider-neutral and sanitized.
+- [x] TDD red proof is captured for Gemini CLI config/runtime and provider cooldown policy.
+- [x] Focused tests cover config parsing, runtime fail-closed behavior, doctor checks, provider health persistence, cooldown routing, and explicit override semantics.
+- [x] Typecheck, full tests, build, packaged stdio smoke, workflow smoke, package smoke, invariant scans, and `npm run ci` pass before merge.
+- [x] Live provider proof is opt-in only and is not required for fixture-safe implementation.
+- [x] Public schemas remain provider-neutral and sanitized.
 
 ## Success Criteria
 
@@ -99,7 +99,7 @@ Out of scope:
 - Modify `src/providers/index.ts`
 - Modify `src/providers/runtime.ts`
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Require:
 
@@ -112,7 +112,7 @@ Require:
 - read-only run shells through injected runner with sanitized output
 - startSession unsupported and fail-closed
 
-- [ ] **Step 2: Implement minimal provider**
+- [x] **Step 2: Implement minimal provider**
 
 Add the config parser, descriptor, runtime registration, and command invocation through an injected runner so tests do not call Gemini live.
 
@@ -126,7 +126,7 @@ Add the config parser, descriptor, runtime registration, and command invocation 
 - Create `src/core/provider-health.ts`
 - Modify routing/dispatch surfaces as needed.
 
-- [ ] **Step 1: Write failing tests**
+- [x] **Step 1: Write failing tests**
 
 Require:
 
@@ -137,7 +137,7 @@ Require:
 - explicit provider selection remains explicit and records degraded evidence
 - cooldown expiry allows a probe
 
-- [ ] **Step 2: Implement shared provider health**
+- [x] **Step 2: Implement shared provider health**
 
 Keep the module provider-neutral. Do not encode Ollama-specific routing except through generic transient failure classification.
 
@@ -149,11 +149,11 @@ Keep the module provider-neutral. Do not encode Ollama-specific routing except t
 - Modify README/runbook
 - Modify this plan
 
-- [ ] **Step 1: Add doctor/reporting tests**
+- [x] **Step 1: Add doctor/reporting tests**
 
 Require doctor to show Gemini CLI readiness and provider degradation without secrets or raw payloads.
 
-- [ ] **Step 2: Update docs**
+- [x] **Step 2: Update docs**
 
 Add concise setup guidance:
 
@@ -162,7 +162,7 @@ Add concise setup guidance:
 - optional Google project env
 - provider cooldown behavior and Ollama retry sparing
 
-- [ ] **Step 3: Verification**
+- [x] **Step 3: Verification**
 
 Run:
 
@@ -179,4 +179,21 @@ Run:
 
 ## Verification Evidence
 
-Pending implementation.
+Implementation evidence so far:
+
+- TDD red: `npm test -- tests/providers/gemini-cli/config.test.ts tests/providers/gemini-cli/runtime.test.ts` failed because `src/providers/gemini-cli/*` did not exist.
+- TDD red: `npm test -- tests/core/provider-health.test.ts tests/core/state/provider-health-store.test.ts` failed because shared provider health modules did not exist.
+- TDD red: `npm test -- tests/core/dispatch.test.ts -t "transient provider failures"` failed because dispatch did not persist provider cooldown evidence.
+- TDD red: `npm test -- tests/doctor.test.ts -t "Gemini CLI OAuth|provider cooldown"` failed until doctor reported Gemini CLI readiness and provider health evidence.
+- Focused green: `npm test -- tests/providers/gemini-cli/config.test.ts tests/providers/gemini-cli/runtime.test.ts tests/core/provider-health.test.ts tests/core/state/provider-health-store.test.ts tests/core/dispatch.test.ts tests/providers/runtime.test.ts tests/core/config.test.ts tests/core/router.test.ts` passed 92 tests across 8 files.
+- Expanded focused green: `npm test -- tests/providers/gemini-cli/config.test.ts tests/providers/gemini-cli/runtime.test.ts tests/core/provider-health.test.ts tests/core/state/provider-health-store.test.ts tests/core/dispatch.test.ts tests/providers/runtime.test.ts tests/core/config.test.ts tests/core/router.test.ts tests/doctor.test.ts` passed 128 tests across 9 files.
+- `npm run typecheck` passed.
+- `npm test` passed 593 tests across 81 files.
+- `npm run build` passed.
+- `npm run smoke:mcp-stdio` passed.
+- `npm run smoke:workflow-orchestrator` passed with fixture-only execution, ordered public tool flow, blocked/unblocked probe, final completion evidence, `liveProviderUse: false`, and fixture cleanup.
+- `npm run smoke:package` passed.
+- Docs-facing invariant scan passed for internal prompt, hidden instruction, raw provider payload, provider session id, token assignment, process metadata, quality-score, model-quality comparison, provider-ranking, and API-key fallback patterns.
+- `git diff --check` passed.
+- `npm run ci` passed.
+- No live Gemini/Ollama proof was run for this milestone; Gemini CLI and provider cooldown behavior are fixture-safe implementation claims only until opt-in live proof is requested.

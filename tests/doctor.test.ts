@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { runDoctor, type DoctorInput } from "../src/doctor.js";
 import { stateLayoutPath } from "../src/core/state/paths.js";
+import { upsertProviderHealthRecord } from "../src/core/state/provider-health-store.js";
 import type { AgentProviderRuntime } from "../src/providers/index.js";
 
 function cliFound(): Pick<DoctorInput, "findExecutable" | "getVersion" | "runProviderCommand"> {
@@ -823,6 +824,117 @@ describe("runDoctor", () => {
     });
     expect(report.checks.find((check) => check.id === "auth-precedence")).toMatchObject({
       status: "pass"
+    });
+  });
+
+  it("reports Gemini CLI OAuth readiness without requiring an API key", async () => {
+    const workspace = await tempWorkspace();
+    await writeConfig(workspace, {
+      providers: {
+        geminiCli: {
+          enabled: true,
+          executable: "gemini",
+          model: "gemini-2.5-flash",
+          projectEnv: "GOOGLE_CLOUD_PROJECT",
+          capabilities: { structuredOutput: true, longContext: true, reasoning: true }
+        }
+      }
+    });
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: { GOOGLE_CLOUD_PROJECT: "project-id", GEMINI_API_KEY: "ignored-provider-key" },
+      findExecutable: async (name) => (name === "gemini" || name === "claude" ? `/usr/local/bin/${name}` : undefined),
+      getVersion: async (path) => `${path} 1.0.0`,
+      runProviderCommand: async () => ({
+        ok: true,
+        stdout: "authenticated",
+        stderr: "",
+        exitCode: 0
+      })
+    });
+
+    expect(report.ok).toBe(true);
+    expect(report.checks.find((check) => check.id === "gemini-cli-config")).toMatchObject({
+      status: "pass",
+      details: {
+        providerId: "gemini-cli",
+        hasModel: true,
+        executable: "gemini",
+        projectEnv: "GOOGLE_CLOUD_PROJECT"
+      }
+    });
+    expect(report.checks.find((check) => check.id === "gemini-cli-executable")).toMatchObject({
+      status: "pass"
+    });
+    expect(report.checks.find((check) => check.id === "gemini-cli-project-env")).toMatchObject({
+      status: "pass",
+      details: { env: "GOOGLE_CLOUD_PROJECT", present: true }
+    });
+    expect(report.checks.find((check) => check.id === "auth-precedence")).toMatchObject({
+      status: "pass"
+    });
+  });
+
+  it("reports provider cooldown evidence and routes around degraded providers", async () => {
+    const workspace = await tempWorkspace();
+    await writeConfig(workspace, {
+      providers: {
+        ollamaClaudeCode: {
+          enabled: true,
+          baseUrl: "https://ollama.example",
+          apiKeyEnv: "OLLAMA_API_KEY",
+          profiles: [
+            {
+              id: "kimi-k2.6",
+              model: "kimi-k2.6",
+              capabilities: { structuredOutput: true, longContext: true }
+            }
+          ]
+        }
+      }
+    });
+    await upsertProviderHealthRecord(workspace, {
+      providerId: "ollama-claude-code:kimi-k2.6",
+      status: "degraded",
+      reason: "rate_limited",
+      failureCount: 2,
+      updatedAt: "2026-05-13T10:00:00.000Z",
+      degradedUntil: "2099-05-13T10:30:00.000Z",
+      evidencePaths: ["/tmp/run.log"]
+    });
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: { OLLAMA_API_KEY: "secret-token" },
+      ...cliFound()
+    });
+
+    expect(report.checks.find((check) => check.id === "provider-health")).toMatchObject({
+      status: "warn",
+      message: "Provider health has active degradation records.",
+      details: {
+        degradedProviders: [
+          expect.objectContaining({
+            providerId: "ollama-claude-code:kimi-k2.6",
+            reason: "rate_limited",
+            failureCount: 2
+          })
+        ]
+      }
+    });
+    expect(report.checks.find((check) => check.id === "role-routing:architect")).toMatchObject({
+      status: "pass",
+      details: {
+        selection: {
+          candidates: expect.arrayContaining([
+            expect.objectContaining({
+              providerId: "ollama-claude-code:kimi-k2.6",
+              rejectionReason: "degraded"
+            })
+          ])
+        }
+      }
     });
   });
 

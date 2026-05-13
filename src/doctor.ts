@@ -13,7 +13,9 @@ import {
   inspectStateLayout as defaultInspectStateLayout
 } from "./core/state/layout.js";
 import { STATE_DIR } from "./core/state/paths.js";
+import { readProviderHealthRecords } from "./core/state/provider-health-store.js";
 import type { AgentProviderDescriptor, AgentTeamConfig } from "./core/types.js";
+import { isProviderDegraded } from "./core/provider-health.js";
 import {
   inspectGitWorktreeSupport as defaultInspectGitWorktreeSupport
 } from "./core/workspaces.js";
@@ -245,6 +247,23 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
             hasModel: config.providers.gemini.model !== undefined,
             apiKeyEnv: config.providers.gemini.apiKeyEnv,
             capabilities: config.providers.gemini.capabilities
+          },
+          geminiCli: {
+            enabled:
+              (config.providers.geminiCli ?? DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli)
+                .enabled,
+            executable:
+              (config.providers.geminiCli ?? DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli)
+                .executable,
+            hasModel:
+              (config.providers.geminiCli ?? DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli)
+                .model !== undefined,
+            projectEnv:
+              (config.providers.geminiCli ?? DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli)
+                .projectEnv,
+            capabilities:
+              (config.providers.geminiCli ?? DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli)
+                .capabilities
           }
         }
       }
@@ -392,6 +411,32 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
   }
 
   const providers = input.providers ?? listProviders({ config });
+  const providerHealth = await readProviderHealthRecords(workspaceRoot);
+  const activeDegradedProviders = providerHealth.filter((record) =>
+    isProviderDegraded(record)
+  );
+  checks.push(
+    activeDegradedProviders.length === 0
+      ? {
+          id: "provider-health",
+          status: "pass",
+          message: "Provider health has no active degradation records."
+        }
+      : {
+          id: "provider-health",
+          status: "warn",
+          message: "Provider health has active degradation records.",
+          details: {
+            degradedProviders: activeDegradedProviders.map((record) => ({
+              providerId: record.providerId,
+              reason: record.reason,
+              failureCount: record.failureCount,
+              degradedUntil: record.degradedUntil,
+              evidencePathCount: record.evidencePaths.length
+            }))
+          }
+        }
+  );
   const environmentWarnings: string[] = [];
   for (const provider of providers) {
     const runtime = getProviderRuntime(
@@ -464,7 +509,8 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
     const selection = explainProviderSelection({
       roleId: role.id,
       providers,
-      routingPolicy: config.routing
+      routingPolicy: config.routing,
+      providerHealth
     });
     if (selection.selectedProvider !== undefined) {
       checks.push({

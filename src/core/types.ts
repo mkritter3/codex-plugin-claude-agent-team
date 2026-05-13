@@ -164,6 +164,21 @@ export interface GeminiProviderConfig {
   readonly capabilities: OpenAICompatibleProviderCapabilitiesConfig;
 }
 
+export interface GeminiCliProviderCapabilitiesConfig {
+  readonly structuredOutput: boolean;
+  readonly longContext: boolean;
+  readonly reasoning: boolean;
+}
+
+export interface GeminiCliProviderConfig {
+  readonly enabled: boolean;
+  readonly executable: string;
+  readonly model?: string;
+  readonly displayName?: string;
+  readonly projectEnv: string;
+  readonly capabilities: GeminiCliProviderCapabilitiesConfig;
+}
+
 export interface AgentTeamProviderConfig {
   readonly claudeCodeCli: ClaudeCodeCliProviderConfig;
   readonly openaiCompatible: OpenAICompatibleProviderConfig;
@@ -171,6 +186,7 @@ export interface AgentTeamProviderConfig {
   readonly ollamaClaudeCode: OllamaClaudeCodeProviderConfig;
   readonly grok: GrokProviderConfig;
   readonly gemini: GeminiProviderConfig;
+  readonly geminiCli: GeminiCliProviderConfig;
 }
 
 export type ProviderSelectorSource = "request" | "role-pin" | "provider-order" | "default";
@@ -247,6 +263,8 @@ export interface ProviderSelectionRequest {
   readonly requestedProviderId?: string;
   readonly extraCapabilities?: readonly ProviderCapability[];
   readonly routingPolicy?: ProviderRoutingPolicyConfig;
+  readonly providerHealth?: readonly ProviderHealthRecord[];
+  readonly now?: Date;
 }
 
 export type ProviderSelectorKind = "id" | "family" | "model" | "capability";
@@ -261,7 +279,8 @@ export interface ProviderSelectionSelector {
 export type ProviderSelectionRejectionReason =
   | "unavailable"
   | "selector_mismatch"
-  | "missing_capabilities";
+  | "missing_capabilities"
+  | "degraded";
 
 export interface ProviderSelectionCandidate {
   readonly providerId: string;
@@ -269,6 +288,9 @@ export interface ProviderSelectionCandidate {
   readonly matchedSelector: boolean;
   readonly eligible: boolean;
   readonly missingCapabilities: readonly ProviderCapability[];
+  readonly degraded?: boolean;
+  readonly degradationReason?: string;
+  readonly degradedUntil?: string;
   readonly rejectionReason?: ProviderSelectionRejectionReason;
 }
 
@@ -297,6 +319,18 @@ export interface AgentDispatchResult {
   readonly verdict: ParsedVerdict;
   readonly sidecarPath: string;
   readonly logPath: string;
+}
+
+export type ProviderHealthStatus = "healthy" | "degraded";
+
+export interface ProviderHealthRecord {
+  readonly providerId: string;
+  readonly status: ProviderHealthStatus;
+  readonly reason: string;
+  readonly failureCount: number;
+  readonly updatedAt: string;
+  readonly degradedUntil?: string;
+  readonly evidencePaths: readonly string[];
 }
 
 export interface AgentMailboxPaths {

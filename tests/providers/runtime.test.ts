@@ -12,7 +12,8 @@ describe("provider runtime registry", () => {
       "claude-code-cli",
       "openai-compatible",
       "ollama-claude-code",
-      "gemini"
+      "gemini",
+      "gemini-cli"
     ]);
   });
 
@@ -34,6 +35,13 @@ describe("provider runtime registry", () => {
     const runtime = getProviderRuntime("gemini");
 
     expect(runtime?.descriptor().authMode).toBe("api-key");
+    expect(runtime?.descriptor().available).toBe(false);
+  });
+
+  it("resolves the Gemini CLI runtime as OAuth and disabled by default", () => {
+    const runtime = getProviderRuntime("gemini-cli");
+
+    expect(runtime?.descriptor().authMode).toBe("oauth");
     expect(runtime?.descriptor().available).toBe(false);
   });
 

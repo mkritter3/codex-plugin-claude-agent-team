@@ -14,6 +14,10 @@ import { evaluateStartPolicy } from "./policy.js";
 import { createRunId as defaultCreateRunId, hashPrompt } from "./run-ids.js";
 import { runLogPath, runSidecarPath } from "./state/paths.js";
 import { appendAuditRecord } from "./state/audit-store.js";
+import {
+  readProviderHealthRecords,
+  upsertProviderHealthRecord
+} from "./state/provider-health-store.js";
 import { writeRunSidecar } from "./state/run-store.js";
 import {
   appendRunEvent,
@@ -23,6 +27,10 @@ import {
   writeProviderPrintLog
 } from "./run-pipeline.js";
 import { parseVerdict } from "./verdict.js";
+import {
+  classifyProviderFailure,
+  recordProviderFailure
+} from "./provider-health.js";
 import type {
   AgentDispatchRequest,
   AgentDispatchResult,
@@ -80,11 +88,14 @@ export async function dispatchReadOnlyAgent(
       ? await (deps.loadConfig ?? loadAgentTeamConfig)(request.cwd)
       : DEFAULT_AGENT_TEAM_CONFIG);
   const providers = deps.providers ?? listProviders({ config });
+  const providerHealth = await readProviderHealthRecords(request.cwd);
   const provider = role.defaultReadOnly
     ? selectProvider({
         roleId: request.role,
         providers,
         routingPolicy: config.routing,
+        providerHealth,
+        now: now(),
         ...(request.provider === undefined ? {} : { requestedProviderId: request.provider })
       })
     : providers[0] ?? listProviders()[0]!;
@@ -277,10 +288,29 @@ export async function dispatchReadOnlyAgent(
   const logPath = await writeProviderPrintLog(request.cwd, runId, providerResult);
 
   if (!providerResult.ok) {
+    const classification = classifyProviderFailure(providerResult);
     const verdict = blockedVerdict("Provider runtime run failed.", [
       `exitCode: ${providerResult.exitCode}`,
       providerResult.stderr
     ]);
+    if (classification.transient) {
+      await upsertProviderHealthRecord(
+        request.cwd,
+        recordProviderFailure({
+          providerId: provider.id,
+          failure: providerResult,
+          now: now(),
+          ...(providerHealth.find((record) => record.providerId === provider.id) === undefined
+            ? {}
+            : {
+                previous: providerHealth.find(
+                  (record) => record.providerId === provider.id
+                )!
+              }),
+          evidencePath: logPath
+        })
+      );
+    }
     return finish({
       status: "failed",
       verdict,

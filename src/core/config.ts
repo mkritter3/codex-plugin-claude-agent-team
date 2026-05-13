@@ -66,6 +66,16 @@ export const DEFAULT_AGENT_TEAM_CONFIG: AgentTeamConfig = {
         longContext: false,
         reasoning: false
       }
+    },
+    geminiCli: {
+      enabled: false,
+      executable: "gemini",
+      projectEnv: "GOOGLE_CLOUD_PROJECT",
+      capabilities: {
+        structuredOutput: false,
+        longContext: false,
+        reasoning: false
+      }
     }
   }
 };
@@ -466,6 +476,51 @@ function parseGeminiProviderConfig(
   };
 }
 
+function parseGeminiCliProviderConfig(
+  providers: Record<string, unknown>
+): AgentTeamConfig["providers"]["geminiCli"] {
+  const geminiCli = objectField(providers, "geminiCli");
+  const capabilities = objectField(geminiCli, "capabilities");
+  assertSupportedProfileCapabilities({
+    providerName: "Gemini CLI",
+    profileId: "provider",
+    capabilities
+  });
+  const executable =
+    readString(geminiCli.executable) ??
+    DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.executable;
+  const model = readString(geminiCli.model);
+  const displayName = readString(geminiCli.displayName);
+  const projectEnv =
+    readString(geminiCli.projectEnv) ??
+    DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.projectEnv;
+
+  return {
+    enabled: readBoolean(
+      geminiCli.enabled,
+      DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.enabled
+    ),
+    executable,
+    ...(model === undefined ? {} : { model }),
+    ...(displayName === undefined ? {} : { displayName }),
+    projectEnv,
+    capabilities: {
+      structuredOutput: readBoolean(
+        capabilities.structuredOutput,
+        DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.capabilities.structuredOutput
+      ),
+      longContext: readBoolean(
+        capabilities.longContext,
+        DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.capabilities.longContext
+      ),
+      reasoning: readBoolean(
+        capabilities.reasoning,
+        DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.capabilities.reasoning
+      )
+    }
+  };
+}
+
 function parseRoutingConfig(
   parsed: unknown
 ): AgentTeamConfig["routing"] {
@@ -594,7 +649,8 @@ export async function loadAgentTeamConfig(
       ollamaCloud: parseOllamaCloudProviderConfig(providers),
       ollamaClaudeCode: parseOllamaClaudeCodeProviderConfig(providers),
       grok: parseGrokProviderConfig(providers),
-      gemini: parseGeminiProviderConfig(providers)
+      gemini: parseGeminiProviderConfig(providers),
+      geminiCli: parseGeminiCliProviderConfig(providers)
     },
     seniorReview: parseSeniorReviewPolicyConfig(parsed),
     policy: parsePolicyConfig(parsed)
