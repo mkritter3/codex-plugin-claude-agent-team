@@ -36,6 +36,12 @@ describe("live dogfood agent team app script", () => {
       providerSelectors?: readonly string[];
       toolFlow?: readonly string[];
       plannedSlices?: Array<{ sliceId?: string; providerSelector?: string; ownerRole?: string }>;
+      plannedOptionalProviderProofs?: Array<{
+        sliceId?: string;
+        providerSelector?: string;
+        ownerRole?: string;
+        enabledBy?: string;
+      }>;
     };
 
     expect(report).toMatchObject({
@@ -55,6 +61,7 @@ describe("live dogfood agent team app script", () => {
       "agent_team_plan_consensus",
       "agent_team_workflow_next",
       "agent_team_record_user_decision",
+      "agent_team_start",
       "agent_team_start_slices",
       "agent_team_status_many",
       "agent_team_review_slice",
@@ -76,10 +83,13 @@ describe("live dogfood agent team app script", () => {
         ownerRole: "slice-implementer",
         providerSelector: "codex-cli"
       },
+    ]);
+    expect(report.plannedOptionalProviderProofs).toEqual([
       {
         sliceId: "slice_junior_docs",
         ownerRole: "slice-implementer",
-        providerSelector: "ollama-claude-code:kimi-k2.6"
+        providerSelector: "ollama-claude-code:kimi-k2.6",
+        enabledBy: "--include-optional-ollama"
       }
     ]);
     expect(result.stdout).not.toMatch(
@@ -110,6 +120,7 @@ describe("live dogfood agent team app script", () => {
       "agent_team_plan_consensus",
       "agent_team_workflow_next",
       "agent_team_record_user_decision",
+      "agent_team_start",
       "agent_team_start_slices",
       "agent_team_status_many",
       "agent_team_review_slice",
@@ -125,6 +136,8 @@ describe("live dogfood agent team app script", () => {
       "codex-cli",
       "ollama-claude-code:kimi-k2.6",
       "dogfood_app_workflow_only",
+      "optionalOllamaEnabled",
+      "--include-optional-ollama",
       "npm test",
       "copyApprovedFiles"
     ]) {

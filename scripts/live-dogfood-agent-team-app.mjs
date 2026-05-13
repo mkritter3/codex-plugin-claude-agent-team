@@ -36,6 +36,7 @@ const TOOL_FLOW = [
   "agent_team_plan_consensus",
   "agent_team_workflow_next",
   "agent_team_record_user_decision",
+  "agent_team_start",
   "agent_team_start_slices",
   "agent_team_status_many",
   "agent_team_review_slice",
@@ -73,15 +74,16 @@ const SLICE_PROVIDER_PLAN = [
     ownerRole: "slice-implementer",
     providerSelector: "codex-cli",
     files: ["src/app.js", "tests/app.test.js"]
-  },
-  {
-    sliceId: "slice_junior_docs",
-    ownerRole: "slice-implementer",
-    providerSelector: "ollama-claude-code:kimi-k2.6",
-    files: ["README.md"],
-    optionalEnv: "OLLAMA_API_KEY"
   }
 ];
+
+const OPTIONAL_OLLAMA_PROOF = {
+  sliceId: "slice_junior_docs",
+  ownerRole: "slice-implementer",
+  providerSelector: "ollama-claude-code:kimi-k2.6",
+  files: ["README.md"],
+  optionalEnv: "OLLAMA_API_KEY"
+};
 
 function args() {
   return process.argv.slice(2);
@@ -124,6 +126,14 @@ function dryRunReport() {
       ownerRole,
       providerSelector
     })),
+    plannedOptionalProviderProofs: [
+      {
+        sliceId: OPTIONAL_OLLAMA_PROOF.sliceId,
+        ownerRole: OPTIONAL_OLLAMA_PROOF.ownerRole,
+        providerSelector: OPTIONAL_OLLAMA_PROOF.providerSelector,
+        enabledBy: "--include-optional-ollama"
+      }
+    ],
     knownLimitations: KNOWN_LIMITATIONS
   };
 }
@@ -373,7 +383,6 @@ async function writeFixtureConfig(root, allowedWorktreeRoot) {
 }
 
 function workflowSlices() {
-  const includeOllama = optionalOllamaEnabled();
   const slices = [
     {
       sliceId: "slice_ui",
@@ -412,22 +421,6 @@ function workflowSlices() {
       integrationOrderHint: 2
     }
   ];
-  if (includeOllama) {
-    slices.push({
-      sliceId: "slice_junior_docs",
-      title:
-        "Update README.md with a short operator note that this is a disposable dogfood app fixture; do not edit other files.",
-      ownerRole: "slice-implementer",
-      state: "ready",
-      writeScope: ["README.md"],
-      readScope: ["index.html", "src/app.js"],
-      acceptanceTests: ["README.md must retain Agent Team Dogfood App"],
-      expectedEvidence: ["changed file README.md", "brief operator note"],
-      riskLevel: "low",
-      requiredReviewers: ["code-reviewer"],
-      integrationOrderHint: 3
-    });
-  }
   return slices;
 }
 
@@ -519,11 +512,7 @@ async function approvePlanning(client, fixtureRoot, timeoutMs) {
 }
 
 function enabledSlicePlans() {
-  return SLICE_PROVIDER_PLAN.filter(
-    (slice) =>
-      slice.optionalEnv === undefined ||
-      (process.env[slice.optionalEnv] !== undefined && hasFlag("--include-optional-ollama"))
-  );
+  return SLICE_PROVIDER_PLAN;
 }
 
 function optionalOllamaEnabled() {
@@ -777,6 +766,93 @@ async function cleanupRuns(client, fixtureRoot, startedRuns, timeoutMs) {
   return cleanup.map((item) => ({ runId: item.runId, status: item.status }));
 }
 
+function optionalOllamaAttempts() {
+  const raw = readValue("--optional-ollama-attempts", "2");
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1 || value > 3) {
+    throw new Error("--optional-ollama-attempts must be an integer from 1 through 3.");
+  }
+  return value;
+}
+
+async function runOptionalOllamaProof(client, fixtureRoot, timeoutMs) {
+  if (!optionalOllamaEnabled()) {
+    return {
+      status: "skipped",
+      providerSelector: OPTIONAL_OLLAMA_PROOF.providerSelector,
+      reason:
+        process.env.OLLAMA_API_KEY === undefined
+          ? "Ollama Cloud credentials were not configured."
+          : "--include-optional-ollama was not passed."
+    };
+  }
+
+  const attempts = [];
+  for (let attempt = 1; attempt <= optionalOllamaAttempts(); attempt += 1) {
+    let runId;
+    try {
+      const start = await callTool(
+        client,
+        "agent_team_start",
+        {
+          cwd: fixtureRoot,
+          provider: OPTIONAL_OLLAMA_PROOF.providerSelector,
+          role: OPTIONAL_OLLAMA_PROOF.ownerRole,
+          task:
+            "Optional junior documentation dogfood proof. In the retained isolated worktree only, update README.md with one short sentence stating this is a disposable agent-team dogfood fixture. Do not edit other files. Return SHIP with changed-file evidence.",
+          timeoutMs
+        },
+        timeoutMs
+      );
+      runId = start.runId;
+      const status = await waitForRuns(
+        client,
+        fixtureRoot,
+        [{ ...OPTIONAL_OLLAMA_PROOF, runId }],
+        timeoutMs
+      );
+      const row = compactStatusRows(status)[0];
+      const cleanup = await cleanupRuns(
+        client,
+        fixtureRoot,
+        [{ ...OPTIONAL_OLLAMA_PROOF, runId }],
+        timeoutMs
+      );
+      const attemptResult = {
+        attempt,
+        runId,
+        status: row?.status ?? "missing",
+        changedFiles: row?.changedFiles,
+        executionCwd: row?.executionCwd,
+        logPath: row?.logPath,
+        cleanup
+      };
+      attempts.push(attemptResult);
+      if (row?.status === "completed") {
+        return {
+          status: "completed",
+          providerSelector: OPTIONAL_OLLAMA_PROOF.providerSelector,
+          attempts
+        };
+      }
+    } catch (error) {
+      attempts.push({
+        attempt,
+        ...(runId === undefined ? {} : { runId }),
+        status: "failed",
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+  return {
+    status: "degraded",
+    providerSelector: OPTIONAL_OLLAMA_PROOF.providerSelector,
+    attempts,
+    reason:
+      "Optional Ollama provider was invoked but did not complete successfully; required dogfood slices may still pass."
+  };
+}
+
 async function runLiveDogfood() {
   await assertRuntimeExists();
   const timeoutMs = readPositiveNumber("--timeout-ms", 300000);
@@ -808,6 +884,7 @@ async function runLiveDogfood() {
     const startedRuns = await startSlices(client, fixture.root, timeoutMs);
     const status = await waitForRuns(client, fixture.root, startedRuns, timeoutMs);
     const statusRows = compactStatusRows(status);
+    const optionalOllama = await runOptionalOllamaProof(client, fixture.root, timeoutMs);
     await reviewSlices(client, fixture.root, startedRuns, statusRows, timeoutMs);
     const integrations = await integrateSlices(client, fixture.root, startedRuns, statusRows, timeoutMs);
     const workflowReport = await callTool(
@@ -854,9 +931,13 @@ async function runLiveDogfood() {
       liveProviderUse: true,
       claimBoundary: CLAIM_BOUNDARY,
       fixtureRoot: fixture.root,
-      providerSelectors: startedRuns.map((run) => run.providerSelector),
+      providerSelectors: [
+        ...startedRuns.map((run) => run.providerSelector),
+        ...(optionalOllama.status === "skipped" ? [] : [OPTIONAL_OLLAMA_PROOF.providerSelector])
+      ],
       toolFlow: TOOL_FLOW,
       runs: statusRows,
+      optionalProviderProofs: [optionalOllama],
       integrations,
       workflow: {
         workflowId: WORKFLOW_ID,
