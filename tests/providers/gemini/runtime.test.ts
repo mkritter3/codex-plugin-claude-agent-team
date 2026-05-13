@@ -78,7 +78,7 @@ describe("Gemini runtime", () => {
       executionPolicy: "read-only",
       config: config({
         baseUrl: "https://generativelanguage.googleapis.com/v1beta/",
-        model: "models/gemini-2.5-flash",
+        model: "models/gemini-3-pro-preview",
         apiKeyEnv: "GEMINI_API_KEY"
       }),
       env: { GEMINI_API_KEY: "secret-token" }
@@ -93,7 +93,7 @@ describe("Gemini runtime", () => {
     });
     expect(calls).toHaveLength(1);
     expect(calls[0]?.url).toBe(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent"
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent"
     );
     expect(calls[0]?.init.headers).toMatchObject({
       "x-goog-api-key": "secret-token"
@@ -124,7 +124,7 @@ describe("Gemini runtime", () => {
         config: config({
           enabled: false,
           baseUrl: "https://generativelanguage.googleapis.com/v1beta",
-          model: "gemini-2.5-flash",
+          model: "gemini-3-pro-preview",
           apiKeyEnv: "GEMINI_API_KEY"
         }),
         env: { GEMINI_API_KEY: "secret-token" }
@@ -140,7 +140,7 @@ describe("Gemini runtime", () => {
         cwd: "/tmp/project",
         config: config({
           baseUrl: "https://generativelanguage.googleapis.com/v1beta",
-          model: "gemini-2.5-flash",
+          model: "gemini-3-pro-preview",
           apiKeyEnv: "GEMINI_API_KEY",
           structuredOutput: false
         }),
@@ -157,7 +157,7 @@ describe("Gemini runtime", () => {
         cwd: "/tmp/project",
         config: config({
           baseUrl: "https://generativelanguage.googleapis.com/v1beta",
-          model: "gemini-2.5-flash",
+          model: "gemini-3-pro-preview",
           apiKeyEnv: "GEMINI_API_KEY"
         }),
         env: {}
@@ -181,7 +181,7 @@ describe("Gemini runtime", () => {
         cwd: "/tmp/project",
         config: config({
           baseUrl: "https://generativelanguage.googleapis.com/v1beta",
-          model: "gemini-2.5-flash",
+          model: "gemini-3-pro-preview",
           apiKeyEnv: "GEMINI_API_KEY"
         }),
         env: { GEMINI_API_KEY: "secret-token" }
@@ -201,7 +201,7 @@ describe("Gemini runtime", () => {
         cwd: "/tmp/project",
         config: config({
           baseUrl: "https://generativelanguage.googleapis.com/v1beta",
-          model: "gemini-2.5-flash",
+          model: "gemini-3-pro-preview",
           apiKeyEnv: "GEMINI_API_KEY"
         }),
         env: { GEMINI_API_KEY: "secret-token" }
@@ -223,7 +223,7 @@ describe("Gemini runtime", () => {
       executionPolicy: "read-only",
       config: config({
         baseUrl: "https://generativelanguage.googleapis.com/v1beta",
-        model: "gemini-2.5-flash",
+        model: "gemini-3-pro-preview",
         apiKeyEnv: "GEMINI_API_KEY"
       })
     });
@@ -242,7 +242,7 @@ describeProviderRuntimeConformance({
   runtime: createGeminiRuntime({
     config: config({
       baseUrl: "https://generativelanguage.googleapis.com/v1beta",
-      model: "gemini-2.5-flash",
+      model: "gemini-3-pro-preview",
       apiKeyEnv: "GEMINI_API_KEY"
     }),
     fetch: async () =>
@@ -260,7 +260,7 @@ describeProviderRuntimeConformance({
   descriptor: geminiProvider(
     config({
       baseUrl: "https://generativelanguage.googleapis.com/v1beta",
-      model: "gemini-2.5-flash",
+      model: "gemini-3-pro-preview",
       apiKeyEnv: "GEMINI_API_KEY"
     })
   )!,

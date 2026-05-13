@@ -364,7 +364,7 @@ Use `providers.geminiCli` when you want Gemini through local Gemini CLI Google s
     "geminiCli": {
       "enabled": true,
       "executable": "gemini",
-      "model": "gemini-2.5-flash",
+      "model": "gemini-3-pro-preview",
       "displayName": "Gemini CLI",
       "projectEnv": "GOOGLE_CLOUD_PROJECT",
       "capabilities": {

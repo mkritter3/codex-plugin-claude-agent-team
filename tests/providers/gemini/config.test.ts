@@ -46,7 +46,7 @@ describe("Gemini provider config", () => {
       geminiProviderDescriptor(
         config({
           baseUrl: "https://generativelanguage.googleapis.com/v1beta",
-          model: "gemini-2.5-flash",
+          model: "gemini-3-pro-preview",
           apiKeyEnv: "GEMINI_API_KEY"
         })
       )
@@ -55,7 +55,7 @@ describe("Gemini provider config", () => {
         id: GEMINI_PROVIDER_ID,
         displayName: "Gemini Review",
         authMode: "api-key",
-        model: "gemini-2.5-flash",
+        model: "gemini-3-pro-preview",
         capabilities: ["structuredOutput", "longContext"],
         available: true
       })
@@ -67,7 +67,7 @@ describe("Gemini provider config", () => {
       geminiProviderDescriptor(
         config({
           baseUrl: "https://generativelanguage.googleapis.com/v1beta",
-          model: "gemini-2.5-flash"
+          model: "gemini-3-pro-preview"
         })
       )
     ).toMatchObject({
@@ -82,7 +82,7 @@ describe("Gemini provider config", () => {
       geminiProviderDescriptor(
         config({
           baseUrl: "https://generativelanguage.googleapis.com/v1beta",
-          model: "gemini-2.5-flash",
+          model: "gemini-3-pro-preview",
           apiKeyEnv: "GEMINI_API_KEY"
         })
       ).capabilities

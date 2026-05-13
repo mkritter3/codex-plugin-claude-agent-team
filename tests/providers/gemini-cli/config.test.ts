@@ -26,7 +26,7 @@ function config(input: {
       geminiCli: {
         enabled: input.enabled ?? true,
         executable: input.executable ?? "gemini",
-        model: input.model ?? "gemini-2.5-flash",
+        model: input.model ?? "gemini-3-pro-preview",
         displayName: input.displayName ?? "Gemini CLI",
         projectEnv: input.projectEnv ?? "GOOGLE_CLOUD_PROJECT",
         capabilities: {
@@ -51,7 +51,7 @@ describe("Gemini CLI provider config", () => {
         id: GEMINI_CLI_PROVIDER_ID,
         displayName: "Gemini CLI",
         authMode: "oauth",
-        model: "gemini-2.5-flash",
+        model: "gemini-3-pro-preview",
         capabilities: ["structuredOutput", "longContext", "reasoning"],
         available: true
       })

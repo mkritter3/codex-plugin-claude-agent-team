@@ -340,7 +340,7 @@ Gemini is a separate explicit adapter because its REST payloads are not OpenAI-c
     "gemini": {
       "enabled": true,
       "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
-      "model": "gemini-2.5-flash",
+      "model": "gemini-3-pro-preview",
       "apiKeyEnv": "GEMINI_API_KEY",
       "displayName": "Gemini Review",
       "capabilities": {
@@ -363,7 +363,7 @@ Gemini CLI is a separate auth-backed provider for local Google sign-in/OAuth usa
     "geminiCli": {
       "enabled": true,
       "executable": "gemini",
-      "model": "gemini-2.5-flash",
+      "model": "gemini-3-pro-preview",
       "displayName": "Gemini CLI",
       "projectEnv": "GOOGLE_CLOUD_PROJECT",
       "capabilities": {

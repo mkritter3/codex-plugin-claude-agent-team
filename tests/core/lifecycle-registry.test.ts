@@ -169,7 +169,7 @@ describe("LifecycleRegistry", () => {
     expect(
       registry.get("/repo", config({ geminiEnabled: true, geminiModel: "gemini-2.5-pro" }))
     ).not.toBe(
-      registry.get("/repo", config({ geminiEnabled: true, geminiModel: "gemini-2.5-flash" }))
+      registry.get("/repo", config({ geminiEnabled: true, geminiModel: "gemini-3-pro-preview" }))
     );
     expect(registry.get("/repo", config({ grokEnabled: true }))).not.toBe(baseline);
     expect(

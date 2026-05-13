@@ -100,7 +100,7 @@ function geminiConfig(): AgentTeamConfig {
       gemini: {
         enabled: true,
         baseUrl: "https://generativelanguage.googleapis.com/v1beta",
-        model: "gemini-2.5-flash",
+        model: "gemini-3-pro-preview",
         apiKeyEnv: "GEMINI_API_KEY",
         displayName: "Gemini Review",
         capabilities: {

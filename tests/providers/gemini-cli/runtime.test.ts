@@ -20,7 +20,7 @@ function config(input: {
       geminiCli: {
         enabled: input.enabled ?? true,
         executable: input.executable ?? "gemini",
-        model: input.model ?? "gemini-2.5-flash",
+        model: input.model ?? "gemini-3-pro-preview",
         displayName: "Gemini CLI",
         projectEnv: input.projectEnv ?? "GOOGLE_CLOUD_PROJECT",
         capabilities: {
@@ -81,7 +81,7 @@ describe("Gemini CLI runtime", () => {
           "--prompt",
           "Review this plan.",
           "--model",
-          "gemini-2.5-flash",
+          "gemini-3-pro-preview",
           "--output-format",
           "text"
         ],
