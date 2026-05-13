@@ -27,7 +27,7 @@ Codex should be able to stand up and manage an external AI agent team from insid
 
 ## Current Baseline
 
-Completed through Milestone 48:
+Completed through Milestone 54:
 
 - package scaffold, MCP server, CI, stdio smoke, and schema coverage
 - provider-neutral roles, capabilities, router, config, and doctor
@@ -61,6 +61,17 @@ Completed through Milestone 48:
 - real Claude call reliability hardening for honest terminal-state reporting, MCP request-timeout alignment, stream-json background input, wind-down timeout finalization, and evidence-preserving failure cleanup in the opt-in Claude live smoke
 - opt-in Claude live capability matrix that validates direct dispatch, bounded parallel read-only teams, isolated implementation handoff, mailbox delivery, wind-down, cancellation, team records, dashboard, summary, cleanup, and policy failure through packaged public MCP tools
 - explicit Ollama Claude Code profiles backed by one shared `OLLAMA_API_KEY` and scoped Anthropic-compatible Claude Code launch environment
+- workflow orchestrator design for the expanded L11 full-stack roster, senior review policy, consensus loops, slice DAG, blocked/unblocked workflow, review consensus, and integration boundaries
+- workflow policy/config defaults for Opus planning and implementation senior review
+- durable workflow state foundation with provider-neutral goal packets, slice DAG records, consensus evidence, senior-review evidence, user escalations, integration queue placeholders, and sanitized workflow views
+- `agent_team_create_workflow`
+- `agent_team_get_workflow`
+- `agent_team_list_workflows`
+- `agent_team_plan_consensus`
+- `agent_team_start_slices`
+- `agent_team_unblock_slice`
+- planning consensus mechanics with 10/15-round handling, Codex rationale, user-decision filtering, senior-review degraded evidence, and fail-closed required-blocking behavior
+- slice start and unblock mechanics with bounded concurrency, ordered per-slice results, partial-failure evidence, per-run addressability, mailbox dependency updates, and durable slice run evidence
 
 ## Roadmap Shape
 
@@ -416,6 +427,14 @@ V1 is complete when Codex can reliably:
 
 V1.5 is complete when at least one non-Claude provider can be configured explicitly and used for capability-supported read-only roles through the same provider-neutral lifecycle, doctor, status, messaging, and evidence model, without silent fallback from Claude subscription mode and without provider-specific MCP tools.
 
-## Near-Term Recommendation
+## Workflow Orchestrator Continuation
 
-Milestones 40 through 49 are complete. The next implementation target should be explicit model-profile proof for named Claude models or an OpenAI Responses provider for GPT/Codex models.
+Milestones 50 through 54 establish the L11 workflow orchestrator foundation:
+
+- senior-review policy defaults and environment/workspace config
+- expanded L11 role roster
+- durable workflow state and public workflow create/get/list tools
+- planning consensus with Codex rationale, Opus planning evidence, user-level escalation filtering, and 10/15-round rules
+- slice start/unblock mechanics using existing lifecycle and mailbox pipelines
+
+The next implementation target is Milestone 55: provider-neutral slice review consensus and sign-off via `agent_team_review_slice`. Integration queue computation should follow only after review evidence can mark slices `approved`, `needs-revision`, or `blocked`.
