@@ -93,6 +93,11 @@ async function main() {
     assertToolRequires(tools.tools, "agent_team_create_workflow", ["goal", "slices"]);
     assertToolRequires(tools.tools, "agent_team_get_workflow", ["workflowId"]);
     assertObjectSchema(tools.tools, "agent_team_list_workflows");
+    assertToolRequires(tools.tools, "agent_team_plan_consensus", [
+      "workflowId",
+      "codexDecision",
+      "verdicts"
+    ]);
     assertObjectSchema(tools.tools, "agent_team_dashboard");
     assertToolRequires(tools.tools, "agent_team_cancel_many", ["runs"]);
     assertToolRequires(tools.tools, "agent_team_wind_down_many", ["runs"]);

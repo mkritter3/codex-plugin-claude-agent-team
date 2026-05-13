@@ -237,6 +237,30 @@ describe("MCP tool handlers", () => {
     );
   });
 
+  it("exposes provider-neutral workflow planning consensus tool with sanitized schema", () => {
+    expect(listToolNames()).toEqual(
+      expect.arrayContaining(["agent_team_plan_consensus"])
+    );
+    expect(TOOL_METADATA_BY_NAME.agent_team_plan_consensus).toMatchObject({
+      title: "Plan Agent Workflow Consensus",
+      description: expect.stringMatching(/planning consensus/i)
+    });
+    expect(TOOL_METADATA_BY_NAME.agent_team_plan_consensus.inputSchema).toMatchObject({
+      workflowId: expect.any(Object),
+      codexDecision: expect.any(Object),
+      verdicts: expect.any(Object)
+    });
+    expect(TOOL_METADATA_BY_NAME.agent_team_plan_consensus.inputSchema).not.toHaveProperty(
+      "prompt"
+    );
+    expect(TOOL_METADATA_BY_NAME.agent_team_plan_consensus.inputSchema).not.toHaveProperty(
+      "claude"
+    );
+    expect(JSON.stringify(TOOL_METADATA_BY_NAME.agent_team_plan_consensus)).not.toMatch(
+      /claude-code-cli|internal prompt|raw provider|providerPayload/i
+    );
+  });
+
   it("creates, reads, and lists sanitized workflow views through MCP", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "agent-team-mcp-workflow-"));
     const handlers = createToolHandlers({
@@ -322,6 +346,98 @@ describe("MCP tool handlers", () => {
     expect(result.structuredContent).toMatchObject({
       status: "validation_error"
     });
+    expect(called).toBe(false);
+  });
+
+  it("records planning consensus through MCP using the injected workflow service", async () => {
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      planConsensus: async (input) => ({
+        workflow: {
+          workflowId: input.workflowId,
+          createdAt: "2026-05-13T10:00:00.000Z",
+          updatedAt: "2026-05-13T10:01:00.000Z",
+          planningStatus: "approved",
+          goal: {
+            title: "Plan",
+            successCriteria: ["approved"],
+            constraints: ["provider neutral"],
+            nonGoals: ["live claims"]
+          },
+          seniorReview: DEFAULT_AGENT_TEAM_CONFIG.seniorReview,
+          slices: [],
+          consensusRounds: [
+            {
+              round: 1,
+              phase: "planning",
+              consensus: "approved",
+              verdicts: [
+                {
+                  reviewerRole: "architect",
+                  status: "approve",
+                  summary: "Looks good."
+                }
+              ],
+              startedAt: "2026-05-13T10:01:00.000Z",
+              completedAt: "2026-05-13T10:01:00.000Z"
+            }
+          ],
+          userEscalations: [],
+          opusReviewEvidence: [],
+          integrationQueue: [],
+          codexRationale: [],
+          evidencePath: "/repo/.agent-team/workflows/workflow_mcp.json"
+        }
+      })
+    });
+
+    const result = await handlers.handleToolCall("agent_team_plan_consensus", {
+      workflowId: "workflow_mcp",
+      codexDecision: {
+        status: "approve",
+        category: "technical",
+        summary: "Codex approves this bounded plan."
+      },
+      verdicts: [
+        {
+          reviewerRole: "architect",
+          status: "approve",
+          summary: "Architecture is bounded."
+        }
+      ]
+    });
+
+    expect(result.structuredContent?.workflow).toMatchObject({
+      workflowId: "workflow_mcp",
+      planningStatus: "approved",
+      consensusRounds: [expect.objectContaining({ consensus: "approved" })]
+    });
+    expect(JSON.stringify(result.structuredContent)).not.toMatch(
+      /internalPrompt|rawProvider|providerSession|commandArgs|secret/i
+    );
+  });
+
+  it("rejects invalid consensus input before invoking injected service", async () => {
+    let called = false;
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      planConsensus: async () => {
+        called = true;
+        throw new Error("should not record consensus");
+      }
+    });
+
+    const result = await handlers.handleToolCall("agent_team_plan_consensus", {
+      workflowId: "workflow_mcp",
+      codexDecision: {
+        status: "approve",
+        category: "technical",
+        summary: "Missing verdicts should fail."
+      },
+      verdicts: []
+    });
+
+    expect(result.structuredContent).toMatchObject({ status: "validation_error" });
     expect(called).toBe(false);
   });
 
@@ -3347,6 +3463,7 @@ describe("MCP tool handlers", () => {
       "agent_team_create_workflow",
       "agent_team_get_workflow",
       "agent_team_list_workflows",
+      "agent_team_plan_consensus",
       "agent_team_dashboard",
       "agent_team_cancel",
       "agent_team_cancel_many",

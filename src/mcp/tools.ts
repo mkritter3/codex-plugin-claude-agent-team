@@ -39,7 +39,17 @@ import {
   type CreateWorkflowSliceInput,
   type GetWorkflowInput
 } from "../core/workflow-service.js";
-import type { WorkflowGoalPacket } from "../core/workflow-types.js";
+import {
+  planConsensus,
+  type PlanConsensusInput,
+  type PlanConsensusUserEscalationInput,
+  type PlanConsensusVerdictInput
+} from "../core/workflow-consensus.js";
+import type {
+  CodexRationaleCategory,
+  WorkflowGoalPacket,
+  WorkflowOpusReviewStatus
+} from "../core/workflow-types.js";
 import type {
   AgentCleanupRequest,
   AgentCleanupResult,
@@ -88,6 +98,7 @@ export const TOOL_NAMES = [
   "agent_team_create_workflow",
   "agent_team_get_workflow",
   "agent_team_list_workflows",
+  "agent_team_plan_consensus",
   "agent_team_dashboard",
   "agent_team_cancel",
   "agent_team_cancel_many",
@@ -126,6 +137,7 @@ export interface ToolDependencies {
   readonly createWorkflow?: typeof createWorkflow;
   readonly getWorkflow?: typeof getWorkflow;
   readonly listWorkflows?: typeof listWorkflows;
+  readonly planConsensus?: typeof planConsensus;
   readonly now?: () => Date;
   readonly createWorkflowId?: () => string;
 }
@@ -474,6 +486,285 @@ function parseGetWorkflowArgs(
   return {
     workspaceRoot: cwdValue ?? defaultCwd,
     workflowId
+  };
+}
+
+const CODEX_DECISION_CATEGORIES = new Set<string>([
+  "technical",
+  "product-behavior",
+  "user-trust",
+  "security-risk",
+  "provider-cost",
+  "release-posture"
+]);
+const USER_ESCALATION_CATEGORIES = new Set<string>([
+  "product-behavior",
+  "user-trust",
+  "security-risk",
+  "provider-cost",
+  "release-posture"
+]);
+const CONSENSUS_VERDICT_STATUSES = new Set<string>([
+  "approve",
+  "revise",
+  "block",
+  "abstain"
+]);
+const CODEX_DECISION_STATUSES = new Set<string>(["approve", "revise", "block"]);
+const SENIOR_REVIEWER_STATUSES = new Set<string>([
+  "available",
+  "unavailable",
+  "skipped"
+]);
+
+function readCategory(
+  value: unknown,
+  field: string,
+  allowed: Set<string> = CODEX_DECISION_CATEGORIES
+): CodexRationaleCategory | JsonToolResult {
+  if (typeof value !== "string" || !allowed.has(value)) {
+    return validationError(`${field} must be a supported decision category.`);
+  }
+  return value as CodexRationaleCategory;
+}
+
+function parseConsensusVerdicts(value: unknown): readonly PlanConsensusVerdictInput[] | JsonToolResult {
+  if (!Array.isArray(value) || value.length === 0) {
+    return validationError("agent_team_plan_consensus requires a non-empty verdicts array.");
+  }
+  const verdicts: PlanConsensusVerdictInput[] = [];
+  for (const [index, item] of value.entries()) {
+    if (typeof item !== "object" || item === null || Array.isArray(item)) {
+      return validationError(`agent_team_plan_consensus verdicts[${index}] must be an object.`);
+    }
+    const verdict = item as Record<string, unknown>;
+    const reviewerRole = readRole(
+      verdict.reviewerRole,
+      `agent_team_plan_consensus verdicts[${index}].reviewerRole`
+    );
+    if (isJsonToolResult(reviewerRole)) {
+      return reviewerRole;
+    }
+    const status = readString(verdict.status, `agent_team_plan_consensus verdicts[${index}].status`);
+    if (isJsonToolResult(status)) {
+      return status;
+    }
+    if (!CONSENSUS_VERDICT_STATUSES.has(status)) {
+      return validationError(
+        `agent_team_plan_consensus verdicts[${index}].status must be approve, revise, block, or abstain.`
+      );
+    }
+    const summary = readString(verdict.summary, `agent_team_plan_consensus verdicts[${index}].summary`);
+    if (isJsonToolResult(summary)) {
+      return summary;
+    }
+    const reviewerProvider = readOptionalString(
+      verdict.reviewerProvider,
+      `agent_team_plan_consensus verdicts[${index}].reviewerProvider`
+    );
+    if (reviewerProvider !== undefined && typeof reviewerProvider !== "string") {
+      return reviewerProvider;
+    }
+    const evidenceRunId = readOptionalString(
+      verdict.evidenceRunId,
+      `agent_team_plan_consensus verdicts[${index}].evidenceRunId`
+    );
+    if (evidenceRunId !== undefined && typeof evidenceRunId !== "string") {
+      return evidenceRunId;
+    }
+    verdicts.push({
+      reviewerRole,
+      ...(reviewerProvider === undefined ? {} : { reviewerProvider }),
+      status,
+      summary,
+      ...(evidenceRunId === undefined ? {} : { evidenceRunId })
+    });
+  }
+  return verdicts;
+}
+
+function parseCodexDecision(value: unknown): PlanConsensusInput["codexDecision"] | JsonToolResult {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return validationError("agent_team_plan_consensus codexDecision must be an object.");
+  }
+  const decision = value as Record<string, unknown>;
+  const status = readString(decision.status, "agent_team_plan_consensus codexDecision.status");
+  if (isJsonToolResult(status)) {
+    return status;
+  }
+  if (!CODEX_DECISION_STATUSES.has(status)) {
+    return validationError("agent_team_plan_consensus codexDecision.status must be approve, revise, or block.");
+  }
+  const category = readCategory(decision.category, "agent_team_plan_consensus codexDecision.category");
+  if (isJsonToolResult(category)) {
+    return category;
+  }
+  const summary = readString(decision.summary, "agent_team_plan_consensus codexDecision.summary");
+  if (isJsonToolResult(summary)) {
+    return summary;
+  }
+  const relatedSliceIds =
+    decision.relatedSliceIds === undefined
+      ? undefined
+      : readStringArray(
+          decision.relatedSliceIds,
+          "agent_team_plan_consensus codexDecision.relatedSliceIds"
+        );
+  if (relatedSliceIds !== undefined && isJsonToolResult(relatedSliceIds)) {
+    return relatedSliceIds;
+  }
+  return {
+    status: status as PlanConsensusInput["codexDecision"]["status"],
+    category,
+    summary,
+    ...(relatedSliceIds === undefined ? {} : { relatedSliceIds })
+  };
+}
+
+function parseSeniorReviewerEvidence(
+  value: unknown
+): PlanConsensusInput["seniorReviewerEvidence"] | JsonToolResult | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return validationError("agent_team_plan_consensus seniorReviewerEvidence must be an object.");
+  }
+  const evidence = value as Record<string, unknown>;
+  const status = readString(evidence.status, "agent_team_plan_consensus seniorReviewerEvidence.status");
+  if (isJsonToolResult(status)) {
+    return status;
+  }
+  if (!SENIOR_REVIEWER_STATUSES.has(status)) {
+    return validationError(
+      "agent_team_plan_consensus seniorReviewerEvidence.status must be available, unavailable, or skipped."
+    );
+  }
+  const summary = readString(evidence.summary, "agent_team_plan_consensus seniorReviewerEvidence.summary");
+  if (isJsonToolResult(summary)) {
+    return summary;
+  }
+  const provider = readOptionalString(
+    evidence.provider,
+    "agent_team_plan_consensus seniorReviewerEvidence.provider"
+  );
+  if (provider !== undefined && typeof provider !== "string") {
+    return provider;
+  }
+  const runId = readOptionalString(evidence.runId, "agent_team_plan_consensus seniorReviewerEvidence.runId");
+  if (runId !== undefined && typeof runId !== "string") {
+    return runId;
+  }
+  return {
+    status: status as WorkflowOpusReviewStatus,
+    ...(provider === undefined ? {} : { provider }),
+    ...(runId === undefined ? {} : { runId }),
+    summary
+  };
+}
+
+function parseConsensusUserEscalations(
+  value: unknown
+): readonly PlanConsensusUserEscalationInput[] | JsonToolResult | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!Array.isArray(value) || value.length === 0) {
+    return validationError("agent_team_plan_consensus userEscalations must be a non-empty array.");
+  }
+  const escalations: PlanConsensusUserEscalationInput[] = [];
+  for (const [index, item] of value.entries()) {
+    if (typeof item !== "object" || item === null || Array.isArray(item)) {
+      return validationError(`agent_team_plan_consensus userEscalations[${index}] must be an object.`);
+    }
+    const escalation = item as Record<string, unknown>;
+    const category = readCategory(
+      escalation.category,
+      `agent_team_plan_consensus userEscalations[${index}].category`,
+      USER_ESCALATION_CATEGORIES
+    );
+    if (isJsonToolResult(category)) {
+      return category;
+    }
+    const question = readString(
+      escalation.question,
+      `agent_team_plan_consensus userEscalations[${index}].question`
+    );
+    if (isJsonToolResult(question)) {
+      return question;
+    }
+    const productImpact = readString(
+      escalation.productImpact,
+      `agent_team_plan_consensus userEscalations[${index}].productImpact`
+    );
+    if (isJsonToolResult(productImpact)) {
+      return productImpact;
+    }
+    const options = readStringArray(
+      escalation.options,
+      `agent_team_plan_consensus userEscalations[${index}].options`
+    );
+    if (isJsonToolResult(options)) {
+      return options;
+    }
+    escalations.push({
+      category,
+      question,
+      productImpact,
+      options
+    });
+  }
+  return escalations;
+}
+
+function parsePlanConsensusArgs(
+  args: Record<string, unknown>,
+  defaultCwd: string,
+  deps: Pick<ToolDependencies, "now">
+): PlanConsensusInput | JsonToolResult {
+  const workflowId = readString(
+    args.workflowId,
+    "agent_team_plan_consensus requires a non-empty workflowId."
+  );
+  if (isJsonToolResult(workflowId)) {
+    return workflowId;
+  }
+  const cwdValue = readOptionalString(args.cwd, "agent_team_plan_consensus cwd");
+  if (cwdValue !== undefined && typeof cwdValue !== "string") {
+    return cwdValue;
+  }
+  const roundMode = readOptionalString(args.roundMode, "agent_team_plan_consensus roundMode");
+  if (roundMode !== undefined && typeof roundMode !== "string") {
+    return roundMode;
+  }
+  if (roundMode !== undefined && roundMode !== "default" && roundMode !== "extended") {
+    return validationError("agent_team_plan_consensus roundMode must be default or extended.");
+  }
+  const codexDecision = parseCodexDecision(args.codexDecision);
+  if (isJsonToolResult(codexDecision)) {
+    return codexDecision;
+  }
+  const verdicts = parseConsensusVerdicts(args.verdicts);
+  if (isJsonToolResult(verdicts)) {
+    return verdicts;
+  }
+  const seniorReviewerEvidence = parseSeniorReviewerEvidence(args.seniorReviewerEvidence);
+  if (seniorReviewerEvidence !== undefined && isJsonToolResult(seniorReviewerEvidence)) {
+    return seniorReviewerEvidence;
+  }
+  const userEscalations = parseConsensusUserEscalations(args.userEscalations);
+  if (userEscalations !== undefined && isJsonToolResult(userEscalations)) {
+    return userEscalations;
+  }
+  return {
+    workspaceRoot: cwdValue ?? defaultCwd,
+    workflowId,
+    ...(roundMode === undefined ? {} : { roundMode }),
+    codexDecision,
+    verdicts,
+    ...(seniorReviewerEvidence === undefined ? {} : { seniorReviewerEvidence }),
+    ...(userEscalations === undefined ? {} : { userEscalations }),
+    ...(deps.now === undefined ? {} : { now: deps.now })
   };
 }
 
@@ -1343,6 +1634,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
   const workflowCreate = deps.createWorkflow ?? createWorkflow;
   const workflowGet = deps.getWorkflow ?? getWorkflow;
   const workflowList = deps.listWorkflows ?? listWorkflows;
+  const workflowConsensus = deps.planConsensus ?? planConsensus;
   const cwd = deps.cwd ?? process.cwd;
   const lifecycleRegistry =
     deps.lifecycleRegistry ??
@@ -1616,6 +1908,21 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
           action: async () =>
             jsonToolResult({
               ...(await workflowList(parsed.cwd))
+            })
+        });
+      }
+
+      if (name === "agent_team_plan_consensus") {
+        const parsed = parsePlanConsensusArgs(args, cwd(), deps);
+        if (isJsonToolResult(parsed)) {
+          return parsed;
+        }
+        return recoverableLifecycleTool({
+          workspaceRoot: parsed.workspaceRoot,
+          operation: name,
+          action: async () =>
+            jsonToolResult({
+              ...(await workflowConsensus(parsed))
             })
         });
       }

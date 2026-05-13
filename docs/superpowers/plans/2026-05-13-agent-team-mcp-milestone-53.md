@@ -46,13 +46,13 @@ Out of scope:
 
 ## L11 Quality Gates
 
-- [ ] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
-- [ ] TDD red proof is captured for consensus core, workflow store/view changes if needed, MCP handlers, server registration, and package smoke coverage.
-- [ ] Focused milestone tests are listed with expected red and green outcomes.
-- [ ] Full verification commands are listed.
-- [ ] Required edge cases from the matrix are explicitly selected.
-- [ ] Invariant scans are listed.
-- [ ] Live provider smoke is not required because M53 records state-only planning evidence and makes no real senior-review/sign-off claim.
+- [x] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
+- [x] TDD red proof is captured for consensus core, workflow store/view changes if needed, MCP handlers, server registration, and package smoke coverage.
+- [x] Focused milestone tests are listed with expected red and green outcomes.
+- [x] Full verification commands are listed.
+- [x] Required edge cases from the matrix are explicitly selected.
+- [x] Invariant scans are listed.
+- [x] Live provider smoke is not required because M53 records state-only planning evidence and makes no real senior-review/sign-off claim.
 
 ## Success Criteria
 
@@ -138,7 +138,7 @@ Selected from the L11 matrix:
 - Create: `src/core/workflow-consensus.ts`
 - Test: `tests/core/workflow-consensus.test.ts`
 
-- [ ] **Step 1: Write failing consensus tests**
+- [x] **Step 1: Write failing consensus tests**
 
 Add tests proving:
 
@@ -153,7 +153,7 @@ Add tests proving:
 - `required-when-available` senior reviewer unavailable evidence is recorded as degraded continuation
 - `required-blocking` senior reviewer unavailable evidence blocks approval
 
-- [ ] **Step 2: Run focused tests and verify red**
+- [x] **Step 2: Run focused tests and verify red**
 
 Run:
 
@@ -163,7 +163,7 @@ npm test -- tests/core/workflow-consensus.test.ts
 
 Expected: fail because `workflow-consensus.ts` does not exist.
 
-- [ ] **Step 3: Implement minimal consensus service**
+- [x] **Step 3: Implement minimal consensus service**
 
 Create:
 
@@ -173,7 +173,7 @@ export async function planConsensus(input: PlanConsensusInput): Promise<{ readon
 
 Use `readWorkflowRecord`, `writeWorkflowRecord`, `appendCodexRationale`, `classifyUserEscalation`, and `toWorkflowView`. Do not call providers, lifecycle, dispatch, or mailbox code.
 
-- [ ] **Step 4: Run focused tests and verify green**
+- [x] **Step 4: Run focused tests and verify green**
 
 Run:
 
@@ -192,7 +192,7 @@ Expected: consensus, store, and view tests pass.
 - Test: `tests/mcp/tools.test.ts`
 - Test: `tests/mcp/server.test.ts`
 
-- [ ] **Step 1: Write failing MCP tests**
+- [x] **Step 1: Write failing MCP tests**
 
 Add tests proving:
 
@@ -202,7 +202,7 @@ Add tests proving:
 - valid inputs delegate to the injected service and return its sanitized workflow view
 - state corruption is routed through shared recovery behavior
 
-- [ ] **Step 2: Run focused MCP tests and verify red**
+- [x] **Step 2: Run focused MCP tests and verify red**
 
 Run:
 
@@ -212,11 +212,11 @@ npm test -- tests/mcp/tools.test.ts tests/mcp/server.test.ts
 
 Expected: fail because the tool is not registered.
 
-- [ ] **Step 3: Implement MCP schema and handler**
+- [x] **Step 3: Implement MCP schema and handler**
 
 Add `agent_team_plan_consensus` to tool names, metadata, parser helpers, dependency injection, and handler dispatch. Keep the public schema provider-neutral and do not expose internal prompts or provider-specific implementation details.
 
-- [ ] **Step 4: Run focused MCP tests and verify green**
+- [x] **Step 4: Run focused MCP tests and verify green**
 
 Run:
 
@@ -234,11 +234,11 @@ Expected: MCP tool tests pass.
 - Test: `tests/package-runtime.test.ts`
 - Modify: this plan
 
-- [ ] **Step 1: Write failing package-runtime test**
+- [x] **Step 1: Write failing package-runtime test**
 
 Assert the packaged smoke script checks required fields for `agent_team_plan_consensus`.
 
-- [ ] **Step 2: Run package-runtime test and verify red**
+- [x] **Step 2: Run package-runtime test and verify red**
 
 Run:
 
@@ -248,7 +248,7 @@ npm test -- tests/package-runtime.test.ts
 
 Expected: fail because the smoke script does not cover the new tool.
 
-- [ ] **Step 3: Update stdio smoke**
+- [x] **Step 3: Update stdio smoke**
 
 Add:
 
@@ -260,7 +260,7 @@ assertToolRequires(tools.tools, "agent_team_plan_consensus", [
 ]);
 ```
 
-- [ ] **Step 4: Run full milestone verification**
+- [x] **Step 4: Run full milestone verification**
 
 Run:
 
@@ -275,7 +275,7 @@ npm run smoke:package
 npm run ci
 ```
 
-- [ ] **Step 5: Run invariant scans**
+- [x] **Step 5: Run invariant scans**
 
 Run:
 
@@ -288,7 +288,49 @@ rg -n "agent_team_plan_consensus|WorkflowConsensusRound|WorkflowUserEscalation|W
 
 Expected: the negated scans return no matches; the workflow scan shows only implementation, tests, and docs guardrail matches.
 
-- [ ] **Step 6: Mark plan complete and commit**
+- [x] **Step 6: Mark plan complete and commit**
 
-Update this plan with the implementation summary and verification evidence, then commit the milestone implementation.
+## Implementation Summary
 
+Implemented in `codex/workflow-consensus-mechanics`. This milestone remains a provider-neutral, state-only planning consensus ledger: it does not call live providers, does not claim real Opus sign-off, does not start implementation slices, and does not create or merge worktrees.
+
+Added:
+
+- `src/core/workflow-consensus.ts` with `planConsensus`.
+- Public MCP tool `agent_team_plan_consensus`.
+- Planning round append/evaluation with monotonic rounds, default 10-round cap, explicit extension through round 15, and round-16 rejection.
+- Codex decision rationale records.
+- User-level escalation filtering so technical decisions stay Codex-owned.
+- Opus/senior-review evidence recording for available, unavailable, and skipped states.
+- `required-when-available` degraded continuation and `required-blocking` approval blocking.
+- Packaged stdio smoke coverage for the new public tool.
+
+## Verification Evidence
+
+TDD red proof:
+
+- `npm test -- tests/core/workflow-consensus.test.ts` failed before `src/core/workflow-consensus.ts` existed.
+- `npm test -- tests/mcp/tools.test.ts` failed before `agent_team_plan_consensus` was registered.
+
+Focused green proof:
+
+- `npm test -- tests/core/workflow-consensus.test.ts` passed 7 tests.
+- `npm test -- tests/core/workflow-consensus.test.ts tests/core/state/workflow-store.test.ts tests/core/workflow-view.test.ts` passed 21 tests.
+- `npm test -- tests/mcp/tools.test.ts tests/mcp/server.test.ts tests/package-runtime.test.ts` passed 70 tests.
+
+Full verification:
+
+- `npm run typecheck` passed.
+- `npm test` passed 70 files and 538 tests.
+- `npm run build` passed.
+- `npm run install:check` passed after build produced `dist/index.js`. An earlier parallel run correctly reported blocked while build was still racing the runtime entrypoint into place.
+- `npm run smoke:mcp-stdio` passed.
+- `npm run smoke:package` passed.
+- `npm run ci` passed.
+
+Invariant scans:
+
+- `! rg -n "allowApiKeyFallback:\s*true|apiKeyFallback\s*:\s*true" src .codex-plugin package.json` returned no matches.
+- `! rg -n "hiddenPrompt|internalPrompt|rawProvider|raw provider|providerPayload|provider payload" src/mcp src/core .codex-plugin` returned no matches.
+- `! rg -n "mock LLM|heuristic LLM|heuristic.*benchmark|mock.*benchmark|provider-ranking" src scripts .codex-plugin` returned no matches.
+- Workflow scan `rg -n "agent_team_plan_consensus|WorkflowConsensusRound|WorkflowUserEscalation|WorkflowOpusReviewEvidence|StateCorruptionError" src tests docs/superpowers/plans/2026-05-13-agent-team-mcp-milestone-53.md` showed implementation, tests, existing shared recovery, and docs guardrail matches.

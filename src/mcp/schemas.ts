@@ -192,6 +192,60 @@ const listWorkflowsInputSchema = {
   cwd
 };
 
+const consensusDecisionCategory = z.enum([
+  "technical",
+  "product-behavior",
+  "user-trust",
+  "security-risk",
+  "provider-cost",
+  "release-posture"
+]);
+
+const consensusVerdictInputSchema = z.object({
+  reviewerRole: role,
+  reviewerProvider: z.string().min(1).optional(),
+  status: z.enum(["approve", "revise", "block", "abstain"]),
+  summary: z.string().min(1),
+  evidenceRunId: z.string().regex(/^run_[A-Za-z0-9_-]+$/).optional()
+});
+
+const codexDecisionInputSchema = z.object({
+  status: z.enum(["approve", "revise", "block"]),
+  category: consensusDecisionCategory,
+  summary: z.string().min(1),
+  relatedSliceIds: z.array(z.string().min(1)).min(1).optional()
+});
+
+const seniorReviewerEvidenceInputSchema = z.object({
+  status: z.enum(["available", "unavailable", "skipped"]),
+  provider: z.string().min(1).optional(),
+  runId: z.string().regex(/^run_[A-Za-z0-9_-]+$/).optional(),
+  summary: z.string().min(1)
+});
+
+const userEscalationInputSchema = z.object({
+  category: z.enum([
+    "product-behavior",
+    "user-trust",
+    "security-risk",
+    "provider-cost",
+    "release-posture"
+  ]),
+  question: z.string().min(1),
+  productImpact: z.string().min(1),
+  options: z.array(z.string().min(1)).min(1)
+});
+
+const planConsensusInputSchema = {
+  workflowId,
+  cwd,
+  roundMode: z.enum(["default", "extended"]).optional(),
+  codexDecision: codexDecisionInputSchema,
+  verdicts: z.array(consensusVerdictInputSchema).min(1),
+  seniorReviewerEvidence: seniorReviewerEvidenceInputSchema.optional(),
+  userEscalations: z.array(userEscalationInputSchema).min(1).optional()
+};
+
 const dashboardInputSchema = {
   teamId: teamId
     .optional()
@@ -320,6 +374,12 @@ export const TOOL_METADATA_BY_NAME = {
     title: "List Agent Workflows",
     description: "List sanitized durable workflow views for a workspace.",
     inputSchema: listWorkflowsInputSchema
+  },
+  agent_team_plan_consensus: {
+    title: "Plan Agent Workflow Consensus",
+    description:
+      "Record and evaluate a provider-neutral planning consensus round for a durable workflow.",
+    inputSchema: planConsensusInputSchema
   },
   agent_team_dashboard: {
     title: "Agent Team Dashboard",

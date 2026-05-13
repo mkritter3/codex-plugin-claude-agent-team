@@ -44,6 +44,7 @@ vi.mock("../../src/mcp/tools.js", () => ({
     "agent_team_create_workflow",
     "agent_team_get_workflow",
     "agent_team_list_workflows",
+    "agent_team_plan_consensus",
     "agent_team_dashboard",
     "agent_team_cancel_many",
     "agent_team_wind_down_many",
@@ -90,6 +91,7 @@ describe("MCP server", () => {
       "agent_team_create_workflow",
       "agent_team_get_workflow",
       "agent_team_list_workflows",
+      "agent_team_plan_consensus",
       "agent_team_dashboard",
       "agent_team_cancel_many",
       "agent_team_wind_down_many",
@@ -146,6 +148,11 @@ describe("MCP server", () => {
     });
     expect(metadataByName.get("agent_team_list_workflows")?.inputSchema).toMatchObject({
       cwd: expect.any(Object)
+    });
+    expect(metadataByName.get("agent_team_plan_consensus")?.inputSchema).toMatchObject({
+      workflowId: expect.any(Object),
+      codexDecision: expect.any(Object),
+      verdicts: expect.any(Object)
     });
     expect(metadataByName.get("agent_team_dashboard")?.inputSchema).toMatchObject({
       teamId: expect.any(Object),
