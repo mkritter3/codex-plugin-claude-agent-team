@@ -33,6 +33,7 @@ npm run smoke:mcp-stdio
 npm run smoke:package
 npm run smoke:claude-live -- --dry-run --cwd /absolute/path/to/workspace
 npm run smoke:claude-live-matrix -- --dry-run --cwd /absolute/path/to/workspace
+npm run smoke:claude-models -- --dry-run
 npm run smoke:providers-live -- --dry-run --cwd /absolute/path/to/workspace --provider family:gemini
 ```
 
@@ -108,6 +109,49 @@ Provider selection policy is optional and capability-first. Request-level `provi
 ```
 
 Per-request `provider` selectors take precedence over role pins, role pins take precedence over `providerOrder`, and every selection still has to satisfy the role's required capabilities. Multi-provider second opinions should be started as multiple explicit runs; routing policy does not synthesize provider rankings or preference judgments.
+
+Claude Code CLI model profiles let a workspace expose explicit subscription-OAuth aliases while keeping execution on the same Claude Code CLI transport. The common aliases are intentionally unpinned so Claude Code resolves them to its current configured defaults:
+
+```json
+{
+  "providers": {
+    "claudeCodeCli": {
+      "profiles": [
+        {
+          "id": "opus",
+          "model": "opus",
+          "displayName": "Claude Opus",
+          "capabilities": {
+            "structuredOutput": true,
+            "longContext": true,
+            "reasoning": true
+          }
+        },
+        {
+          "id": "sonnet",
+          "model": "sonnet",
+          "displayName": "Claude Sonnet",
+          "capabilities": {
+            "structuredOutput": true,
+            "longContext": true,
+            "reasoning": true
+          }
+        },
+        {
+          "id": "haiku",
+          "model": "haiku",
+          "displayName": "Claude Haiku",
+          "capabilities": {
+            "structuredOutput": true
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+Profile provider ids use `claude-code-cli:<profile-id>`, for example `claude-code-cli:opus`. They use `authMode: "subscription-oauth"` and do not introduce API-key env handling. Write capabilities remain withheld unless an exact profile is explicitly marked `writeValidated: true` and the workspace has isolated write mode enabled.
 
 Policy controls are also optional and provider-neutral. They restrict which roles and providers may start, whether write-capable starts are allowed, where retained worktrees may be created, and whether local live smoke is enabled for operator-run checks:
 

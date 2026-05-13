@@ -36,6 +36,9 @@ export const DEFAULT_AGENT_TEAM_CONFIG: AgentTeamConfig = {
     auditEnabled: true
   },
   providers: {
+    claudeCodeCli: {
+      profiles: []
+    },
     openaiCompatible: {
       enabled: false,
       capabilities: {
@@ -241,6 +244,45 @@ function parseOpenAICompatibleProviderConfig(
       )
     }
   };
+}
+
+function parseClaudeCodeCliProviderConfig(
+  providers: Record<string, unknown>
+): AgentTeamConfig["providers"]["claudeCodeCli"] {
+  const claudeCodeCli = objectField(providers, "claudeCodeCli");
+  const seenIds = new Set<string>();
+  const profiles = arrayField(claudeCodeCli, "profiles").map((profile, index) => {
+    const profileObject = typeof profile === "object" && profile !== null
+      ? (profile as Record<string, unknown>)
+      : {};
+    const profileId = readRequiredId(profileObject.id, `profile-${index + 1}`);
+    if (seenIds.has(profileId)) {
+      throw new AgentTeamConfigError(`Duplicate Claude Code CLI profile id: ${profileId}`);
+    }
+    seenIds.add(profileId);
+    const capabilities = objectField(profileObject, "capabilities");
+    const model = readString(profileObject.model);
+    const displayName = readString(profileObject.displayName);
+
+    return {
+      id: profileId,
+      ...(model === undefined ? {} : { model }),
+      ...(displayName === undefined ? {} : { displayName }),
+      writeValidated: readBoolean(profileObject.writeValidated, false),
+      capabilities: {
+        structuredOutput: readBoolean(capabilities.structuredOutput, true),
+        longContext: readBoolean(capabilities.longContext, false),
+        tools: readBoolean(capabilities.tools, true),
+        sessionResume: readBoolean(capabilities.sessionResume, true),
+        cancellation: readBoolean(capabilities.cancellation, true),
+        reasoning: readBoolean(capabilities.reasoning, false),
+        edits: readBoolean(capabilities.edits, false),
+        workspaceIsolation: readBoolean(capabilities.workspaceIsolation, false)
+      }
+    };
+  });
+
+  return { profiles };
 }
 
 function parseOllamaCloudProviderConfig(
@@ -545,6 +587,7 @@ export async function loadAgentTeamConfig(
     },
     routing: parseRoutingConfig(parsed),
     providers: {
+      claudeCodeCli: parseClaudeCodeCliProviderConfig(providers),
       openaiCompatible: parseOpenAICompatibleProviderConfig(providers),
       ollamaCloud: parseOllamaCloudProviderConfig(providers),
       ollamaClaudeCode: parseOllamaClaudeCodeProviderConfig(providers),

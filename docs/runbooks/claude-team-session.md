@@ -21,6 +21,7 @@ npm run install:check
 npm run smoke:mcp-stdio
 npm run smoke:package
 npm run smoke:claude-live-matrix -- --dry-run --cwd /absolute/path/to/workspace
+npm run smoke:claude-models -- --dry-run
 npm run smoke:providers-live -- --dry-run --cwd /absolute/path/to/workspace --provider family:gemini
 npm run ci
 ```
@@ -84,6 +85,63 @@ Workspace policy can restrict role starts, provider selectors, write-capable sta
 `schemaVersion` is optional for old local workspaces and defaults to `1`. If doctor reports an unsupported future config schema, upgrade this plugin before operating that workspace.
 
 When `auditEnabled` is true, dispatch and lifecycle start decisions write sanitized records to `.agent-team/audit/events.jsonl` before provider execution. Treat those records as operator evidence for allow/block decisions, not as transcripts.
+
+## Claude Code CLI Model Profiles
+
+Use `providers.claudeCodeCli.profiles` when you want explicit provider ids for Claude Code's subscription-backed aliases. The profile ids stay non-secret and do not add API-key env behavior:
+
+```json
+{
+  "schemaVersion": 1,
+  "providers": {
+    "claudeCodeCli": {
+      "profiles": [
+        {
+          "id": "opus",
+          "model": "opus",
+          "displayName": "Claude Opus",
+          "capabilities": {
+            "structuredOutput": true,
+            "longContext": true,
+            "reasoning": true
+          }
+        },
+        {
+          "id": "sonnet",
+          "model": "sonnet",
+          "displayName": "Claude Sonnet",
+          "capabilities": {
+            "structuredOutput": true,
+            "longContext": true,
+            "reasoning": true
+          }
+        },
+        {
+          "id": "haiku",
+          "model": "haiku",
+          "displayName": "Claude Haiku",
+          "capabilities": {
+            "structuredOutput": true
+          }
+        }
+      ]
+    }
+  },
+  "policy": {
+    "allowedRoles": ["planner", "code-reviewer"],
+    "allowedProviderSelectors": [
+      "claude-code-cli:opus",
+      "claude-code-cli:sonnet",
+      "claude-code-cli:haiku"
+    ],
+    "allowWriteMode": false,
+    "liveSmokeEnabled": false,
+    "auditEnabled": true
+  }
+}
+```
+
+Run `npm run smoke:claude-models -- --dry-run` to inspect the packaged MCP proof plan. Run it with `--confirm-live-provider-use` only when you intentionally want live Claude Code CLI calls for the three aliases.
 
 ## State Layout Check
 

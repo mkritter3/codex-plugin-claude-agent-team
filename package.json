@@ -37,6 +37,7 @@
     "smoke:package": "node scripts/smoke-package.mjs",
     "smoke:claude-live": "node scripts/live-smoke-claude-team.mjs",
     "smoke:claude-live-matrix": "node scripts/live-smoke-claude-capability-matrix.mjs",
+    "smoke:claude-models": "node scripts/live-smoke-claude-model-profiles.mjs",
     "smoke:providers-live": "node scripts/live-smoke-readonly-providers.mjs",
     "smoke:ollama-write": "node scripts/live-smoke-ollama-write-validation.mjs",
     "ci": "npm run typecheck && npm test && npm run build && npm run install:check && npm run smoke:mcp-stdio && npm run smoke:package"

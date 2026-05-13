@@ -248,6 +248,83 @@ describe("loadAgentTeamConfig", () => {
     });
   });
 
+  it("loads explicit Claude Code CLI model profiles without API-key fallback", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-config-"));
+    await mkdir(join(workspace, ".agent-team"), { recursive: true });
+    await writeFile(
+      join(workspace, ".agent-team", "config.json"),
+      JSON.stringify({
+        providers: {
+          claudeCodeCli: {
+            profiles: [
+              {
+                id: "opus",
+                model: "opus",
+                displayName: "Claude Opus",
+                capabilities: {
+                  structuredOutput: true,
+                  longContext: true,
+                  reasoning: true
+                }
+              },
+              {
+                id: "haiku",
+                model: "haiku",
+                displayName: "Claude Haiku",
+                capabilities: {
+                  structuredOutput: true
+                }
+              }
+            ]
+          }
+        }
+      }),
+      "utf8"
+    );
+
+    await expect(loadAgentTeamConfig(workspace)).resolves.toMatchObject({
+      auth: { allowApiKeyFallback: false },
+      providers: {
+        claudeCodeCli: {
+          profiles: [
+            {
+              id: "opus",
+              model: "opus",
+              displayName: "Claude Opus",
+              writeValidated: false,
+              capabilities: {
+                structuredOutput: true,
+                longContext: true,
+                tools: true,
+                sessionResume: true,
+                cancellation: true,
+                reasoning: true,
+                edits: false,
+                workspaceIsolation: false
+              }
+            },
+            {
+              id: "haiku",
+              model: "haiku",
+              displayName: "Claude Haiku",
+              writeValidated: false,
+              capabilities: {
+                structuredOutput: true,
+                longContext: false,
+                tools: true,
+                sessionResume: true,
+                cancellation: true,
+                reasoning: false,
+                edits: false,
+                workspaceIsolation: false
+              }
+            }
+          ]
+        }
+      }
+    });
+  });
+
   it("loads explicit Ollama Cloud profiles without inferring env fallback", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "agent-team-config-"));
     await mkdir(join(workspace, ".agent-team"), { recursive: true });

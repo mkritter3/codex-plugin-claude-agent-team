@@ -324,6 +324,7 @@ describe("selectProvider", () => {
         routing: { rolePins: {}, providerOrder: [] },
         policy: DEFAULT_AGENT_TEAM_CONFIG.policy,
         providers: {
+          claudeCodeCli: DEFAULT_AGENT_TEAM_CONFIG.providers.claudeCodeCli,
           openaiCompatible: {
             enabled: false,
             capabilities: {
@@ -379,6 +380,7 @@ describe("selectProvider", () => {
         routing: { rolePins: {}, providerOrder: [] },
         policy: DEFAULT_AGENT_TEAM_CONFIG.policy,
         providers: {
+          claudeCodeCli: DEFAULT_AGENT_TEAM_CONFIG.providers.claudeCodeCli,
           openaiCompatible: {
             enabled: true,
             baseUrl: "https://api.example/v1",
@@ -444,6 +446,7 @@ describe("selectProvider", () => {
         routing: { rolePins: {}, providerOrder: [] },
         policy: DEFAULT_AGENT_TEAM_CONFIG.policy,
         providers: {
+          claudeCodeCli: DEFAULT_AGENT_TEAM_CONFIG.providers.claudeCodeCli,
           openaiCompatible: {
             enabled: false,
             capabilities: {
@@ -575,6 +578,89 @@ describe("selectProvider", () => {
     ).toThrow(ProviderCapabilityError);
   });
 
+  it("routes requested Claude Code CLI model profiles through subscription OAuth capabilities", () => {
+    const providers = listProviders({
+      config: {
+        ...DEFAULT_AGENT_TEAM_CONFIG,
+        providers: {
+          ...DEFAULT_AGENT_TEAM_CONFIG.providers,
+          claudeCodeCli: {
+            profiles: [
+              {
+                id: "opus",
+                model: "opus",
+                displayName: "Claude Opus",
+                writeValidated: false,
+                capabilities: {
+                  structuredOutput: true,
+                  longContext: true,
+                  tools: true,
+                  sessionResume: true,
+                  cancellation: true,
+                  reasoning: true,
+                  edits: false,
+                  workspaceIsolation: false
+                }
+              },
+              {
+                id: "haiku",
+                model: "haiku",
+                displayName: "Claude Haiku",
+                writeValidated: false,
+                capabilities: {
+                  structuredOutput: true,
+                  longContext: false,
+                  tools: true,
+                  sessionResume: true,
+                  cancellation: true,
+                  reasoning: false,
+                  edits: false,
+                  workspaceIsolation: false
+                }
+              }
+            ]
+          }
+        }
+      }
+    });
+
+    expect(
+      selectProvider({
+        roleId: "architect",
+        providers,
+        requestedProviderId: "claude-code-cli:opus"
+      }).id
+    ).toBe("claude-code-cli:opus");
+    expect(
+      selectProvider({
+        roleId: "planner",
+        providers,
+        requestedProviderId: "family:claude-code-cli"
+      }).id
+    ).toBe("claude-code-cli");
+    expect(
+      selectProvider({
+        roleId: "planner",
+        providers,
+        requestedProviderId: "model:haiku"
+      }).id
+    ).toBe("claude-code-cli:haiku");
+    expect(() =>
+      selectProvider({
+        roleId: "architect",
+        providers,
+        requestedProviderId: "claude-code-cli:haiku"
+      })
+    ).toThrow(ProviderCapabilityError);
+    expect(() =>
+      selectProvider({
+        roleId: "slice-implementer",
+        providers,
+        requestedProviderId: "claude-code-cli:opus"
+      })
+    ).toThrow(ProviderCapabilityError);
+  });
+
   it("routes requested Gemini only through declared read-only capabilities", () => {
     const providers = listProviders({
 	      config: {
@@ -584,6 +670,7 @@ describe("selectProvider", () => {
         routing: { rolePins: {}, providerOrder: [] },
         policy: DEFAULT_AGENT_TEAM_CONFIG.policy,
         providers: {
+          claudeCodeCli: DEFAULT_AGENT_TEAM_CONFIG.providers.claudeCodeCli,
           openaiCompatible: {
             enabled: false,
             capabilities: {
@@ -648,6 +735,7 @@ describe("selectProvider", () => {
         routing: { rolePins: {}, providerOrder: [] },
         policy: DEFAULT_AGENT_TEAM_CONFIG.policy,
         providers: {
+          claudeCodeCli: DEFAULT_AGENT_TEAM_CONFIG.providers.claudeCodeCli,
           openaiCompatible: {
             enabled: false,
             capabilities: {
@@ -698,6 +786,7 @@ describe("selectProvider", () => {
         routing: { rolePins: {}, providerOrder: [] },
         policy: DEFAULT_AGENT_TEAM_CONFIG.policy,
         providers: {
+          claudeCodeCli: DEFAULT_AGENT_TEAM_CONFIG.providers.claudeCodeCli,
           openaiCompatible: {
             enabled: false,
             capabilities: {

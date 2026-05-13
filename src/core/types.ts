@@ -67,6 +67,29 @@ export interface OpenAICompatibleProviderConfig {
   readonly capabilities: OpenAICompatibleProviderCapabilitiesConfig;
 }
 
+export interface ClaudeCodeCliProviderCapabilitiesConfig {
+  readonly structuredOutput: boolean;
+  readonly longContext: boolean;
+  readonly tools: boolean;
+  readonly sessionResume: boolean;
+  readonly cancellation: boolean;
+  readonly reasoning: boolean;
+  readonly edits: boolean;
+  readonly workspaceIsolation: boolean;
+}
+
+export interface ClaudeCodeCliProfileConfig {
+  readonly id: string;
+  readonly model?: string;
+  readonly displayName?: string;
+  readonly writeValidated: boolean;
+  readonly capabilities: ClaudeCodeCliProviderCapabilitiesConfig;
+}
+
+export interface ClaudeCodeCliProviderConfig {
+  readonly profiles: readonly ClaudeCodeCliProfileConfig[];
+}
+
 export interface OllamaCloudProfileConfig {
   readonly id: string;
   readonly baseUrl?: string;
@@ -131,6 +154,7 @@ export interface GeminiProviderConfig {
 }
 
 export interface AgentTeamProviderConfig {
+  readonly claudeCodeCli: ClaudeCodeCliProviderConfig;
   readonly openaiCompatible: OpenAICompatibleProviderConfig;
   readonly ollamaCloud: OllamaCloudProviderConfig;
   readonly ollamaClaudeCode: OllamaClaudeCodeProviderConfig;

@@ -4,6 +4,7 @@ All notable changes to this private local plugin are recorded here.
 
 ## Unreleased
 
+- Added explicit Claude Code CLI alias profiles for `opus`, `sonnet`, and `haiku` with subscription-OAuth routing plus an opt-in packaged MCP live proof script for exact model-profile dispatch.
 - Added an opt-in Ollama Claude Code write-validation smoke that proves fixture-local isolated implementation, source-workspace containment, dashboard/summary evidence, and cleanup before profiles are treated as write-capable.
 - Switched Ollama Claude Code profiles to the direct Ollama Cloud Anthropic-compatible endpoint (`https://ollama.com`) with bare model ids and Claude Code-compatible `ANTHROPIC_AUTH_TOKEN` / blank `ANTHROPIC_API_KEY` scoped env mapping.
 - Added explicit Ollama Claude Code profiles with a single `OLLAMA_API_KEY`, scoped Anthropic-compatible environment mapping, conservative write-validation gating, and reuse of the Claude Code lifecycle for configured `ollama-claude-code:<profile-id>` providers.

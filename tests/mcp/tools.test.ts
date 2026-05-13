@@ -59,6 +59,62 @@ describe("MCP tool handlers", () => {
     );
   });
 
+  it("lists configured Claude Code CLI model profiles without exposing provider internals", async () => {
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      config: {
+        ...DEFAULT_AGENT_TEAM_CONFIG,
+        providers: {
+          ...DEFAULT_AGENT_TEAM_CONFIG.providers,
+          claudeCodeCli: {
+            profiles: [
+              {
+                id: "opus",
+                model: "opus",
+                displayName: "Claude Opus",
+                writeValidated: false,
+                capabilities: {
+                  structuredOutput: true,
+                  longContext: true,
+                  tools: true,
+                  sessionResume: true,
+                  cancellation: true,
+                  reasoning: true,
+                  edits: false,
+                  workspaceIsolation: false
+                }
+              }
+            ]
+          }
+        }
+      }
+    });
+
+    const result = await handlers.handleToolCall("agent_team_list_providers", {});
+
+    expect(result.structuredContent?.providers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "claude-code-cli:opus",
+          displayName: "Claude Opus",
+          authMode: "subscription-oauth",
+          model: "opus",
+          capabilities: expect.arrayContaining([
+            "structuredOutput",
+            "longContext",
+            "tools",
+            "sessionResume",
+            "cancellation",
+            "reasoning"
+          ])
+        })
+      ])
+    );
+    expect(JSON.stringify(result.structuredContent)).not.toMatch(
+      /prompt|ANTHROPIC_API_KEY|ANTHROPIC_AUTH_TOKEN|apiKeyEnv/i
+    );
+  });
+
   it("lists providers from an explicit cwd when supplied", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "agent-team-providers-cwd-"));
     await mkdir(join(workspace, ".agent-team"), { recursive: true });

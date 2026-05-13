@@ -10,6 +10,7 @@ import type {
   ProviderStartSessionInput
 } from "./types.js";
 import { claudeCodeCliRuntime } from "./claude-code-cli/runtime.js";
+import { isClaudeCodeCliProfileProviderId } from "./claude-code-cli/config.js";
 import { openAICompatibleRuntime } from "./openai-compatible/runtime.js";
 import { isOllamaCloudProviderId } from "./ollama-cloud/config.js";
 import { isOllamaClaudeCodeProviderId } from "./ollama-claude-code/config.js";
@@ -49,6 +50,9 @@ export function getProviderRuntime(
   providerId: string,
   options: ProviderRuntimeRegistryOptions = {}
 ): AgentProviderRuntime | undefined {
+  if (isClaudeCodeCliProfileProviderId(providerId)) {
+    return getProviderRuntime("claude-code-cli", options);
+  }
   if (isOllamaCloudProviderId(providerId) || isGrokProviderId(providerId)) {
     return getProviderRuntime("openai-compatible", options);
   }

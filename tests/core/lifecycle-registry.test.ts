@@ -50,6 +50,9 @@ function config(input: {
       auditEnabled: input.auditEnabled ?? true
     },
     providers: {
+      claudeCodeCli: {
+        profiles: []
+      },
       openaiCompatible: {
         enabled: input.openAIEnabled ?? false,
         ...(input.openAIModel === undefined ? {} : { model: input.openAIModel }),

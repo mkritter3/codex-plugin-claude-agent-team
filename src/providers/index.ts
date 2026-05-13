@@ -1,5 +1,6 @@
 import { DEFAULT_AGENT_TEAM_CONFIG } from "../core/config.js";
 import type { AgentProviderDescriptor, AgentTeamConfig } from "../core/types.js";
+import { listClaudeCodeCliProfileProviders } from "./claude-code-cli/config.js";
 import { openAICompatibleProvider } from "./openai-compatible/config.js";
 import { listOllamaCloudProviders } from "./ollama-cloud/config.js";
 import { listOllamaClaudeCodeProviders } from "./ollama-claude-code/config.js";
@@ -39,7 +40,10 @@ export function listProviders(
   input: { readonly config?: AgentTeamConfig } = {}
 ): readonly AgentProviderDescriptor[] {
   const config = input.config ?? DEFAULT_AGENT_TEAM_CONFIG;
-  const providers: AgentProviderDescriptor[] = [claudeCodeCliProvider(config)];
+  const providers: AgentProviderDescriptor[] = [
+    claudeCodeCliProvider(config),
+    ...listClaudeCodeCliProfileProviders(config)
+  ];
   const openAIProvider = openAICompatibleProvider(config);
   if (openAIProvider !== undefined) {
     providers.push(openAIProvider);

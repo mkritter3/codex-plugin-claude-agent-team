@@ -55,6 +55,12 @@ describe("provider runtime registry", () => {
     expect(runtime?.id).toBe("ollama-claude-code");
   });
 
+  it("aliases Claude Code CLI model profile ids to the subscription OAuth Claude runtime", () => {
+    const runtime = getProviderRuntime("claude-code-cli:opus");
+
+    expect(runtime?.id).toBe("claude-code-cli");
+  });
+
   it("fails closed when a selected provider has no runtime", () => {
     expect(() => requireProviderRuntime("missing-provider")).toThrow(
       "No provider runtime registered for missing-provider."
