@@ -2,370 +2,211 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add explicit Ollama Cloud profiles that route Claude Code through Ollama's Anthropic-compatible interface while reusing the validated Agent Team lifecycle.
+**Goal:** Add explicit Ollama Claude Code profiles so configured Ollama Cloud models can use the existing Claude Code lifecycle without weakening subscription-first Claude behavior.
 
-**Architecture:** This is a provider-profile layer over the existing Claude Code session runtime, not a new implementation engine. The default `claude-code-cli` provider remains subscription OAuth and keeps blocking Anthropic override env vars; `ollama-claude-code:<profile>` providers are explicit opt-in profiles that launch Claude Code with scoped Anthropic-compatible Ollama environment only for that run.
+**Architecture:** Add a new `ollama-claude-code:<profile-id>` provider family that reuses the existing Claude Code command runner and background session runner with scoped per-run environment variables. The config stores shared non-secret Ollama settings and per-model profiles, while the actual API key is read once from plugin/MCP environment through `OLLAMA_API_KEY` or a configured env name. Write-capable capabilities stay disabled unless a profile explicitly marks write validation, and public MCP schemas remain provider-neutral.
 
-**Tech Stack:** TypeScript, Node.js ESM, Vitest, existing provider runtime registry, Claude Code CLI runtime, Ollama Cloud API key via environment, Anthropic-compatible Ollama endpoint, Agent Team lifecycle/mailbox/worktree contracts.
+**Tech Stack:** TypeScript, Node.js ESM, Vitest, existing Claude Code CLI runner/session lifecycle, provider-neutral router, doctor health checks, `.agent-team/config.json`.
 
 ---
 
 ## File Structure
 
-- Create: `src/providers/ollama-claude-code/config.ts`
-  - Parse profile descriptors and build provider ids.
-- Create: `tests/providers/ollama-claude-code/config.test.ts`
-  - Cover disabled defaults, profile descriptors, duplicate ids, shared auth env, capabilities, warnings.
-- Create: `src/providers/ollama-claude-code/runtime.ts`
-  - Runtime wrapper around Claude Code launch behavior with scoped Ollama/Anthropic-compatible env.
-- Create: `tests/providers/ollama-claude-code/runtime.test.ts`
-  - Cover env scoping, health checks, start-session delegation, unsupported missing config, no subscription override weakening.
 - Modify: `src/core/types.ts`
-  - Add `ollamaClaudeCode` provider config with shared `baseUrl`, shared `apiKeyEnv`, optional `authToken`, and profiles.
+  - Add shared `ollamaClaudeCode` provider config and profile types.
 - Modify: `src/core/config.ts`
-  - Parse `providers.ollamaClaudeCode`.
+  - Parse shared Ollama Claude Code settings and profiles with fail-closed validation.
+- Create: `src/providers/ollama-claude-code/config.ts`
+  - Build provider ids, descriptors, profile resolution, availability warnings, and scoped launch env.
+- Create: `src/providers/ollama-claude-code/runtime.ts`
+  - Reuse Claude Code print/background session paths with scoped Ollama/Anthropic-compatible env.
 - Modify: `src/providers/index.ts`
-  - Add descriptors from `listOllamaClaudeCodeProviders(config)`.
+  - List Ollama Claude Code providers.
 - Modify: `src/providers/runtime.ts`
-  - Route `ollama-claude-code:<profile>` ids to the Ollama Claude Code runtime.
+  - Route `ollama-claude-code:*` provider ids to the new runtime.
+- Modify: `src/providers/claude-code-cli/types.ts`
+  - Allow `model` and provider auth mode to be passed into shared Claude Code helpers.
+- Modify: `src/providers/claude-code-cli/commands.ts`
+  - Add `--model <model>` support.
+- Modify: `src/providers/claude-code-cli/runner.ts`
+  - Pass profile models into synchronous Claude Code dispatch.
+- Modify: `src/providers/claude-code-cli/background.ts`
+  - Accept non-subscription auth mode so scoped Ollama env does not trigger subscription override warnings.
 - Modify: `src/doctor.ts`
-  - Report provider readiness, shared auth env presence, profile count, and role routing.
-- Modify: `README.md`, `CHANGELOG.md`, `docs/runbooks/claude-team-session.md`
-  - Document opt-in config, single API key, profile ids, capabilities, and live proof requirements.
+  - Include sanitized config summary for Ollama Claude Code settings.
+- Create: `tests/providers/ollama-claude-code/config.test.ts`
+- Create: `tests/providers/ollama-claude-code/runtime.test.ts`
+- Modify: `tests/providers/claude-code-cli/commands.test.ts`
+- Modify: `tests/providers/claude-code-cli/background.test.ts`
+- Modify: `tests/doctor.test.ts`
+- Modify: `README.md`
+- Modify: `docs/runbooks/claude-team-session.md`
+- Modify: `tests/docs/packaging.test.ts`
+- Modify: `tests/docs/runbook.test.ts`
+- Modify: `CHANGELOG.md`
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-long-term-roadmap.md`
-  - Mark Milestone 48 complete after implementation and verification.
-
-## Config Shape
-
-Workspace config should store profile metadata and environment variable names, not secret values:
-
-```json
-{
-  "providers": {
-    "ollamaClaudeCode": {
-      "enabled": true,
-      "baseUrl": "http://localhost:11434",
-      "apiKeyEnv": "OLLAMA_API_KEY",
-      "authToken": "ollama",
-      "profiles": [
-        {
-          "id": "kimi-k2.6",
-          "model": "kimi-k2.6:cloud",
-          "displayName": "Kimi K2.6 via Claude Code",
-          "capabilities": {
-            "structuredOutput": true,
-            "longContext": true,
-            "tools": true,
-            "sessionResume": true,
-            "cancellation": true,
-            "edits": false,
-            "workspaceIsolation": false
-          }
-        },
-        {
-          "id": "glm-5.1",
-          "model": "glm-5.1:cloud",
-          "displayName": "GLM 5.1 via Claude Code",
-          "capabilities": {
-            "structuredOutput": true,
-            "longContext": true,
-            "tools": true,
-            "sessionResume": true,
-            "cancellation": true,
-            "edits": false,
-            "workspaceIsolation": false
-          }
-        },
-        {
-          "id": "deepseek-v4-flash",
-          "model": "deepseek-v4-flash:cloud",
-          "displayName": "DeepSeek V4 Flash via Claude Code",
-          "capabilities": {
-            "structuredOutput": true,
-            "longContext": true,
-            "tools": true,
-            "sessionResume": true,
-            "cancellation": true,
-            "edits": false,
-            "workspaceIsolation": false
-          }
-        }
-      ]
-    }
-  }
-}
-```
-
-Write-capable capabilities must remain false until Milestone 47-style live evidence proves each profile can safely satisfy isolated implementation, mailbox, wind-down, cancellation, cleanup, and source-checkout containment.
-
-The API key value is configured once at plugin/MCP environment level:
-
-```toml
-[mcp_servers."agent-team".env]
-OLLAMA_API_KEY = "..."
-```
-
-or inherited from the process environment that launches Codex.
 
 ## Success Criteria
 
-- `claude-code-cli` subscription OAuth behavior is unchanged.
-- Anthropic override env vars remain blocked for `claude-code-cli`.
-- Ollama Claude Code profiles require explicit config and never appear from `OLLAMA_API_KEY` alone.
-- Shared `apiKeyEnv` is configured once at provider level and reused by all profiles.
-- Public MCP schemas remain provider-neutral.
-- Provider descriptors expose only declared capabilities.
-- Missing Ollama API key, missing base URL, missing profile model, duplicate profile ids, and unsupported capability declarations fail closed with doctor/config evidence.
-- Runtime launches Claude Code with scoped env for Ollama profiles only:
+- `ollama-claude-code:<profile-id>` providers are explicit and never inferred from Claude subscription mode.
+- Shared `providers.ollamaClaudeCode.apiKeyEnv` defaults to `OLLAMA_API_KEY`; profiles do not require per-model API key envs.
+- Scoped provider env sets `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_API_KEY`, and `OLLAMA_API_KEY` only for that provider run.
+- `claude-code-cli` subscription OAuth continues to fail closed when subscription-overriding env vars are present.
+- `ollama-claude-code` profiles reuse dispatch and background lifecycle paths, including sidecars, mailboxes, status, wind-down, cancellation, dashboard, summary, and cleanup.
+- `slice-implementer` routing remains unavailable for Ollama Claude Code profiles unless a profile explicitly declares write validation.
+- Doctor reports sanitized config, API-key env presence, Claude CLI readiness, and capability posture without printing secrets or provider endpoints.
+- Docs explain single API-key setup and opt-in live validation without provider ranking, benchmark, or model-quality claims.
 
-```text
-ANTHROPIC_BASE_URL=<configured baseUrl>
-ANTHROPIC_AUTH_TOKEN=<configured authToken or ollama>
-ANTHROPIC_API_KEY=
-OLLAMA_API_KEY=<from env>
-```
-
-- No public MCP output prints secret values, raw env, provider endpoints, provider session ids, or command args.
-- Live profile proof remains opt-in and excluded from CI.
-
-## Task 1: Config And Descriptor TDD
+## Task 1: Config And Descriptor Tests
 
 **Files:**
+- Create: `tests/providers/ollama-claude-code/config.test.ts`
 - Modify: `src/core/types.ts`
 - Modify: `src/core/config.ts`
 - Create: `src/providers/ollama-claude-code/config.ts`
-- Create: `tests/providers/ollama-claude-code/config.test.ts`
-- Modify: `tests/core/config.test.ts`
-- Modify: `tests/core/router.test.ts`
-
-- [ ] **Step 1: Write failing config tests**
-
-Add tests for:
-
-```ts
-expect(loadAgentTeamConfig(workspace)).resolves.toMatchObject({
-  providers: {
-    ollamaClaudeCode: {
-      enabled: true,
-      baseUrl: "http://localhost:11434",
-      apiKeyEnv: "OLLAMA_API_KEY",
-      profiles: [{ id: "glm-5.1", model: "glm-5.1:cloud" }]
-    }
-  }
-});
-```
-
-Also assert duplicate profile ids and unsupported capability names throw `AgentTeamConfigError`.
-
-- [ ] **Step 2: Write failing descriptor tests**
-
-Assert disabled config returns no providers, enabled profiles produce provider ids:
-
-```ts
-ollama-claude-code:kimi-k2.6
-ollama-claude-code:glm-5.1
-ollama-claude-code:deepseek-v4-flash
-```
-
-- [ ] **Step 3: Run red tests**
-
-Run:
-
-```bash
-npm test -- tests/core/config.test.ts tests/core/router.test.ts tests/providers/ollama-claude-code/config.test.ts
-```
-
-Expected: fail because the config/runtime modules do not exist.
-
-- [ ] **Step 4: Implement config parsing and descriptors**
-
-Add `ollamaClaudeCode` defaults:
-
-```ts
-{
-  enabled: false,
-  baseUrl: undefined,
-  apiKeyEnv: undefined,
-  authToken: "ollama",
-  profiles: []
-}
-```
-
-Add provider descriptor helper functions:
-
-```ts
-export const OLLAMA_CLAUDE_CODE_PROVIDER_PREFIX = "ollama-claude-code";
-export function ollamaClaudeCodeProviderId(profileId: string): string;
-export function isOllamaClaudeCodeProviderId(providerId: string): boolean;
-export function listOllamaClaudeCodeProviders(config: AgentTeamConfig): readonly AgentProviderDescriptor[];
-```
-
-- [ ] **Step 5: Run green tests**
-
-Run the same focused test command. Expected: pass.
-
-## Task 2: Runtime Wrapper And Health Checks
-
-**Files:**
-- Create: `src/providers/ollama-claude-code/runtime.ts`
-- Create: `tests/providers/ollama-claude-code/runtime.test.ts`
-- Modify: `src/providers/runtime.ts`
 - Modify: `src/providers/index.ts`
-- Modify: `tests/providers/runtime.test.ts`
-- Modify: `tests/doctor.test.ts`
 
-- [ ] **Step 1: Write failing runtime tests**
+- [ ] **Step 1: Write failing descriptor/config tests**
 
-Assert:
+Add tests that assert disabled config lists no providers, enabled config with shared `apiKeyEnv` creates explicit `ollama-claude-code:kimi-k2.6` and `ollama-claude-code:glm-5.1` provider ids, incomplete shared config marks profiles unavailable, and write capabilities are absent unless `writeValidated` is true.
 
-- `getProviderRuntime("ollama-claude-code:glm-5.1")` resolves.
-- `inspectEnvironment` does not warn for `ANTHROPIC_API_KEY` because this provider intentionally scopes Anthropic-compatible env.
-- `healthCheck` reports missing `OLLAMA_API_KEY` by env var name only.
-- `startSession` passes scoped env to the shared Claude Code session starter.
-- `claude-code-cli` tests still block `ANTHROPIC_API_KEY` and `ANTHROPIC_AUTH_TOKEN`.
-
-- [ ] **Step 2: Implement runtime wrapper**
-
-Reuse Claude Code session semantics but resolve the selected profile first. Build scoped env from the incoming process env:
-
-```ts
-const token = input.env[providerConfig.apiKeyEnv];
-const scopedEnv = {
-  ...input.env,
-  ANTHROPIC_BASE_URL: providerConfig.baseUrl,
-  ANTHROPIC_AUTH_TOKEN: providerConfig.authToken ?? "ollama",
-  ANTHROPIC_API_KEY: "",
-  [providerConfig.apiKeyEnv]: token
-};
-```
-
-The runtime must fail before provider start when required config or auth env is missing.
-
-- [ ] **Step 3: Register runtime and descriptors**
-
-Add the runtime to `DEFAULT_PROVIDER_RUNTIMES`, and route profile ids in `getProviderRuntime`.
-
-- [ ] **Step 4: Add doctor checks**
-
-Doctor should report:
-
-```text
-ollama-claude-code:<profile>:config
-ollama-claude-code:<profile>:auth-env
-ollama-claude-code:<profile>:routing
-```
-
-Details must include env var names and boolean presence, not secret values.
-
-- [ ] **Step 5: Run focused runtime tests**
+- [ ] **Step 2: Run tests to verify red**
 
 Run:
 
 ```bash
-npm test -- tests/providers/runtime.test.ts tests/providers/ollama-claude-code/runtime.test.ts tests/doctor.test.ts
+npm test -- tests/providers/ollama-claude-code/config.test.ts tests/providers/ollama-cloud/config.test.ts
+```
+
+Expected: fail because the new provider family does not exist.
+
+- [ ] **Step 3: Implement config and provider descriptors**
+
+Add parsed config under `providers.ollamaClaudeCode`, explicit provider ids, profile resolution, profile warnings, and provider listing.
+
+- [ ] **Step 4: Run focused tests to verify green**
+
+Run:
+
+```bash
+npm test -- tests/providers/ollama-claude-code/config.test.ts tests/providers/ollama-cloud/config.test.ts
 ```
 
 Expected: pass.
 
-## Task 3: Lifecycle Integration And Safety Gates
+## Task 2: Claude Code Scoped Runtime
 
 **Files:**
-- Modify: `tests/core/lifecycle-registry.test.ts`
-- Modify: `tests/core/lifecycle.test.ts`
-- Modify: `tests/core/dispatch.test.ts`
-- Modify: `tests/mcp/tools.test.ts`
-- Modify: `scripts/smoke-mcp-stdio.mjs`
+- Create: `tests/providers/ollama-claude-code/runtime.test.ts`
+- Modify: `tests/providers/claude-code-cli/commands.test.ts`
+- Modify: `tests/providers/claude-code-cli/background.test.ts`
+- Modify: `src/providers/claude-code-cli/types.ts`
+- Modify: `src/providers/claude-code-cli/commands.ts`
+- Modify: `src/providers/claude-code-cli/runner.ts`
+- Modify: `src/providers/claude-code-cli/background.ts`
+- Create: `src/providers/ollama-claude-code/runtime.ts`
+- Modify: `src/providers/runtime.ts`
 
-- [ ] **Step 1: Add failing lifecycle tests**
+- [ ] **Step 1: Write failing runtime tests**
 
-Assert that an Ollama Claude Code profile with only read/session/tool capabilities can start read-only lifecycle roles but cannot start `slice-implementer`.
+Add tests proving `--model` is sent to Claude Code, scoped env maps one `OLLAMA_API_KEY` to `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_API_KEY`, and `OLLAMA_API_KEY`, missing API key fails closed, and subscription OAuth warnings still apply only to `claude-code-cli`.
 
-Assert that `slice-implementer` can route only if that specific profile declares `edits` and `workspaceIsolation` and workspace write policy allows it.
-
-- [ ] **Step 2: Run red tests**
+- [ ] **Step 2: Run tests to verify red**
 
 Run:
 
 ```bash
-npm test -- tests/core/lifecycle.test.ts tests/core/dispatch.test.ts tests/mcp/tools.test.ts
+npm test -- tests/providers/ollama-claude-code/runtime.test.ts tests/providers/claude-code-cli/commands.test.ts tests/providers/claude-code-cli/background.test.ts
 ```
 
-Expected: fail until runtime registration and descriptor capabilities are integrated.
+Expected: fail because `--model` and the runtime wrapper are missing.
 
-- [ ] **Step 3: Implement minimal integration**
+- [ ] **Step 3: Implement runtime wrapper**
 
-Ensure provider descriptors are included in `listProviders({ config })`, runtime registry resolves profile ids, and MCP tools remain schema-neutral.
+Reuse `runClaudePrint` and `startClaudeBackgroundSession` with scoped env and model. Do not shell out directly or duplicate lifecycle behavior.
 
-- [ ] **Step 4: Update packaged stdio smoke if needed**
+- [ ] **Step 4: Run focused tests to verify green**
 
-Keep smoke assertions provider-neutral. Do not add provider-specific public MCP schemas.
+Run:
 
-- [ ] **Step 5: Run green tests**
+```bash
+npm test -- tests/providers/ollama-claude-code/runtime.test.ts tests/providers/claude-code-cli/commands.test.ts tests/providers/claude-code-cli/background.test.ts
+```
 
-Run the same focused tests. Expected: pass.
+Expected: pass.
 
-## Task 4: Docs, Live Proof Harness, And Release Notes
+## Task 3: Doctor And Routing Coverage
+
+**Files:**
+- Modify: `tests/doctor.test.ts`
+- Modify: `tests/core/router.test.ts`
+- Modify: `src/doctor.ts`
+
+- [ ] **Step 1: Write failing doctor/routing tests**
+
+Add tests showing doctor reports `ollamaClaudeCode` profile count, sanitized shared env name, missing/present `OLLAMA_API_KEY`, and read-only roles can route to `ollama-claude-code:*` while `slice-implementer` cannot route unless write capabilities are validated.
+
+- [ ] **Step 2: Run tests to verify red**
+
+Run:
+
+```bash
+npm test -- tests/doctor.test.ts tests/core/router.test.ts
+```
+
+Expected: fail on missing doctor provider checks.
+
+- [ ] **Step 3: Implement doctor summary and routing compatibility**
+
+Wire runtime health checks and sanitized config details. Keep endpoint URLs and secret values out of doctor output.
+
+- [ ] **Step 4: Run focused tests to verify green**
+
+Run:
+
+```bash
+npm test -- tests/doctor.test.ts tests/core/router.test.ts
+```
+
+Expected: pass.
+
+## Task 4: Docs And Roadmap
 
 **Files:**
 - Modify: `README.md`
 - Modify: `docs/runbooks/claude-team-session.md`
-- Modify: `CHANGELOG.md`
 - Modify: `tests/docs/packaging.test.ts`
 - Modify: `tests/docs/runbook.test.ts`
-- Modify: `scripts/live-smoke-readonly-providers.mjs`
-- Modify: `tests/live-smoke-readonly-providers.test.ts`
+- Modify: `CHANGELOG.md`
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-long-term-roadmap.md`
 
-- [ ] **Step 1: Add docs tests**
+- [ ] **Step 1: Write failing docs tests**
 
-Require docs to mention:
+Require docs to mention `providers.ollamaClaudeCode`, `OLLAMA_API_KEY`, `ollama-claude-code:kimi-k2.6`, `ANTHROPIC_BASE_URL`, scoped provider env, write validation, and no provider ranking/model-quality claim.
 
-```text
-ollama-claude-code:kimi-k2.6
-ollama-claude-code:glm-5.1
-ollama-claude-code:deepseek-v4-flash
-OLLAMA_API_KEY
-single API key
-ANTHROPIC_BASE_URL
-Claude Code through Ollama
-opt-in live proof
-no provider ranking
-```
-
-- [ ] **Step 2: Update docs**
-
-Document setup:
-
-```toml
-[mcp_servers."agent-team".env]
-OLLAMA_API_KEY = "..."
-```
-
-Document workspace profile config and provider selectors. State that write-capable profile declarations require separate live proof before use.
-
-- [ ] **Step 3: Extend live provider smoke dry-run**
-
-Ensure `npm run smoke:providers-live -- --dry-run --provider ollama-claude-code:glm-5.1` reports the provider selector and limitations without calling providers.
-
-- [ ] **Step 4: Run docs and smoke tests**
+- [ ] **Step 2: Run docs tests to verify red**
 
 Run:
 
 ```bash
-npm test -- tests/docs/packaging.test.ts tests/docs/runbook.test.ts tests/live-smoke-readonly-providers.test.ts
+npm test -- tests/docs/packaging.test.ts tests/docs/runbook.test.ts
 ```
 
-Expected: pass.
+Expected: fail until docs are updated.
+
+- [ ] **Step 3: Update docs and roadmap**
+
+Document single API-key setup, profile config, conservative capabilities, live-proof requirements, and mark Milestone 48 complete only after verification.
 
 ## Verification Plan
 
 Run before integration:
 
 ```bash
-npm test -- tests/core/config.test.ts tests/core/router.test.ts tests/providers/ollama-claude-code/config.test.ts
-npm test -- tests/providers/runtime.test.ts tests/providers/ollama-claude-code/runtime.test.ts tests/doctor.test.ts
-npm test -- tests/core/lifecycle-registry.test.ts tests/core/lifecycle.test.ts tests/core/dispatch.test.ts tests/mcp/tools.test.ts
-npm test -- tests/docs/packaging.test.ts tests/docs/runbook.test.ts tests/live-smoke-readonly-providers.test.ts
+npm test -- tests/providers/ollama-claude-code/config.test.ts tests/providers/ollama-cloud/config.test.ts
+npm test -- tests/providers/ollama-claude-code/runtime.test.ts tests/providers/claude-code-cli/commands.test.ts tests/providers/claude-code-cli/background.test.ts
+npm test -- tests/doctor.test.ts tests/core/router.test.ts
+npm test -- tests/docs/packaging.test.ts tests/docs/runbook.test.ts
 npm run typecheck
 npm test
 npm run build
@@ -375,17 +216,14 @@ npm run smoke:package
 npm run ci
 ```
 
-Optional operator-run live proof after Ollama is installed and authenticated:
+Optional operator-run proof after a real Ollama profile and API key are configured:
 
 ```bash
-npm run smoke:providers-live -- --dry-run --cwd /absolute/path/to/workspace --provider ollama-claude-code:glm-5.1
-npm run smoke:providers-live -- --confirm-live-provider-use --cwd /absolute/path/to/workspace --provider ollama-claude-code:glm-5.1
+npm run smoke:providers-live -- --dry-run --cwd /absolute/path/to/workspace --provider family:ollama-claude-code
 ```
-
-Write-capable Ollama Claude Code proof must wait until Milestone 47 validates the current Claude control paths and a profile explicitly declares implementation capabilities.
 
 ## Self-Review
 
-- Spec coverage: This plan covers single API key configuration, profile ids, Claude Code through Ollama, scoped env, provider-neutral MCP schemas, doctor, runtime registry, lifecycle safety, docs, and opt-in live proof.
+- Spec coverage: The plan covers explicit profiles, one API-key env, Claude Code lifecycle reuse, scoped env, doctor, write gating, docs, and no model-quality claims.
 - Placeholder scan: No TODO/TBD placeholders remain.
-- Type consistency: Provider names, config keys, runtime names, and provider ids are consistent across tasks.
+- Type consistency: Provider family is consistently named `ollama-claude-code`; config is consistently named `ollamaClaudeCode`.
