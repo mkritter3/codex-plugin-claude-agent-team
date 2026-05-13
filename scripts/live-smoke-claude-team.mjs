@@ -174,6 +174,7 @@ async function runLiveSmoke(workspaceRoot) {
     command: "node",
     args: [runtimePath],
     cwd: repoRoot,
+    env: process.env,
     stderr: "pipe"
   });
   const stderrChunks = [];

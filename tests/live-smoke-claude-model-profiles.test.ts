@@ -84,6 +84,7 @@ describe("Claude model profile live smoke script", () => {
     expect(script).toContain("ANTHROPIC_API_KEY");
     expect(script).toContain("ANTHROPIC_AUTH_TOKEN");
     expect(script).toContain("CLAUDE_CODE_OAUTH_TOKEN");
+    expect(script).toContain("env: subscriptionOauthEnv(process.env)");
     expect(script).not.toContain("runClaudePrint");
     expect(script).not.toContain("startClaudeBackgroundSession");
     expect(script).not.toContain("requireProviderRuntime");

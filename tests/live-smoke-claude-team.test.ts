@@ -114,6 +114,7 @@ describe("Claude live smoke script", () => {
     expect(script).toContain("waitForCompletionStatuses");
     expect(script).toContain("buildToolRequestOptions");
     expect(script).toContain("StdioClientTransport");
+    expect(script).toContain("env: process.env");
     expect(script).not.toContain("runClaudePrint");
     expect(script).not.toContain("startClaudeBackgroundSession");
     expect(script).not.toContain("requireProviderRuntime");

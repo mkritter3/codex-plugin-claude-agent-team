@@ -133,6 +133,7 @@ describe("Claude live capability matrix script", () => {
     expect(script).toContain("--max-wait-ms");
     expect(script).toContain("result.isError");
     expect(script).toContain("StdioClientTransport");
+    expect(script).toContain("env: process.env");
     expect(script).not.toContain("runClaudePrint");
     expect(script).not.toContain("startClaudeBackgroundSession");
     expect(script).not.toContain("requireProviderRuntime");
