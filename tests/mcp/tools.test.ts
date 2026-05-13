@@ -267,7 +267,8 @@ describe("MCP tool handlers", () => {
         "agent_team_start_slices",
         "agent_team_unblock_slice",
         "agent_team_review_slice",
-        "agent_team_integration_queue"
+        "agent_team_integration_queue",
+        "agent_team_record_integration"
       ])
     );
     expect(TOOL_METADATA_BY_NAME.agent_team_start_slices).toMatchObject({
@@ -303,6 +304,18 @@ describe("MCP tool handlers", () => {
     expect(TOOL_METADATA_BY_NAME.agent_team_integration_queue.inputSchema).toMatchObject({
       workflowId: expect.any(Object)
     });
+    expect(TOOL_METADATA_BY_NAME.agent_team_record_integration).toMatchObject({
+      title: "Record Workflow Integration Evidence",
+      description: expect.stringMatching(/verification results/i)
+    });
+    expect(TOOL_METADATA_BY_NAME.agent_team_record_integration.inputSchema).toMatchObject({
+      workflowId: expect.any(Object),
+      sliceId: expect.any(Object),
+      integrationMethod: expect.any(Object),
+      summary: expect.any(Object),
+      changedFiles: expect.any(Object),
+      verification: expect.any(Object)
+    });
     expect(JSON.stringify(TOOL_METADATA_BY_NAME.agent_team_start_slices)).not.toMatch(
       /claude-code-cli|internal prompt|raw provider|providerPayload/i
     );
@@ -314,6 +327,9 @@ describe("MCP tool handlers", () => {
     );
     expect(JSON.stringify(TOOL_METADATA_BY_NAME.agent_team_integration_queue)).not.toMatch(
       /claude-code-cli|internal prompt|raw provider|providerPayload|merge|cherry-pick/i
+    );
+    expect(JSON.stringify(TOOL_METADATA_BY_NAME.agent_team_record_integration)).not.toMatch(
+      /claude-code-cli|internal prompt|raw provider|providerPayload|commandArgs/i
     );
   });
 
@@ -828,11 +844,117 @@ describe("MCP tool handlers", () => {
     );
   });
 
+  it("records workflow integration evidence through MCP using the injected workflow service", async () => {
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      recordWorkflowIntegration: async (input) => ({
+        queueItem: {
+          queuePosition: 1,
+          sliceId: input.sliceId,
+          state: "integrated",
+          worktreePath: "/repo/.worktrees/slice_core",
+          branchName: "codex/workflow_mcp/slice_core",
+          reviewRunIds: ["run_review_slice_core"],
+          conflictRisk: "low",
+          changedFiles: input.changedFiles,
+          dependencySliceIds: [],
+          focusedTests: ["npm test -- tests/core/workflow-integration-evidence.test.ts"],
+          queuedAt: "2026-05-13T13:00:00.000Z",
+          integratedAt: "2026-05-13T14:00:00.000Z",
+          finalGateStatus: "passed",
+          integrationEvidencePaths: ["/repo/.agent-team/evidence/integration.json"],
+          cleanupRecommendation: "eligible-after-evidence-saved"
+        },
+        slice: {
+          sliceId: input.sliceId,
+          title: "Core",
+          state: "integrated",
+          ownerRole: "slice-implementer",
+          dependencies: [],
+          writeScope: ["src/core"],
+          acceptanceTests: ["focused tests"],
+          integrationEvidence: [
+            {
+              integratedAt: "2026-05-13T14:00:00.000Z",
+              integrationMethod: input.integrationMethod,
+              summary: input.summary,
+              changedFiles: input.changedFiles,
+              verification: input.verification,
+              evidencePaths: ["/repo/.agent-team/evidence/integration.json"],
+              retainedWorktreePath: "/repo/.worktrees/slice_core",
+              cleanupRecommendation: "eligible-after-evidence-saved"
+            }
+          ]
+        },
+        workflow: {
+          workflowId: input.workflowId,
+          createdAt: "2026-05-13T10:00:00.000Z",
+          updatedAt: "2026-05-13T14:00:00.000Z",
+          planningStatus: "approved",
+          goal: {
+            title: "Workflow",
+            successCriteria: ["integration evidence recorded"],
+            constraints: ["provider neutral"],
+            nonGoals: ["auto cleanup"]
+          },
+          seniorReview: DEFAULT_AGENT_TEAM_CONFIG.seniorReview,
+          slices: [],
+          consensusRounds: [],
+          userEscalations: [],
+          opusReviewEvidence: [],
+          integrationQueue: [],
+          codexRationale: [],
+          evidencePath: "/repo/.agent-team/workflows/workflow_mcp.json"
+        }
+      })
+    });
+
+    const result = await handlers.handleToolCall("agent_team_record_integration", {
+      workflowId: "workflow_mcp",
+      sliceId: "slice_core",
+      integrationMethod: "manual-patch",
+      summary: "Codex integrated the slice.",
+      changedFiles: ["src/core/workflow-integration-evidence.ts"],
+      verification: [
+        {
+          command: "npm test -- tests/core/workflow-integration-evidence.test.ts",
+          status: "passed",
+          summary: "Focused tests passed."
+        }
+      ],
+      evidencePaths: ["/repo/.agent-team/evidence/integration.json"],
+      retainedWorktreePath: "/repo/.worktrees/slice_core",
+      cleanupRecommendation: "eligible-after-evidence-saved"
+    });
+
+    expect(result.structuredContent).toMatchObject({
+      queueItem: {
+        sliceId: "slice_core",
+        state: "integrated",
+        finalGateStatus: "passed"
+      },
+      slice: {
+        sliceId: "slice_core",
+        state: "integrated",
+        integrationEvidence: [
+          expect.objectContaining({
+            integrationMethod: "manual-patch",
+            cleanupRecommendation: "eligible-after-evidence-saved"
+          })
+        ]
+      }
+    });
+    expect(JSON.stringify(result.structuredContent)).not.toMatch(
+      /internalPrompt|rawProvider|providerSession|commandArgs|secret/i
+    );
+  });
+
   it("rejects invalid workflow slice orchestration input before invoking injected services", async () => {
     let startCalled = false;
     let unblockCalled = false;
     let reviewCalled = false;
     let queueCalled = false;
+    let integrationCalled = false;
     const handlers = createToolHandlers({
       cwd: () => "/repo",
       startWorkflowSlices: async () => {
@@ -850,6 +972,10 @@ describe("MCP tool handlers", () => {
       buildWorkflowIntegrationQueue: async () => {
         queueCalled = true;
         throw new Error("should not queue");
+      },
+      recordWorkflowIntegration: async () => {
+        integrationCalled = true;
+        throw new Error("should not record integration");
       }
     });
 
@@ -876,15 +1002,25 @@ describe("MCP tool handlers", () => {
       workflowId: "workflow_mcp",
       sliceIds: []
     });
+    const integrationResult = await handlers.handleToolCall("agent_team_record_integration", {
+      workflowId: "workflow_mcp",
+      sliceId: "slice_core",
+      integrationMethod: "manual-patch",
+      summary: "Missing verification should fail.",
+      changedFiles: ["src/core/workflow-integration-evidence.ts"],
+      verification: []
+    });
 
     expect(startResult.structuredContent).toMatchObject({ status: "validation_error" });
     expect(unblockResult.structuredContent).toMatchObject({ status: "validation_error" });
     expect(reviewResult.structuredContent).toMatchObject({ status: "validation_error" });
     expect(queueResult.structuredContent).toMatchObject({ status: "validation_error" });
+    expect(integrationResult.structuredContent).toMatchObject({ status: "validation_error" });
     expect(startCalled).toBe(false);
     expect(unblockCalled).toBe(false);
     expect(reviewCalled).toBe(false);
     expect(queueCalled).toBe(false);
+    expect(integrationCalled).toBe(false);
   });
 
   it("loads workspace config for default lifecycle starts", async () => {
@@ -3914,6 +4050,7 @@ describe("MCP tool handlers", () => {
       "agent_team_unblock_slice",
       "agent_team_review_slice",
       "agent_team_integration_queue",
+      "agent_team_record_integration",
       "agent_team_dashboard",
       "agent_team_cancel",
       "agent_team_cancel_many",

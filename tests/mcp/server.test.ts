@@ -49,6 +49,7 @@ vi.mock("../../src/mcp/tools.js", () => ({
     "agent_team_unblock_slice",
     "agent_team_review_slice",
     "agent_team_integration_queue",
+    "agent_team_record_integration",
     "agent_team_dashboard",
     "agent_team_cancel_many",
     "agent_team_wind_down_many",
@@ -100,6 +101,7 @@ describe("MCP server", () => {
       "agent_team_unblock_slice",
       "agent_team_review_slice",
       "agent_team_integration_queue",
+      "agent_team_record_integration",
       "agent_team_dashboard",
       "agent_team_cancel_many",
       "agent_team_wind_down_many",
@@ -178,6 +180,11 @@ describe("MCP server", () => {
     });
     expect(metadataByName.get("agent_team_integration_queue")?.inputSchema).toMatchObject({
       workflowId: expect.any(Object)
+    });
+    expect(metadataByName.get("agent_team_record_integration")?.inputSchema).toMatchObject({
+      workflowId: expect.any(Object),
+      sliceId: expect.any(Object),
+      verification: expect.any(Object)
     });
     expect(metadataByName.get("agent_team_dashboard")?.inputSchema).toMatchObject({
       teamId: expect.any(Object),

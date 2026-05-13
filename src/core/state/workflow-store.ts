@@ -11,6 +11,7 @@ import {
 import {
   SENIOR_REVIEW_MODES,
   CODEX_RATIONALE_CATEGORIES,
+  WORKFLOW_CLEANUP_RECOMMENDATIONS,
   WORKFLOW_BLOCKED_MODES,
   WORKFLOW_CONSENSUS_PHASES,
   WORKFLOW_CONSENSUS_STATUSES,
@@ -20,11 +21,13 @@ import {
   WORKFLOW_PLANNING_STATUSES,
   WORKFLOW_RISK_LEVELS,
   WORKFLOW_SLICE_STATES,
+  WORKFLOW_VERIFICATION_STATUSES,
   WORKFLOW_VERDICT_STATUSES,
   type CodexRationaleCategory,
   type SeniorReviewMode,
   type SeniorReviewPolicyConfig,
   type WorkflowBlockedMode,
+  type WorkflowCleanupRecommendation,
   type WorkflowCodexRationale,
   type WorkflowConsensusPhase,
   type WorkflowConsensusRound,
@@ -41,11 +44,14 @@ import {
   type WorkflowRiskLevel,
   type WorkflowSlice,
   type WorkflowSliceImplementationEvidence,
+  type WorkflowSliceIntegrationEvidence,
   type WorkflowSliceReviewEvidence,
   type WorkflowSliceRunEvidence,
   type WorkflowSliceStartFailureEvidence,
   type WorkflowSliceState,
   type WorkflowSliceUnblockEvidence,
+  type WorkflowVerificationEvidence,
+  type WorkflowVerificationStatus,
   type WorkflowUserEscalation,
   type WorkflowVerdictStatus
 } from "../workflow-types.js";
@@ -89,7 +95,8 @@ const SLICE_KEYS = new Set([
   "startFailureEvidence",
   "unblockEvidence",
   "implementationEvidence",
-  "reviewEvidence"
+  "reviewEvidence",
+  "integrationEvidence"
 ]);
 const SLICE_RUN_EVIDENCE_KEYS = new Set([
   "runId",
@@ -126,6 +133,22 @@ const SLICE_REVIEW_EVIDENCE_KEYS = new Set([
   "consensus",
   "summary",
   "reviewerRunIds"
+]);
+const SLICE_INTEGRATION_EVIDENCE_KEYS = new Set([
+  "integratedAt",
+  "integrationMethod",
+  "summary",
+  "changedFiles",
+  "verification",
+  "evidencePaths",
+  "retainedWorktreePath",
+  "cleanupRecommendation"
+]);
+const VERIFICATION_EVIDENCE_KEYS = new Set([
+  "command",
+  "status",
+  "summary",
+  "evidencePath"
 ]);
 const CODEX_RATIONALE_KEYS = new Set([
   "rationaleId",
@@ -179,13 +202,19 @@ const INTEGRATION_QUEUE_KEYS = new Set([
   "changedFiles",
   "dependencySliceIds",
   "focusedTests",
-  "queuedAt"
+  "queuedAt",
+  "integratedAt",
+  "finalGateStatus",
+  "integrationEvidencePaths",
+  "cleanupRecommendation"
 ]);
 
 const SENIOR_REVIEW_MODE_SET = new Set<string>(SENIOR_REVIEW_MODES);
 const PLANNING_STATUS_SET = new Set<string>(WORKFLOW_PLANNING_STATUSES);
 const SLICE_STATE_SET = new Set<string>(WORKFLOW_SLICE_STATES);
 const RISK_LEVEL_SET = new Set<string>(WORKFLOW_RISK_LEVELS);
+const VERIFICATION_STATUS_SET = new Set<string>(WORKFLOW_VERIFICATION_STATUSES);
+const CLEANUP_RECOMMENDATION_SET = new Set<string>(WORKFLOW_CLEANUP_RECOMMENDATIONS);
 const BLOCKED_MODE_SET = new Set<string>(WORKFLOW_BLOCKED_MODES);
 const CODEX_RATIONALE_CATEGORY_SET = new Set<string>(CODEX_RATIONALE_CATEGORIES);
 const CONSENSUS_PHASE_SET = new Set<string>(WORKFLOW_CONSENSUS_PHASES);
@@ -382,6 +411,13 @@ function parseSlice(value: unknown, path: string, index: number): WorkflowSlice 
       : expectArray(slice.reviewEvidence, path, `slices[${index}].reviewEvidence`).map(
           (item, evidenceIndex) => parseSliceReviewEvidence(item, path, index, evidenceIndex)
         );
+  const integrationEvidence =
+    slice.integrationEvidence === undefined
+      ? undefined
+      : expectArray(slice.integrationEvidence, path, `slices[${index}].integrationEvidence`).map(
+          (item, evidenceIndex) =>
+            parseSliceIntegrationEvidence(item, path, index, evidenceIndex)
+        );
   const readScope =
     slice.readScope === undefined
       ? undefined
@@ -446,7 +482,8 @@ function parseSlice(value: unknown, path: string, index: number): WorkflowSlice 
     ...(startFailureEvidence === undefined ? {} : { startFailureEvidence }),
     ...(unblockEvidence === undefined ? {} : { unblockEvidence }),
     ...(implementationEvidence === undefined ? {} : { implementationEvidence }),
-    ...(reviewEvidence === undefined ? {} : { reviewEvidence })
+    ...(reviewEvidence === undefined ? {} : { reviewEvidence }),
+    ...(integrationEvidence === undefined ? {} : { integrationEvidence })
   };
 }
 
@@ -595,6 +632,83 @@ function parseSliceReviewEvidence(
     ),
     summary: expectNonEmptyString(evidence.summary, path, `${field}.summary`),
     ...(reviewerRunIds === undefined ? {} : { reviewerRunIds })
+  };
+}
+
+function parseVerificationEvidence(
+  value: unknown,
+  path: string,
+  field: string
+): WorkflowVerificationEvidence {
+  const evidence = expectObject(value, path, field);
+  assertKnownKeys(evidence, path, VERIFICATION_EVIDENCE_KEYS, field);
+  const evidencePath =
+    evidence.evidencePath === undefined
+      ? undefined
+      : expectNonEmptyString(evidence.evidencePath, path, `${field}.evidencePath`);
+  return {
+    command: expectNonEmptyString(evidence.command, path, `${field}.command`),
+    status: expectEnum<WorkflowVerificationStatus>(
+      evidence.status,
+      path,
+      `${field}.status`,
+      VERIFICATION_STATUS_SET
+    ),
+    summary: expectNonEmptyString(evidence.summary, path, `${field}.summary`),
+    ...(evidencePath === undefined ? {} : { evidencePath })
+  };
+}
+
+function parseSliceIntegrationEvidence(
+  value: unknown,
+  path: string,
+  sliceIndex: number,
+  evidenceIndex: number
+): WorkflowSliceIntegrationEvidence {
+  const field = `slices[${sliceIndex}].integrationEvidence[${evidenceIndex}]`;
+  const evidence = expectObject(value, path, field);
+  assertKnownKeys(evidence, path, SLICE_INTEGRATION_EVIDENCE_KEYS, field);
+  const verification = expectNonEmptyArray(
+    evidence.verification,
+    path,
+    `${field}.verification`
+  ).map((item, verificationIndex) =>
+    parseVerificationEvidence(item, path, `${field}.verification[${verificationIndex}]`)
+  );
+  const evidencePaths =
+    evidence.evidencePaths === undefined
+      ? undefined
+      : expectStringArray(evidence.evidencePaths, path, `${field}.evidencePaths`);
+  const retainedWorktreePath =
+    evidence.retainedWorktreePath === undefined
+      ? undefined
+      : expectNonEmptyString(
+          evidence.retainedWorktreePath,
+          path,
+          `${field}.retainedWorktreePath`
+        );
+  const cleanupRecommendation =
+    evidence.cleanupRecommendation === undefined
+      ? undefined
+      : expectEnum<WorkflowCleanupRecommendation>(
+          evidence.cleanupRecommendation,
+          path,
+          `${field}.cleanupRecommendation`,
+          CLEANUP_RECOMMENDATION_SET
+        );
+  return {
+    integratedAt: expectNonEmptyString(evidence.integratedAt, path, `${field}.integratedAt`),
+    integrationMethod: expectNonEmptyString(
+      evidence.integrationMethod,
+      path,
+      `${field}.integrationMethod`
+    ),
+    summary: expectNonEmptyString(evidence.summary, path, `${field}.summary`),
+    changedFiles: expectStringArray(evidence.changedFiles, path, `${field}.changedFiles`),
+    verification,
+    ...(evidencePaths === undefined ? {} : { evidencePaths }),
+    ...(retainedWorktreePath === undefined ? {} : { retainedWorktreePath }),
+    ...(cleanupRecommendation === undefined ? {} : { cleanupRecommendation })
   };
 }
 
@@ -880,7 +994,45 @@ function parseIntegrationQueueItem(
       : { focusedTests: expectStringArray(item.focusedTests, path, `integrationQueue[${index}].focusedTests`) }),
     ...(item.queuedAt === undefined
       ? {}
-      : { queuedAt: expectNonEmptyString(item.queuedAt, path, `integrationQueue[${index}].queuedAt`) })
+      : { queuedAt: expectNonEmptyString(item.queuedAt, path, `integrationQueue[${index}].queuedAt`) }),
+    ...(item.integratedAt === undefined
+      ? {}
+      : {
+          integratedAt: expectNonEmptyString(
+            item.integratedAt,
+            path,
+            `integrationQueue[${index}].integratedAt`
+          )
+        }),
+    ...(item.finalGateStatus === undefined
+      ? {}
+      : {
+          finalGateStatus: expectEnum<WorkflowVerificationStatus>(
+            item.finalGateStatus,
+            path,
+            `integrationQueue[${index}].finalGateStatus`,
+            VERIFICATION_STATUS_SET
+          )
+        }),
+    ...(item.integrationEvidencePaths === undefined
+      ? {}
+      : {
+          integrationEvidencePaths: expectStringArray(
+            item.integrationEvidencePaths,
+            path,
+            `integrationQueue[${index}].integrationEvidencePaths`
+          )
+        }),
+    ...(item.cleanupRecommendation === undefined
+      ? {}
+      : {
+          cleanupRecommendation: expectEnum<WorkflowCleanupRecommendation>(
+            item.cleanupRecommendation,
+            path,
+            `integrationQueue[${index}].cleanupRecommendation`,
+            CLEANUP_RECOMMENDATION_SET
+          )
+        })
   };
 }
 

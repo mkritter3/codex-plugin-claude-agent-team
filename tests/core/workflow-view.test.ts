@@ -85,6 +85,27 @@ describe("workflow view", () => {
               internalPrompt: "hidden"
             }
           ],
+          integrationEvidence: [
+            {
+              integratedAt: "2026-05-13T10:07:00.000Z",
+              integrationMethod: "manual-patch",
+              summary: "Codex recorded final integration evidence.",
+              changedFiles: ["src/core/workflow-integration-evidence.ts"],
+              verification: [
+                {
+                  command: "npm test -- tests/core/workflow-integration-evidence.test.ts",
+                  status: "passed",
+                  summary: "Focused tests passed.",
+                  evidencePath: "/repo/.agent-team/evidence/focused.log",
+                  rawProviderPayload: "hidden"
+                }
+              ],
+              evidencePaths: ["/repo/.agent-team/evidence/integration.json"],
+              retainedWorktreePath: "/repo/.worktrees/run_view",
+              cleanupRecommendation: "eligible-after-evidence-saved",
+              providerSessionId: "hidden"
+            }
+          ],
           internalPrompt: "do not expose"
         }
       ],
@@ -114,6 +135,10 @@ describe("workflow view", () => {
           dependencySliceIds: [],
           focusedTests: ["npm test -- tests/core/workflow-review.test.ts"],
           queuedAt: "2026-05-13T10:06:00.000Z",
+          integratedAt: "2026-05-13T10:07:00.000Z",
+          finalGateStatus: "passed",
+          integrationEvidencePaths: ["/repo/.agent-team/evidence/integration.json"],
+          cleanupRecommendation: "eligible-after-evidence-saved",
           rawProviderPayload: "hidden"
         }
       ],
@@ -171,6 +196,18 @@ describe("workflow view", () => {
               consensus: "approved",
               reviewerRunIds: ["run_view"]
             })
+          ],
+          integrationEvidence: [
+            expect.objectContaining({
+              integrationMethod: "manual-patch",
+              cleanupRecommendation: "eligible-after-evidence-saved",
+              verification: [
+                expect.objectContaining({
+                  command: "npm test -- tests/core/workflow-integration-evidence.test.ts",
+                  status: "passed"
+                })
+              ]
+            })
           ]
         })
       ],
@@ -183,6 +220,8 @@ describe("workflow view", () => {
           queuePosition: 1,
           sliceId: "slice_view",
           state: "queued",
+          finalGateStatus: "passed",
+          cleanupRecommendation: "eligible-after-evidence-saved",
           conflictRisk: "low",
           changedFiles: ["src/core/workflow-review.ts"]
         })

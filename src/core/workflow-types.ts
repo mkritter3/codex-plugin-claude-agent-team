@@ -114,6 +114,23 @@ export const WORKFLOW_INTEGRATION_STATES = [
 
 export type WorkflowIntegrationState = (typeof WORKFLOW_INTEGRATION_STATES)[number];
 
+export const WORKFLOW_VERIFICATION_STATUSES = [
+  "passed",
+  "failed",
+  "skipped"
+] as const;
+
+export type WorkflowVerificationStatus = (typeof WORKFLOW_VERIFICATION_STATUSES)[number];
+
+export const WORKFLOW_CLEANUP_RECOMMENDATIONS = [
+  "retain-for-review",
+  "eligible-after-evidence-saved",
+  "manual-cleanup-required"
+] as const;
+
+export type WorkflowCleanupRecommendation =
+  (typeof WORKFLOW_CLEANUP_RECOMMENDATIONS)[number];
+
 export interface WorkflowGoalPacket {
   readonly title: string;
   readonly successCriteria: readonly string[];
@@ -142,6 +159,7 @@ export interface WorkflowSlice {
   readonly unblockEvidence?: readonly WorkflowSliceUnblockEvidence[];
   readonly implementationEvidence?: WorkflowSliceImplementationEvidence;
   readonly reviewEvidence?: readonly WorkflowSliceReviewEvidence[];
+  readonly integrationEvidence?: readonly WorkflowSliceIntegrationEvidence[];
 }
 
 export interface WorkflowSliceRunEvidence {
@@ -186,6 +204,24 @@ export interface WorkflowSliceReviewEvidence {
   readonly consensus: WorkflowConsensusStatus;
   readonly summary: string;
   readonly reviewerRunIds?: readonly string[];
+}
+
+export interface WorkflowVerificationEvidence {
+  readonly command: string;
+  readonly status: WorkflowVerificationStatus;
+  readonly summary: string;
+  readonly evidencePath?: string;
+}
+
+export interface WorkflowSliceIntegrationEvidence {
+  readonly integratedAt: string;
+  readonly integrationMethod: string;
+  readonly summary: string;
+  readonly changedFiles: readonly string[];
+  readonly verification: readonly WorkflowVerificationEvidence[];
+  readonly evidencePaths?: readonly string[];
+  readonly retainedWorktreePath?: string;
+  readonly cleanupRecommendation?: WorkflowCleanupRecommendation;
 }
 
 export interface WorkflowReviewerVerdict {
@@ -238,6 +274,10 @@ export interface WorkflowIntegrationQueueItem {
   readonly dependencySliceIds?: readonly string[];
   readonly focusedTests?: readonly string[];
   readonly queuedAt?: string;
+  readonly integratedAt?: string;
+  readonly finalGateStatus?: WorkflowVerificationStatus;
+  readonly integrationEvidencePaths?: readonly string[];
+  readonly cleanupRecommendation?: WorkflowCleanupRecommendation;
 }
 
 export interface WorkflowCodexRationale {

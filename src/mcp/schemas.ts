@@ -302,6 +302,32 @@ const integrationQueueInputSchema = {
   sliceIds: z.array(z.string().min(1)).min(1).optional()
 };
 
+const verificationInputSchema = z.object({
+  command: z.string().min(1),
+  status: z.enum(["passed", "failed", "skipped"]),
+  summary: z.string().min(1),
+  evidencePath: z.string().min(1).optional()
+});
+
+const recordIntegrationInputSchema = {
+  workflowId,
+  sliceId: z.string().min(1),
+  cwd,
+  integrationMethod: z.string().min(1),
+  summary: z.string().min(1),
+  changedFiles: z.array(z.string().min(1)).min(1),
+  verification: z.array(verificationInputSchema).min(1),
+  evidencePaths: z.array(z.string().min(1)).min(1).optional(),
+  retainedWorktreePath: z.string().min(1).optional(),
+  cleanupRecommendation: z
+    .enum([
+      "retain-for-review",
+      "eligible-after-evidence-saved",
+      "manual-cleanup-required"
+    ])
+    .optional()
+};
+
 const dashboardInputSchema = {
   teamId: teamId
     .optional()
@@ -458,6 +484,12 @@ export const TOOL_METADATA_BY_NAME = {
     description:
       "Build a read-only provider-neutral integration order and conflict-risk report for approved workflow slices.",
     inputSchema: integrationQueueInputSchema
+  },
+  agent_team_record_integration: {
+    title: "Record Workflow Integration Evidence",
+    description:
+      "Record Codex-owned integration evidence and final verification results for a queued workflow slice.",
+    inputSchema: recordIntegrationInputSchema
   },
   agent_team_dashboard: {
     title: "Agent Team Dashboard",

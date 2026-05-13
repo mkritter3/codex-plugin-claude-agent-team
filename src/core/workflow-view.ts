@@ -7,6 +7,7 @@ import type {
   WorkflowRecord,
   WorkflowSlice,
   WorkflowSliceImplementationEvidence,
+  WorkflowSliceIntegrationEvidence,
   WorkflowSliceReviewEvidence,
   WorkflowSliceRunEvidence,
   WorkflowSliceStartFailureEvidence,
@@ -34,6 +35,7 @@ export interface WorkflowSliceView {
   readonly unblockEvidence?: WorkflowSlice["unblockEvidence"];
   readonly implementationEvidence?: WorkflowSlice["implementationEvidence"];
   readonly reviewEvidence?: WorkflowSlice["reviewEvidence"];
+  readonly integrationEvidence?: WorkflowSlice["integrationEvidence"];
 }
 
 export interface WorkflowOpusReviewEvidenceView {
@@ -127,6 +129,30 @@ function reviewEvidenceToView(
   };
 }
 
+function integrationEvidenceToView(
+  evidence: WorkflowSliceIntegrationEvidence
+): WorkflowSliceIntegrationEvidence {
+  return {
+    integratedAt: evidence.integratedAt,
+    integrationMethod: evidence.integrationMethod,
+    summary: evidence.summary,
+    changedFiles: evidence.changedFiles,
+    verification: evidence.verification.map((item) => ({
+      command: item.command,
+      status: item.status,
+      summary: item.summary,
+      ...(item.evidencePath === undefined ? {} : { evidencePath: item.evidencePath })
+    })),
+    ...(evidence.evidencePaths === undefined ? {} : { evidencePaths: evidence.evidencePaths }),
+    ...(evidence.retainedWorktreePath === undefined
+      ? {}
+      : { retainedWorktreePath: evidence.retainedWorktreePath }),
+    ...(evidence.cleanupRecommendation === undefined
+      ? {}
+      : { cleanupRecommendation: evidence.cleanupRecommendation })
+  };
+}
+
 function integrationQueueItemToView(
   item: WorkflowIntegrationQueueItem
 ): WorkflowIntegrationQueueItem {
@@ -142,7 +168,15 @@ function integrationQueueItemToView(
     ...(item.changedFiles === undefined ? {} : { changedFiles: item.changedFiles }),
     ...(item.dependencySliceIds === undefined ? {} : { dependencySliceIds: item.dependencySliceIds }),
     ...(item.focusedTests === undefined ? {} : { focusedTests: item.focusedTests }),
-    ...(item.queuedAt === undefined ? {} : { queuedAt: item.queuedAt })
+    ...(item.queuedAt === undefined ? {} : { queuedAt: item.queuedAt }),
+    ...(item.integratedAt === undefined ? {} : { integratedAt: item.integratedAt }),
+    ...(item.finalGateStatus === undefined ? {} : { finalGateStatus: item.finalGateStatus }),
+    ...(item.integrationEvidencePaths === undefined
+      ? {}
+      : { integrationEvidencePaths: item.integrationEvidencePaths }),
+    ...(item.cleanupRecommendation === undefined
+      ? {}
+      : { cleanupRecommendation: item.cleanupRecommendation })
   };
 }
 
@@ -183,7 +217,10 @@ function sliceToView(slice: WorkflowSlice): WorkflowSliceView {
       : { implementationEvidence: implementationEvidenceToView(slice.implementationEvidence) }),
     ...(slice.reviewEvidence === undefined
       ? {}
-      : { reviewEvidence: slice.reviewEvidence.map(reviewEvidenceToView) })
+      : { reviewEvidence: slice.reviewEvidence.map(reviewEvidenceToView) }),
+    ...(slice.integrationEvidence === undefined
+      ? {}
+      : { integrationEvidence: slice.integrationEvidence.map(integrationEvidenceToView) })
   };
 }
 

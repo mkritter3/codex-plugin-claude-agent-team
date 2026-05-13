@@ -50,6 +50,11 @@ import {
   type BuildWorkflowIntegrationQueueInput
 } from "../core/workflow-integration-queue.js";
 import {
+  recordWorkflowIntegration,
+  type RecordWorkflowIntegrationInput,
+  type RecordWorkflowVerificationInput
+} from "../core/workflow-integration-evidence.js";
+import {
   reviewWorkflowSlice,
   type ReviewUserEscalationInput,
   type ReviewVerdictInput,
@@ -121,6 +126,7 @@ export const TOOL_NAMES = [
   "agent_team_unblock_slice",
   "agent_team_review_slice",
   "agent_team_integration_queue",
+  "agent_team_record_integration",
   "agent_team_dashboard",
   "agent_team_cancel",
   "agent_team_cancel_many",
@@ -164,6 +170,7 @@ export interface ToolDependencies {
   readonly unblockWorkflowSlice?: typeof unblockWorkflowSlice;
   readonly reviewWorkflowSlice?: typeof reviewWorkflowSlice;
   readonly buildWorkflowIntegrationQueue?: typeof buildWorkflowIntegrationQueue;
+  readonly recordWorkflowIntegration?: typeof recordWorkflowIntegration;
   readonly now?: () => Date;
   readonly createWorkflowId?: () => string;
 }
@@ -1155,6 +1162,150 @@ function parseBuildWorkflowIntegrationQueueArgs(
   };
 }
 
+function parseVerificationInput(value: unknown): readonly RecordWorkflowVerificationInput[] | JsonToolResult {
+  if (!Array.isArray(value) || value.length === 0) {
+    return validationError("agent_team_record_integration verification must be a non-empty array.");
+  }
+  const verification: RecordWorkflowVerificationInput[] = [];
+  for (const [index, item] of value.entries()) {
+    if (typeof item !== "object" || item === null || Array.isArray(item)) {
+      return validationError(`agent_team_record_integration verification[${index}] must be an object.`);
+    }
+    const evidence = item as Record<string, unknown>;
+    const command = readString(
+      evidence.command,
+      `agent_team_record_integration verification[${index}].command`
+    );
+    if (isJsonToolResult(command)) {
+      return command;
+    }
+    const status = readString(
+      evidence.status,
+      `agent_team_record_integration verification[${index}].status`
+    );
+    if (isJsonToolResult(status)) {
+      return status;
+    }
+    if (status !== "passed" && status !== "failed" && status !== "skipped") {
+      return validationError(
+        `agent_team_record_integration verification[${index}].status must be passed, failed, or skipped.`
+      );
+    }
+    const summary = readString(
+      evidence.summary,
+      `agent_team_record_integration verification[${index}].summary`
+    );
+    if (isJsonToolResult(summary)) {
+      return summary;
+    }
+    const evidencePath = readOptionalString(
+      evidence.evidencePath,
+      `agent_team_record_integration verification[${index}].evidencePath`
+    );
+    if (evidencePath !== undefined && typeof evidencePath !== "string") {
+      return evidencePath;
+    }
+    verification.push({
+      command,
+      status,
+      summary,
+      ...(evidencePath === undefined ? {} : { evidencePath })
+    });
+  }
+  return verification;
+}
+
+function parseRecordWorkflowIntegrationArgs(
+  args: Record<string, unknown>,
+  defaultCwd: string,
+  deps: Pick<ToolDependencies, "now">
+): RecordWorkflowIntegrationInput | JsonToolResult {
+  const workflowId = readString(
+    args.workflowId,
+    "agent_team_record_integration requires a non-empty workflowId."
+  );
+  if (isJsonToolResult(workflowId)) {
+    return workflowId;
+  }
+  const sliceId = readString(
+    args.sliceId,
+    "agent_team_record_integration requires a non-empty sliceId."
+  );
+  if (isJsonToolResult(sliceId)) {
+    return sliceId;
+  }
+  const cwdValue = readOptionalString(args.cwd, "agent_team_record_integration cwd");
+  if (cwdValue !== undefined && typeof cwdValue !== "string") {
+    return cwdValue;
+  }
+  const integrationMethod = readString(
+    args.integrationMethod,
+    "agent_team_record_integration integrationMethod"
+  );
+  if (isJsonToolResult(integrationMethod)) {
+    return integrationMethod;
+  }
+  const summary = readString(args.summary, "agent_team_record_integration summary");
+  if (isJsonToolResult(summary)) {
+    return summary;
+  }
+  const changedFiles = readStringArray(
+    args.changedFiles,
+    "agent_team_record_integration changedFiles"
+  );
+  if (isJsonToolResult(changedFiles)) {
+    return changedFiles;
+  }
+  const verification = parseVerificationInput(args.verification);
+  if (isJsonToolResult(verification)) {
+    return verification;
+  }
+  const evidencePaths =
+    args.evidencePaths === undefined
+      ? undefined
+      : readStringArray(args.evidencePaths, "agent_team_record_integration evidencePaths");
+  if (evidencePaths !== undefined && isJsonToolResult(evidencePaths)) {
+    return evidencePaths;
+  }
+  const retainedWorktreePath = readOptionalString(
+    args.retainedWorktreePath,
+    "agent_team_record_integration retainedWorktreePath"
+  );
+  if (retainedWorktreePath !== undefined && typeof retainedWorktreePath !== "string") {
+    return retainedWorktreePath;
+  }
+  const cleanupRecommendation = readOptionalString(
+    args.cleanupRecommendation,
+    "agent_team_record_integration cleanupRecommendation"
+  );
+  if (cleanupRecommendation !== undefined && typeof cleanupRecommendation !== "string") {
+    return cleanupRecommendation;
+  }
+  if (
+    cleanupRecommendation !== undefined &&
+    cleanupRecommendation !== "retain-for-review" &&
+    cleanupRecommendation !== "eligible-after-evidence-saved" &&
+    cleanupRecommendation !== "manual-cleanup-required"
+  ) {
+    return validationError(
+      "agent_team_record_integration cleanupRecommendation must be retain-for-review, eligible-after-evidence-saved, or manual-cleanup-required."
+    );
+  }
+  return {
+    workspaceRoot: cwdValue ?? defaultCwd,
+    workflowId,
+    sliceId,
+    integrationMethod,
+    summary,
+    changedFiles,
+    verification,
+    ...(evidencePaths === undefined ? {} : { evidencePaths }),
+    ...(retainedWorktreePath === undefined ? {} : { retainedWorktreePath }),
+    ...(cleanupRecommendation === undefined ? {} : { cleanupRecommendation }),
+    ...(deps.now === undefined ? {} : { now: deps.now })
+  };
+}
+
 function readOptionalTimeout(
   value: unknown,
   message: string
@@ -2027,6 +2178,8 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
   const workflowReviewSlice = deps.reviewWorkflowSlice ?? reviewWorkflowSlice;
   const workflowIntegrationQueue =
     deps.buildWorkflowIntegrationQueue ?? buildWorkflowIntegrationQueue;
+  const workflowRecordIntegration =
+    deps.recordWorkflowIntegration ?? recordWorkflowIntegration;
   const cwd = deps.cwd ?? process.cwd;
   const lifecycleRegistry =
     deps.lifecycleRegistry ??
@@ -2382,6 +2535,21 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
           action: async () =>
             jsonToolResult({
               ...(await workflowIntegrationQueue(parsed))
+            })
+        });
+      }
+
+      if (name === "agent_team_record_integration") {
+        const parsed = parseRecordWorkflowIntegrationArgs(args, cwd(), deps);
+        if (isJsonToolResult(parsed)) {
+          return parsed;
+        }
+        return recoverableLifecycleTool({
+          workspaceRoot: parsed.workspaceRoot,
+          operation: name,
+          action: async () =>
+            jsonToolResult({
+              ...(await workflowRecordIntegration(parsed))
             })
         });
       }

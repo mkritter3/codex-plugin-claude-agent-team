@@ -27,7 +27,7 @@ Codex should be able to stand up and manage an external AI agent team from insid
 
 ## Current Baseline
 
-Completed through Milestone 56:
+Completed through Milestone 57:
 
 - package scaffold, MCP server, CI, stdio smoke, and schema coverage
 - provider-neutral roles, capabilities, router, config, and doctor
@@ -72,10 +72,12 @@ Completed through Milestone 56:
 - `agent_team_unblock_slice`
 - `agent_team_review_slice`
 - `agent_team_integration_queue`
+- `agent_team_record_integration`
 - planning consensus mechanics with 10/15-round handling, Codex rationale, user-decision filtering, senior-review degraded evidence, and fail-closed required-blocking behavior
 - slice start and unblock mechanics with bounded concurrency, ordered per-slice results, partial-failure evidence, per-run addressability, mailbox dependency updates, and durable slice run evidence
 - slice review consensus with implementation evidence, reviewer verdicts, Opus implementation-review posture, approval/revision/blocking state transitions, hard review blockers, and sanitized public MCP output
 - read-only integration queue computation with deterministic dependency/hint/risk ordering, conflict-risk evidence, focused test recommendations, and no source mutation
+- Codex-owned integration evidence recording with final gate verification, integrated slice marking, integration queue state updates, and cleanup handoff recommendations without source mutation or cleanup execution
 
 ## Roadmap Shape
 
@@ -433,7 +435,7 @@ V1.5 is complete when at least one non-Claude provider can be configured explici
 
 ## Workflow Orchestrator Continuation
 
-Milestones 50 through 56 establish the L11 workflow orchestrator foundation:
+Milestones 50 through 57 establish the L11 workflow orchestrator foundation:
 
 - senior-review policy defaults and environment/workspace config
 - expanded L11 role roster
@@ -442,5 +444,6 @@ Milestones 50 through 56 establish the L11 workflow orchestrator foundation:
 - slice start/unblock mechanics using existing lifecycle and mailbox pipelines
 - slice review consensus with Codex and Opus implementation-review evidence before integration
 - read-only integration queue computation without merge execution
+- integration evidence recording after Codex-owned manual integration, with final verification evidence and cleanup handoff boundaries
 
-The next implementation target should be the final verification/reporting slice for workflow completion: durable final gate evidence, explicit integrated-slice marking controlled by Codex, and cleanup handoff boundaries. Merge execution should remain Codex-owned and should not be automated by the plugin.
+The next implementation target should be workflow completion reporting: a read-only final workflow report that summarizes integrated, blocked, failed, deferred, and cleanup-ready slices, without claiming completion unless every required slice has durable final gate evidence. Merge execution should remain Codex-owned and should not be automated by the plugin.

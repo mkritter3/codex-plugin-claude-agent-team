@@ -111,6 +111,14 @@ async function main() {
       "verdicts"
     ]);
     assertToolRequires(tools.tools, "agent_team_integration_queue", ["workflowId"]);
+    assertToolRequires(tools.tools, "agent_team_record_integration", [
+      "workflowId",
+      "sliceId",
+      "integrationMethod",
+      "summary",
+      "changedFiles",
+      "verification"
+    ]);
     assertObjectSchema(tools.tools, "agent_team_dashboard");
     assertToolRequires(tools.tools, "agent_team_cancel_many", ["runs"]);
     assertToolRequires(tools.tools, "agent_team_wind_down_many", ["runs"]);
