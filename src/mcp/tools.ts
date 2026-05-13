@@ -23,6 +23,10 @@ import {
   reportStateCorruption
 } from "../core/state/recovery.js";
 import { readRunSidecar } from "../core/state/run-store.js";
+import {
+  readWorkflowRecord,
+  writeWorkflowRecord
+} from "../core/state/workflow-store.js";
 import { readAgentStatuses } from "../core/status-many.js";
 import { summarizeAgentTeam } from "../core/team-summary.js";
 import {
@@ -58,6 +62,13 @@ import {
   buildWorkflowReport,
   type BuildWorkflowReportInput
 } from "../core/workflow-report.js";
+import {
+  deriveWorkflowGuidance,
+  userDecisionCategoryToRationaleCategory,
+  userDecisionSummary,
+  type WorkflowGuidanceUserEscalation
+} from "../core/workflow-guidance.js";
+import { planWorkflowHooks } from "../core/workflow-hooks.js";
 import {
   reviewWorkflowSlice,
   type ReviewUserEscalationInput,
@@ -132,6 +143,8 @@ export const TOOL_NAMES = [
   "agent_team_integration_queue",
   "agent_team_record_integration",
   "agent_team_workflow_report",
+  "agent_team_workflow_next",
+  "agent_team_record_user_decision",
   "agent_team_dashboard",
   "agent_team_cancel",
   "agent_team_cancel_many",
@@ -525,7 +538,7 @@ function parseCreateWorkflowArgs(
 function parseGetWorkflowArgs(
   args: Record<string, unknown>,
   defaultCwd: string,
-  toolName: "agent_team_get_workflow"
+  toolName: "agent_team_get_workflow" | "agent_team_workflow_next"
 ): GetWorkflowInput | JsonToolResult {
   const workflowId = readString(args.workflowId, `${toolName} requires a non-empty workflowId.`);
   if (isJsonToolResult(workflowId)) {
@@ -538,6 +551,132 @@ function parseGetWorkflowArgs(
   return {
     workspaceRoot: cwdValue ?? defaultCwd,
     workflowId
+  };
+}
+
+const USER_DECISION_CATEGORIES = new Set<string>([
+  "product",
+  "trust",
+  "cost",
+  "release",
+  "permission",
+  "user_impact"
+]);
+const USER_DECISION_STATUSES = new Set<string>([
+  "approve",
+  "reject",
+  "defer",
+  "choose_option"
+]);
+
+interface RecordWorkflowUserDecisionInput {
+  readonly workspaceRoot: string;
+  readonly workflowId: string;
+  readonly decisionId?: string;
+  readonly category: WorkflowGuidanceUserEscalation["category"];
+  readonly decision: "approve" | "reject" | "defer" | "choose_option";
+  readonly summary: string;
+  readonly practicalEffect: string;
+  readonly selectedOption?: string;
+  readonly now?: () => Date;
+}
+
+function parseRecordWorkflowUserDecisionArgs(
+  args: Record<string, unknown>,
+  defaultCwd: string,
+  now?: () => Date
+): RecordWorkflowUserDecisionInput | JsonToolResult {
+  const workflowId = readString(
+    args.workflowId,
+    "agent_team_record_user_decision requires a non-empty workflowId."
+  );
+  if (isJsonToolResult(workflowId)) return workflowId;
+  const cwdValue = readOptionalString(args.cwd, "agent_team_record_user_decision cwd");
+  if (cwdValue !== undefined && typeof cwdValue !== "string") return cwdValue;
+  const decisionId = readOptionalString(
+    args.decisionId,
+    "agent_team_record_user_decision decisionId must be a non-empty string."
+  );
+  if (decisionId !== undefined && typeof decisionId !== "string") return decisionId;
+  if (typeof args.category !== "string" || !USER_DECISION_CATEGORIES.has(args.category)) {
+    return validationError(
+      "agent_team_record_user_decision category must be product, trust, cost, release, permission, or user_impact."
+    );
+  }
+  if (typeof args.decision !== "string" || !USER_DECISION_STATUSES.has(args.decision)) {
+    return validationError(
+      "agent_team_record_user_decision decision must be approve, reject, defer, or choose_option."
+    );
+  }
+  const summary = readString(
+    args.summary,
+    "agent_team_record_user_decision requires a non-empty summary."
+  );
+  if (isJsonToolResult(summary)) return summary;
+  const practicalEffect = readString(
+    args.practicalEffect,
+    "agent_team_record_user_decision requires a non-empty practicalEffect."
+  );
+  if (isJsonToolResult(practicalEffect)) return practicalEffect;
+  const selectedOption = readOptionalString(
+    args.selectedOption,
+    "agent_team_record_user_decision selectedOption must be a non-empty string."
+  );
+  if (selectedOption !== undefined && typeof selectedOption !== "string") {
+    return selectedOption;
+  }
+
+  return {
+    workspaceRoot: cwdValue ?? defaultCwd,
+    workflowId,
+    ...(decisionId === undefined ? {} : { decisionId }),
+    category: args.category as WorkflowGuidanceUserEscalation["category"],
+    decision: args.decision as RecordWorkflowUserDecisionInput["decision"],
+    summary,
+    practicalEffect,
+    ...(selectedOption === undefined ? {} : { selectedOption }),
+    ...(now === undefined ? {} : { now })
+  };
+}
+
+async function recordWorkflowUserDecision(input: RecordWorkflowUserDecisionInput): Promise<{
+  readonly workflowId: string;
+  readonly recorded: true;
+  readonly decisionRef: string;
+  readonly nextPhase: string;
+  readonly nextHookKinds: readonly string[];
+}> {
+  const timestamp = input.now?.().toISOString() ?? new Date().toISOString();
+  const decisionRef =
+    input.decisionId ?? `decision_${timestamp.replace(/[-:.TZ]/g, "")}`;
+  const record = await readWorkflowRecord(input.workspaceRoot, input.workflowId);
+  const rationale = {
+    rationaleId: decisionRef,
+    createdAt: timestamp,
+    category: userDecisionCategoryToRationaleCategory(input.category),
+    summary: userDecisionSummary({
+      decision: input.decision,
+      summary: input.summary,
+      practicalEffect: input.practicalEffect,
+      ...(input.selectedOption === undefined
+        ? {}
+        : { selectedOption: input.selectedOption })
+    }),
+    relatedSliceIds: record.slices.map((slice) => slice.sliceId)
+  };
+  const nextRecord = {
+    ...record,
+    updatedAt: timestamp,
+    codexRationale: [...(record.codexRationale ?? []), rationale]
+  };
+  await writeWorkflowRecord(input.workspaceRoot, nextRecord);
+  const nextGuidance = deriveWorkflowGuidance(nextRecord);
+  return {
+    workflowId: input.workflowId,
+    recorded: true,
+    decisionRef,
+    nextPhase: nextGuidance.phase,
+    nextHookKinds: nextGuidance.hooks.map((hook) => hook.kind)
   };
 }
 
@@ -2614,6 +2753,45 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
           action: async () =>
             jsonToolResult({
               ...(await workflowReport(parsed))
+            })
+        });
+      }
+
+      if (name === "agent_team_workflow_next") {
+        const parsed = parseGetWorkflowArgs(args, cwd(), name);
+        if (isJsonToolResult(parsed)) {
+          return parsed;
+        }
+        return recoverableLifecycleTool({
+          workspaceRoot: parsed.workspaceRoot,
+          operation: name,
+          action: async () => {
+            const record = await readWorkflowRecord(
+              parsed.workspaceRoot,
+              parsed.workflowId
+            );
+            const guidance = deriveWorkflowGuidance(record);
+            const hookPlan = planWorkflowHooks(guidance);
+            return jsonToolResult({
+              workflowId: parsed.workflowId,
+              guidance,
+              hookPlan
+            });
+          }
+        });
+      }
+
+      if (name === "agent_team_record_user_decision") {
+        const parsed = parseRecordWorkflowUserDecisionArgs(args, cwd(), deps.now);
+        if (isJsonToolResult(parsed)) {
+          return parsed;
+        }
+        return recoverableLifecycleTool({
+          workspaceRoot: parsed.workspaceRoot,
+          operation: name,
+          action: async () =>
+            jsonToolResult({
+              ...(await recordWorkflowUserDecision(parsed))
             })
         });
       }

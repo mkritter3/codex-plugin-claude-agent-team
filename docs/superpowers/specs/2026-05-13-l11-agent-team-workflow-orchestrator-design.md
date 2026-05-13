@@ -236,6 +236,39 @@ Integration flow:
 
 The plugin should never auto-merge multiple agent worktrees into the source checkout. It may produce an integration queue, conflict analysis, and suggested commands, but the final action remains Codex-owned.
 
+## Hook Hierarchy
+
+Guided workflow hooks are deterministic recommendations over durable workflow state. They never start providers, mutate source, merge code, delete worktrees, or claim completion.
+
+1. Brainstorm with the user until product goal, non-goals, success criteria, and practical user effects are clear.
+2. Write the plan and run planning consensus.
+3. Request user approval for product-level plan effects.
+4. Start ready independent slices with bounded concurrency.
+5. Record mailbox updates for steering, blockers, and dependency unblocks.
+6. Review implementation slices with Codex and senior review.
+7. Queue integration in read-only mode.
+8. Codex integrates one reviewed slice at a time.
+9. Record integration evidence.
+10. Run verification gates.
+11. Report completion only when final gates are met.
+12. Clean up retained worktrees and sidecars only after evidence is saved.
+
+Provider steering modes must be explicit:
+
+- `live`: an active run has an open input channel.
+- `recorded_for_resume`: mailbox guidance is durable evidence for resume or follow-up, but the active run is not live-stdin steerable.
+- `follow_up_run`: Codex must launch a corrected follow-up run with mailbox evidence.
+- `cancel_wind_down`: cancellation or wind-down is the safe intervention before reassignment.
+- `unsupported`: the provider or lifecycle state cannot accept steering.
+
+Default provider-role policy:
+
+- Opus for planning, architecture, high-complexity review, security-sensitive decisions, and senior sign-off.
+- Sonnet and Codex CLI for autonomous implementation in retained isolated worktrees.
+- Haiku for search and reconnaissance.
+- Gemini CLI as a full autonomous worker, primarily for UI, UX, frontend, visual, and browser-flow work.
+- Kimi K2.6, GLM 5.1, and DeepSeek-style Ollama Cloud profiles as junior bounded workers requiring isolated worktrees and senior review before integration.
+
 ## Evidence Model
 
 New workflow records should remain provider-neutral and durable under `.agent-team/`.

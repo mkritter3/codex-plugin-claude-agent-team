@@ -47,6 +47,8 @@ describe("packaging and install docs", () => {
       "agent_team_integration_queue",
       "agent_team_record_integration",
       "agent_team_workflow_report",
+      "agent_team_workflow_next",
+      "agent_team_record_user_decision",
       "npm run ci",
       "Troubleshooting",
       "docs/runbooks/claude-team-session.md",
@@ -98,6 +100,10 @@ describe("packaging and install docs", () => {
     expect(readme).toContain("independently runs `npm test` in the execution worktree");
     expect(readme).toContain("model-quality claim");
     expect(readme).toContain("Workflow Orchestrator");
+    expect(readme).toContain("Guided Agent Team Workflow");
+    expect(readme).toContain("Hook Hierarchy");
+    expect(readme).toContain("recorded_for_resume");
+    expect(readme).toContain("follow_up_run");
     expect(readme).toContain("completionStatus");
     expect(readme).toContain("Codex-owned manual integration");
     expect(readme).toContain("final gate verification");

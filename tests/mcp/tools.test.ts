@@ -406,6 +406,139 @@ describe("MCP tool handlers", () => {
     });
   });
 
+  it("exposes provider-neutral guided workflow tools with sanitized schemas", () => {
+    expect(listToolNames()).toEqual(
+      expect.arrayContaining(["agent_team_workflow_next", "agent_team_record_user_decision"])
+    );
+    expect(TOOL_METADATA_BY_NAME.agent_team_workflow_next).toMatchObject({
+      title: "Get Workflow Next Actions"
+    });
+    expect(TOOL_METADATA_BY_NAME.agent_team_record_user_decision).toMatchObject({
+      title: "Record Workflow User Decision"
+    });
+    expect(JSON.stringify(TOOL_METADATA_BY_NAME.agent_team_workflow_next)).not.toMatch(
+      /claude-code-cli|internal prompt|raw provider|providerPayload|commandArgs|apiKey/i
+    );
+    expect(JSON.stringify(TOOL_METADATA_BY_NAME.agent_team_record_user_decision)).not.toMatch(
+      /claude-code-cli|internal prompt|raw provider|providerPayload|commandArgs|apiKey/i
+    );
+  });
+
+  it("returns sanitized guided workflow next actions through MCP", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-mcp-workflow-next-"));
+    const handlers = createToolHandlers({
+      cwd: () => workspace,
+      createWorkflowId: () => "workflow_next",
+      now: () => new Date("2026-05-13T10:00:00.000Z")
+    });
+
+    await handlers.handleToolCall("agent_team_create_workflow", {
+      goal: {
+        title: "Ship guided next action",
+        successCriteria: ["next action is visible"],
+        constraints: ["no hidden provider call"],
+        nonGoals: ["raw provider payloads"]
+      },
+      slices: [
+        {
+          sliceId: "slice_next",
+          title: "Next action slice",
+          ownerRole: "planner",
+          writeScope: ["docs/plan.md"],
+          acceptanceTests: ["npm test -- tests/mcp/tools.test.ts"],
+          expectedEvidence: ["focused tests"]
+        }
+      ]
+    });
+
+    const next = await handlers.handleToolCall("agent_team_workflow_next", {
+      workflowId: "workflow_next",
+      includeSteering: true,
+      includeRolePolicy: true
+    });
+
+    expect(next.structuredContent).toMatchObject({
+      workflowId: "workflow_next",
+      guidance: {
+        workflowId: "workflow_next",
+        phase: "executing"
+      },
+      hookPlan: {
+        workflowId: "workflow_next",
+        mutatesSource: false,
+        startsProvider: false
+      }
+    });
+    expect(JSON.stringify(next.structuredContent)).not.toMatch(
+      /systemPrompt|rawProvider|providerPayload|apiKey|commandArgs|ANTHROPIC_API_KEY|OPENAI_API_KEY|OLLAMA_API_KEY/i
+    );
+  });
+
+  it("records product-level workflow user decisions and rejects technical categories", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-mcp-user-decision-"));
+    const handlers = createToolHandlers({
+      cwd: () => workspace,
+      createWorkflowId: () => "workflow_decision",
+      now: () => new Date("2026-05-13T10:00:00.000Z")
+    });
+
+    await handlers.handleToolCall("agent_team_create_workflow", {
+      goal: {
+        title: "Approve guided plan",
+        successCriteria: ["user decision is recorded"],
+        constraints: ["only product-level asks"],
+        nonGoals: ["technical approval burden"]
+      },
+      slices: [
+        {
+          sliceId: "slice_decision",
+          title: "Decision slice",
+          ownerRole: "planner",
+          writeScope: ["docs/plan.md"],
+          acceptanceTests: ["npm test -- tests/mcp/tools.test.ts"],
+          expectedEvidence: ["focused tests"]
+        }
+      ]
+    });
+
+    const recorded = await handlers.handleToolCall("agent_team_record_user_decision", {
+      workflowId: "workflow_decision",
+      decisionId: "decision_approval",
+      category: "product",
+      decision: "approve",
+      summary: "Proceed with the approved user-facing workflow.",
+      practicalEffect: "Users get the new workflow after release.",
+      selectedOption: "Proceed"
+    });
+
+    expect(recorded.structuredContent).toMatchObject({
+      workflowId: "workflow_decision",
+      recorded: true,
+      decisionRef: "decision_approval"
+    });
+
+    const next = await handlers.handleToolCall("agent_team_workflow_next", {
+      workflowId: "workflow_decision"
+    });
+
+    expect(next.structuredContent?.guidance).toMatchObject({
+      workflowId: "workflow_decision",
+      phase: "executing"
+    });
+
+    const rejected = await handlers.handleToolCall("agent_team_record_user_decision", {
+      workflowId: "workflow_decision",
+      category: "technical",
+      decision: "approve",
+      summary: "Use a specific internal module split.",
+      practicalEffect: "No direct user effect."
+    });
+
+    expect(rejected.structuredContent).toMatchObject({
+      status: "validation_error"
+    });
+  });
+
   it("rejects invalid workflow create input before invoking injected workflow creation", async () => {
     let called = false;
     const handlers = createToolHandlers({
@@ -4130,6 +4263,8 @@ describe("MCP tool handlers", () => {
       "agent_team_integration_queue",
       "agent_team_record_integration",
       "agent_team_workflow_report",
+      "agent_team_workflow_next",
+      "agent_team_record_user_decision",
       "agent_team_dashboard",
       "agent_team_cancel",
       "agent_team_cancel_many",

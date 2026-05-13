@@ -120,6 +120,14 @@ async function main() {
       "verification"
     ]);
     assertToolRequires(tools.tools, "agent_team_workflow_report", ["workflowId"]);
+    assertToolRequires(tools.tools, "agent_team_workflow_next", ["workflowId"]);
+    assertToolRequires(tools.tools, "agent_team_record_user_decision", [
+      "workflowId",
+      "category",
+      "decision",
+      "summary",
+      "practicalEffect"
+    ]);
     assertObjectSchema(tools.tools, "agent_team_dashboard");
     assertToolRequires(tools.tools, "agent_team_cancel_many", ["runs"]);
     assertToolRequires(tools.tools, "agent_team_wind_down_many", ["runs"]);

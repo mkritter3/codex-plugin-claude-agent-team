@@ -334,6 +334,24 @@ const workflowReportInputSchema = {
   includeWorkflow: z.boolean().optional()
 };
 
+const workflowNextInputSchema = {
+  workflowId,
+  cwd,
+  includeSteering: z.boolean().optional(),
+  includeRolePolicy: z.boolean().optional()
+};
+
+const workflowUserDecisionInputSchema = {
+  workflowId,
+  cwd,
+  decisionId: z.string().min(1).optional(),
+  category: z.enum(["product", "trust", "cost", "release", "permission", "user_impact"]),
+  decision: z.enum(["approve", "reject", "defer", "choose_option"]),
+  summary: z.string().min(1),
+  practicalEffect: z.string().min(1),
+  selectedOption: z.string().min(1).optional()
+};
+
 const dashboardInputSchema = {
   teamId: teamId
     .optional()
@@ -502,6 +520,18 @@ export const TOOL_METADATA_BY_NAME = {
     description:
       "Read a provider-neutral workflow completion report without mutating state or claiming completion without final gate evidence.",
     inputSchema: workflowReportInputSchema
+  },
+  agent_team_workflow_next: {
+    title: "Get Workflow Next Actions",
+    description:
+      "Read sanitized Superpowers-style next actions and hook guidance for a durable workflow without executing providers, mutating source, or exposing private instructions.",
+    inputSchema: workflowNextInputSchema
+  },
+  agent_team_record_user_decision: {
+    title: "Record Workflow User Decision",
+    description:
+      "Record a product-level workflow decision from the user and return the next sanitized hook guidance.",
+    inputSchema: workflowUserDecisionInputSchema
   },
   agent_team_dashboard: {
     title: "Agent Team Dashboard",

@@ -728,14 +728,16 @@ The public workflow loop is:
 
 1. `agent_team_create_workflow`
 2. `agent_team_plan_consensus`
-3. `agent_team_start_slices`
-4. `agent_team_unblock_slice`
-5. `agent_team_review_slice`
-6. `agent_team_integration_queue`
-7. Codex-owned manual integration outside the plugin
-8. `agent_team_record_integration`
-9. `agent_team_workflow_report`
-10. `agent_team_cleanup`
+3. `agent_team_workflow_next`
+4. `agent_team_record_user_decision`
+5. `agent_team_start_slices`
+6. `agent_team_unblock_slice`
+7. `agent_team_review_slice`
+8. `agent_team_integration_queue`
+9. Codex-owned manual integration outside the plugin
+10. `agent_team_record_integration`
+11. `agent_team_workflow_report`
+12. `agent_team_cleanup`
 
 `agent_team_workflow_report` returns `completionStatus` and only reports `complete` after planning is approved, every slice is integrated, and durable passing final gate verification exists for every slice. It also reports blocked, incomplete, ready-to-integrate, missing-evidence, and cleanup-ready rows.
 
@@ -744,6 +746,31 @@ Codex owns technical decisions, integration, review synthesis, and final authori
 Run `npm run smoke:workflow-orchestrator` after `npm run build` for a fixture-safe packaged MCP proof of this loop. It creates a disposable git workspace, drives public workflow tools through `dist/index.js`, records degraded Opus evidence without blocking, proves `completionStatus` only becomes `complete` after final gate evidence, and removes the fixture. It does not call providers, does not use API keys, and makes no model-quality or provider capability claim.
 
 Final product-readiness evidence is recorded in `docs/superpowers/reports/2026-05-13-agent-team-workflow-orchestrator-readiness.md`.
+
+## Guided Agent Team Workflow
+
+`agent_team_workflow_next` reads a durable workflow and returns a sanitized next-action plan. It does not start providers, mutate source, merge code, delete worktrees, or claim verification. Codex uses it as the hook layer for a Superpowers-style loop while remaining the senior engineer, reviewer, integrator, and final authority.
+
+`agent_team_record_user_decision` records only product-level or practical-impact decisions from the user: product behavior, trust, cost, release posture, permission posture, or user impact. Routine technical decisions stay with Codex and are recorded as Codex rationale rather than pushed back to the user.
+
+Hook Hierarchy:
+
+1. Brainstorm with the user until product goal, non-goals, success criteria, and practical user effects are clear.
+2. Write the plan and run planning consensus.
+3. Request user approval for product-level plan effects.
+4. Start ready independent slices with bounded concurrency.
+5. Record mailbox updates for steering, blockers, and dependency unblocks.
+6. Review implementation slices with Codex and senior review.
+7. Queue integration in read-only mode.
+8. Codex integrates one reviewed slice at a time.
+9. Record integration evidence.
+10. Run verification gates.
+11. Report completion only when final gates are met.
+12. Clean up retained worktrees and sidecars only after evidence is saved.
+
+Provider steering is reported truthfully. A run may support `live` steering when an input channel is open, `recorded_for_resume` when mailbox guidance can be used on resume, `follow_up_run` when Codex must launch a corrected follow-up, `cancel_wind_down` when stopping or replacing a worker is the safe path, or `unsupported` when the lifecycle state cannot be steered.
+
+Default role guidance treats Opus as the senior planning, architecture, security, high-complexity review, and sign-off brain. Sonnet and Codex CLI are default autonomous implementation workers in retained isolated worktrees. Haiku is preferred for search and reconnaissance. Gemini CLI is a full autonomous worker when configured, with default preference for UI, UX, frontend, visual, and browser-flow work. Ollama-hosted Kimi K2.6, GLM 5.1, and DeepSeek profiles are junior bounded workers that require isolated worktrees and senior review before integration.
 
 ## Evidence
 
