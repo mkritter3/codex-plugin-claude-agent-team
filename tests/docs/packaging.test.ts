@@ -17,6 +17,8 @@ describe("packaging and install docs", () => {
       "npm run smoke:workflow-orchestrator",
       "npm run validate:workflow-fixtures",
       "npm run validate:workflow-live",
+      "npm run dogfood:live-app",
+      "dogfood_app_workflow_only",
       "npm run scan:workflow-validation",
       "npm run smoke:package",
       "npm run smoke:claude-live",

@@ -43,6 +43,7 @@
     "smoke:codex-write": "node scripts/live-smoke-codex-write-validation.mjs",
     "smoke:gemini-write": "node scripts/live-smoke-gemini-write-validation.mjs",
     "smoke:ollama-write": "node scripts/live-smoke-ollama-write-validation.mjs",
+    "dogfood:live-app": "node scripts/live-dogfood-agent-team-app.mjs",
     "scan:workflow-guidance": "node scripts/invariant-scan-workflow-guidance.mjs",
     "validate:workflow-fixtures": "npm run build && node scripts/validate-workflow-fixtures.mjs",
     "validate:workflow-live": "node scripts/live-validate-agent-team-workflow.mjs",

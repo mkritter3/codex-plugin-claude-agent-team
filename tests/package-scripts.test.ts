@@ -28,6 +28,9 @@ describe("package scripts", () => {
     expect(packageJson.scripts?.["smoke:gemini-write"]).toBe(
       "node scripts/live-smoke-gemini-write-validation.mjs"
     );
+    expect(packageJson.scripts?.["dogfood:live-app"]).toBe(
+      "node scripts/live-dogfood-agent-team-app.mjs"
+    );
     expect(packageJson.scripts?.["install:check"]).toBe(
       "node scripts/install-check.mjs"
     );
@@ -50,6 +53,7 @@ describe("package scripts", () => {
     expect(packageJson.scripts?.ci).not.toContain("smoke:claude-live-matrix");
     expect(packageJson.scripts?.ci).not.toContain("smoke:providers-live");
     expect(packageJson.scripts?.ci).not.toContain("smoke:gemini-write");
+    expect(packageJson.scripts?.ci).not.toContain("dogfood:live-app");
     expect(packageJson.scripts?.ci).not.toContain("validate:workflow-live");
     const ci = packageJson.scripts?.ci ?? "";
     expect(ci.indexOf("npm run build")).toBeLessThan(

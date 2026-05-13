@@ -700,6 +700,25 @@ env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN -u CLAUDE_CODE_OAUTH_TOKEN GEMI
 
 The smoke defaults to `gemini-3-flash-preview` because Pro preview capacity can be transiently exhausted; pass `--model gemini-3.1-pro-preview` or another Gemini CLI model only when you intentionally want to validate that exact model. The report includes provider ids, run ids, terminal status, changed files, isolated worktree evidence, cleanup status, dashboard counts, summary groups, sidecar/log paths, and known limitations. It does not print prompts, task text, provider endpoints, raw provider payloads, provider session ids, process metadata, command details, environment values, mailbox payloads, or secrets. Passing this smoke proves isolated write containment for `gemini-cli` only; it makes no model-quality, ranking, broad frontend-quality, or mid-flight steering claim.
 
+## Opt-In Live Dogfood App
+
+`npm run dogfood:live-app` is the live end-to-end dogfood harness for the Workflow Orchestrator. It creates a disposable static app fixture, enables isolated write mode only inside that fixture, records planning approval and a product-level user decision, starts provider-specific workflow slices with `agent_team_start_slices`, reviews completed slice evidence, performs Codex-owned manual integration by copying only whitelisted files from retained worktrees, runs final fixture `npm test`, records integration evidence, reads workflow report/dashboard/summary, and then cleans up through `agent_team_cleanup`.
+
+Inspect the plan without provider use:
+
+```bash
+npm run dogfood:live-app -- --dry-run
+```
+
+Run the confirmed dogfood after building the packaged runtime:
+
+```bash
+npm run build
+env -u ANTHROPIC_API_KEY npm run dogfood:live-app -- --confirm-live-provider-use --timeout-ms 300000 --max-wait-ms 360000
+```
+
+The sanitized report uses the `dogfood_app_workflow_only` claim boundary. It can include Claude Opus required-when-available planning evidence, Gemini UI work, Codex implementation/test work, and optional Ollama Kimi junior documentation work when `OLLAMA_API_KEY` is present. It is not part of CI and does not print private prompts, task text, provider endpoints, raw provider payloads, provider session ids, process metadata, command details, environment values, mailbox payloads, or secrets. Passing the dogfood proves the public workflow/control-plane path can coordinate and integrate real provider-backed app slices in a disposable fixture; it does not compare providers, evaluate model quality, or prove broad product readiness.
+
 ## Basic Workflow
 
 1. Build and smoke the packaged runtime with `npm run build`, `npm run smoke:mcp-stdio`, `npm run smoke:workflow-orchestrator`, and `npm run smoke:package`.
