@@ -527,6 +527,26 @@ Codex CLI read-only dispatch uses `codex exec --sandbox read-only`. Isolated wri
 
 Latest live Codex CLI read-only provider proof evidence is recorded in `docs/superpowers/reports/2026-05-13-agent-team-live-codex-cli-provider-proof.md`.
 
+## Opt-In Codex CLI Write Validation
+
+Use this proof before enabling Codex CLI as a write-capable `slice-implementer` in normal workspaces. It creates a disposable git fixture with a tiny Node test project, enables `writeValidated: true` only in that fixture, starts a `slice-implementer`, verifies code, tests, and a proof file changed only in the isolated execution worktree, confirms the worker log mentions `npm test`, independently runs `npm test` in the execution worktree, records dashboard and summary evidence, and removes the retained worktree with `agent_team_cleanup`.
+
+Latest live Codex CLI write proof evidence is recorded in `docs/superpowers/reports/2026-05-13-agent-team-live-codex-cli-write-proof.md`.
+
+Dry run:
+
+```bash
+npm run smoke:codex-write -- --dry-run --provider codex-cli
+```
+
+Confirmed live proof:
+
+```bash
+env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN npm run smoke:codex-write -- --confirm-live-provider-use --provider codex-cli --timeout-ms 300000
+```
+
+The report includes provider id, run id, terminal status, changed files, worktree containment, test execution evidence, cleanup status, dashboard counts, summary groups, sidecar/log paths, and known limitations. It does not print prompts, task text, raw provider payloads, provider session ids, process metadata, command details, environment values, mailbox payloads, or secrets. A passing run proves isolated write containment and in-worktree test execution for `codex-cli` only; it is not a model-quality, ranking, or broad autonomous-implementation claim.
+
 ## Opt-In Live Smoke
 
 This section is the opt-in live smoke. It is not part of CI because it uses local subscription credentials and may start external provider processes.

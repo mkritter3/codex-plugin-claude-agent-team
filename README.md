@@ -514,6 +514,26 @@ Codex CLI read-only dispatch uses `codex exec --sandbox read-only` with the conf
 
 Latest live Codex CLI read-only provider proof evidence is recorded in `docs/superpowers/reports/2026-05-13-agent-team-live-codex-cli-provider-proof.md`.
 
+## Opt-In Codex CLI Write Validation Smoke
+
+Use this proof before enabling Codex CLI as a write-capable `slice-implementer` in normal workspaces. It creates a disposable git fixture with a tiny Node test project, enables `writeValidated: true` only inside that fixture, starts a `slice-implementer`, verifies code, tests, and a proof file changed only in the isolated execution worktree, confirms the worker log mentions `npm test`, independently runs `npm test` in the execution worktree, records dashboard and summary evidence, and removes the retained worktree through `agent_team_cleanup`.
+
+Latest live Codex CLI write proof evidence is recorded in `docs/superpowers/reports/2026-05-13-agent-team-live-codex-cli-write-proof.md`.
+
+Dry run:
+
+```bash
+npm run smoke:codex-write -- --dry-run --provider codex-cli
+```
+
+Confirmed live proof:
+
+```bash
+env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN npm run smoke:codex-write -- --confirm-live-provider-use --provider codex-cli --timeout-ms 300000
+```
+
+The report includes provider id, run id, terminal status, changed files, worktree containment, test execution evidence, cleanup status, dashboard counts, summary groups, sidecar/log paths, and known limitations. It does not print prompts, task text, raw provider payloads, provider session ids, process metadata, command details, environment values, mailbox payloads, or secrets. A passing run proves isolated write containment and in-worktree test execution for `codex-cli` only; it is not a model-quality, ranking, or broad autonomous-implementation claim.
+
 Provider health is recorded under `.agent-team/providers/health.json`. Transient failures such as rate limits, timeouts, or provider-unavailable responses mark the provider degraded for a cooldown window with evidence paths and failure counts. During cooldown, default and family/provider-order routing avoids that provider; explicit provider requests remain explicit probes and record their own evidence. This is operational reliability memory, not a model evaluation or provider ranking claim.
 
 ## Auth And Doctor

@@ -20,10 +20,12 @@ describe("packaging and install docs", () => {
       "npm run smoke:claude-live-matrix",
       "npm run smoke:providers-live",
       "npm run smoke:gemini-write",
+      "npm run smoke:codex-write",
       "Codex CLI",
       "codex-cli",
       "subscription-oauth",
       "docs/superpowers/reports/2026-05-13-agent-team-live-codex-cli-provider-proof.md",
+      "docs/superpowers/reports/2026-05-13-agent-team-live-codex-cli-write-proof.md",
       "agent-team-mcp",
       "\"./dist/index.js\"",
       ".agent-team/config.json",
@@ -93,6 +95,7 @@ describe("packaging and install docs", () => {
     expect(readme).toContain("OPENAI_BASE_URL");
     expect(readme).toContain("OPENAI_ORG_ID");
     expect(readme).toContain("OPENAI_PROJECT");
+    expect(readme).toContain("independently runs `npm test` in the execution worktree");
     expect(readme).toContain("model-quality claim");
     expect(readme).toContain("Workflow Orchestrator");
     expect(readme).toContain("completionStatus");

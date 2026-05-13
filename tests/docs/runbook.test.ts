@@ -47,10 +47,12 @@ describe("Claude team session runbook", () => {
       "npm run smoke:claude-live-matrix",
       "npm run smoke:providers-live",
       "npm run smoke:gemini-write",
+      "npm run smoke:codex-write",
       "Codex CLI Subscription Provider",
       "codex-cli",
       "subscription-oauth",
       "docs/superpowers/reports/2026-05-13-agent-team-live-codex-cli-provider-proof.md",
+      "docs/superpowers/reports/2026-05-13-agent-team-live-codex-cli-write-proof.md",
       "npm run ci",
       "docs/superpowers/reports/2026-05-13-agent-team-workflow-orchestrator-readiness.md",
       "docs/superpowers/reports/2026-05-13-agent-team-live-gemini-write-proof.md"
@@ -106,6 +108,7 @@ describe("Claude team session runbook", () => {
     expect(doc).toContain("OPENAI_BASE_URL");
     expect(doc).toContain("OPENAI_ORG_ID");
     expect(doc).toContain("OPENAI_PROJECT");
+    expect(doc).toContain("independently runs `npm test` in the execution worktree");
     expect(doc).toContain("model-quality claim");
     expect(doc).toContain("completionStatus");
     expect(doc).toContain("ready-to-integrate");
