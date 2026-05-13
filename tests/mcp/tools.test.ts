@@ -268,7 +268,8 @@ describe("MCP tool handlers", () => {
         "agent_team_unblock_slice",
         "agent_team_review_slice",
         "agent_team_integration_queue",
-        "agent_team_record_integration"
+        "agent_team_record_integration",
+        "agent_team_workflow_report"
       ])
     );
     expect(TOOL_METADATA_BY_NAME.agent_team_start_slices).toMatchObject({
@@ -316,6 +317,13 @@ describe("MCP tool handlers", () => {
       changedFiles: expect.any(Object),
       verification: expect.any(Object)
     });
+    expect(TOOL_METADATA_BY_NAME.agent_team_workflow_report).toMatchObject({
+      title: "Build Workflow Completion Report",
+      description: expect.stringMatching(/completion report/i)
+    });
+    expect(TOOL_METADATA_BY_NAME.agent_team_workflow_report.inputSchema).toMatchObject({
+      workflowId: expect.any(Object)
+    });
     expect(JSON.stringify(TOOL_METADATA_BY_NAME.agent_team_start_slices)).not.toMatch(
       /claude-code-cli|internal prompt|raw provider|providerPayload/i
     );
@@ -329,6 +337,9 @@ describe("MCP tool handlers", () => {
       /claude-code-cli|internal prompt|raw provider|providerPayload|merge|cherry-pick/i
     );
     expect(JSON.stringify(TOOL_METADATA_BY_NAME.agent_team_record_integration)).not.toMatch(
+      /claude-code-cli|internal prompt|raw provider|providerPayload|commandArgs/i
+    );
+    expect(JSON.stringify(TOOL_METADATA_BY_NAME.agent_team_workflow_report)).not.toMatch(
       /claude-code-cli|internal prompt|raw provider|providerPayload|commandArgs/i
     );
   });
@@ -949,12 +960,69 @@ describe("MCP tool handlers", () => {
     );
   });
 
+  it("builds workflow completion reports through MCP using the injected workflow service", async () => {
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      buildWorkflowReport: async (input) => ({
+        workflowId: input.workflowId,
+        completionStatus: "complete",
+        counts: {
+          total: 1,
+          integrated: 1,
+          readyToIntegrate: 0,
+          inProgress: 0,
+          blocked: 0,
+          deferred: 0,
+          missingEvidence: 0,
+          cleanupReady: 1
+        },
+        rows: [
+          {
+            sliceId: "slice_core",
+            title: "Core",
+            state: "integrated",
+            category: "cleanup-ready",
+            completionReady: true,
+            blockers: [],
+            reasons: ["slice is integrated and retained worktree can be cleaned up after operator approval"],
+            evidencePaths: ["/repo/.agent-team/evidence/integration.json"],
+            retainedWorktreePath: "/repo/.worktrees/slice_core",
+            cleanupRecommendation: "eligible-after-evidence-saved"
+          }
+        ],
+        report: `Workflow ${input.workflowId} is complete.`
+      })
+    });
+
+    const result = await handlers.handleToolCall("agent_team_workflow_report", {
+      workflowId: "workflow_mcp",
+      includeWorkflow: false
+    });
+
+    expect(result.structuredContent).toMatchObject({
+      workflowId: "workflow_mcp",
+      completionStatus: "complete",
+      counts: { cleanupReady: 1 },
+      rows: [
+        expect.objectContaining({
+          sliceId: "slice_core",
+          category: "cleanup-ready",
+          completionReady: true
+        })
+      ]
+    });
+    expect(JSON.stringify(result.structuredContent)).not.toMatch(
+      /internalPrompt|rawProvider|providerSession|commandArgs|secret/i
+    );
+  });
+
   it("rejects invalid workflow slice orchestration input before invoking injected services", async () => {
     let startCalled = false;
     let unblockCalled = false;
     let reviewCalled = false;
     let queueCalled = false;
     let integrationCalled = false;
+    let reportCalled = false;
     const handlers = createToolHandlers({
       cwd: () => "/repo",
       startWorkflowSlices: async () => {
@@ -976,6 +1044,10 @@ describe("MCP tool handlers", () => {
       recordWorkflowIntegration: async () => {
         integrationCalled = true;
         throw new Error("should not record integration");
+      },
+      buildWorkflowReport: async () => {
+        reportCalled = true;
+        throw new Error("should not report");
       }
     });
 
@@ -1010,17 +1082,23 @@ describe("MCP tool handlers", () => {
       changedFiles: ["src/core/workflow-integration-evidence.ts"],
       verification: []
     });
+    const reportResult = await handlers.handleToolCall("agent_team_workflow_report", {
+      workflowId: "workflow_mcp",
+      includeWorkflow: "yes"
+    });
 
     expect(startResult.structuredContent).toMatchObject({ status: "validation_error" });
     expect(unblockResult.structuredContent).toMatchObject({ status: "validation_error" });
     expect(reviewResult.structuredContent).toMatchObject({ status: "validation_error" });
     expect(queueResult.structuredContent).toMatchObject({ status: "validation_error" });
     expect(integrationResult.structuredContent).toMatchObject({ status: "validation_error" });
+    expect(reportResult.structuredContent).toMatchObject({ status: "validation_error" });
     expect(startCalled).toBe(false);
     expect(unblockCalled).toBe(false);
     expect(reviewCalled).toBe(false);
     expect(queueCalled).toBe(false);
     expect(integrationCalled).toBe(false);
+    expect(reportCalled).toBe(false);
   });
 
   it("loads workspace config for default lifecycle starts", async () => {
@@ -4051,6 +4129,7 @@ describe("MCP tool handlers", () => {
       "agent_team_review_slice",
       "agent_team_integration_queue",
       "agent_team_record_integration",
+      "agent_team_workflow_report",
       "agent_team_dashboard",
       "agent_team_cancel",
       "agent_team_cancel_many",

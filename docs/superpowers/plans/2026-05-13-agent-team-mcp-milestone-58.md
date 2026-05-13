@@ -1,6 +1,6 @@
 # Agent Team MCP Milestone 58 Workflow Completion Report Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add a provider-neutral `agent_team_workflow_report` tool that returns a read-only completion report for a durable workflow without claiming completion unless every required slice is integrated with final verification evidence.
 
@@ -40,13 +40,13 @@ Out of scope:
 
 ## L11 Quality Gates
 
-- [ ] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
-- [ ] TDD red proof is captured for report core, MCP handlers, server registration, and package smoke coverage.
-- [ ] Focused milestone tests are listed with expected red and green outcomes.
-- [ ] Full verification commands are listed.
-- [ ] Required edge cases from the matrix are explicitly selected.
-- [ ] Invariant scans are listed.
-- [ ] Live provider smoke is not required because this milestone uses durable workflow state and does not claim real provider capability.
+- [x] Success criteria map to `docs/superpowers/specs/2026-05-12-agent-team-mcp-l11-quality-gates.md`.
+- [x] TDD red proof is captured for report core, MCP handlers, server registration, and package smoke coverage.
+- [x] Focused milestone tests are listed with expected red and green outcomes.
+- [x] Full verification commands are listed.
+- [x] Required edge cases from the matrix are explicitly selected.
+- [x] Invariant scans are listed.
+- [x] Live provider smoke is not required because this milestone uses durable workflow state and does not claim real provider capability.
 
 ## Success Criteria
 
@@ -108,7 +108,7 @@ Selected from the L11 matrix:
 - Create: `src/core/workflow-report.ts`
 - Test: `tests/core/workflow-report.test.ts`
 
-- [ ] **Step 1: Write failing core tests**
+- [x] **Step 1: Write failing core tests**
 
 Add tests proving:
 
@@ -119,13 +119,13 @@ Add tests proving:
 - cleanup-ready rows include retained worktree path and cleanup recommendation without invoking cleanup
 - sanitized report output does not expose prompt/provider/secret internals
 
-- [ ] **Step 2: Confirm red**
+- [x] **Step 2: Confirm red**
 
 Expected failure:
 
 - `npm test -- tests/core/workflow-report.test.ts`
 
-- [ ] **Step 3: Implement core**
+- [x] **Step 3: Implement core**
 
 Implement:
 
@@ -135,7 +135,7 @@ Implement:
 - compact report text
 - optional workflow view inclusion
 
-- [ ] **Step 4: Confirm green**
+- [x] **Step 4: Confirm green**
 
 Run:
 
@@ -152,7 +152,7 @@ Run:
 - Test: `tests/mcp/server.test.ts`
 - Test: `tests/package-runtime.test.ts`
 
-- [ ] **Step 1: Write failing MCP tests**
+- [x] **Step 1: Write failing MCP tests**
 
 Add tests proving:
 
@@ -163,13 +163,13 @@ Add tests proving:
 - server registration includes the new tool
 - packaged stdio smoke asserts the new tool and required fields
 
-- [ ] **Step 2: Confirm red**
+- [x] **Step 2: Confirm red**
 
 Expected failure:
 
 - `npm test -- tests/mcp/tools.test.ts tests/mcp/server.test.ts tests/package-runtime.test.ts`
 
-- [ ] **Step 3: Implement MCP surface**
+- [x] **Step 3: Implement MCP surface**
 
 Implement:
 
@@ -180,7 +180,7 @@ Implement:
 - handler branch
 - package smoke assertion
 
-- [ ] **Step 4: Confirm green**
+- [x] **Step 4: Confirm green**
 
 Run:
 
@@ -193,11 +193,11 @@ Run:
 - Modify: `docs/superpowers/plans/2026-05-13-agent-team-mcp-milestone-58.md`
 - Modify: `docs/superpowers/plans/2026-05-12-agent-team-mcp-long-term-roadmap.md`
 
-- [ ] **Step 1: Run focused milestone verification**
+- [x] **Step 1: Run focused milestone verification**
 
 - `npm test -- tests/core/workflow-report.test.ts tests/mcp/tools.test.ts tests/mcp/server.test.ts tests/package-runtime.test.ts`
 
-- [ ] **Step 2: Run required verification**
+- [x] **Step 2: Run required verification**
 
 - `npm run typecheck`
 - `npm test`
@@ -207,14 +207,14 @@ Run:
 - `! rg -n "mock LLM|heuristic LLM|heuristic.*benchmark|mock.*benchmark|provider-ranking|auto-merge|git merge|git cherry-pick|cleanupRunWorkspace" src/core/workflow-report.ts src/mcp/schemas.ts scripts/smoke-mcp-stdio.mjs`
 - `npm run ci`
 
-- [ ] **Step 3: Update evidence and roadmap**
+- [x] **Step 3: Update evidence and roadmap**
 
 Update:
 
 - this plan's completed checkboxes
 - roadmap current baseline to include Milestone 58 and `agent_team_workflow_report`
 
-- [ ] **Step 4: Commit, merge, push, and clean up**
+- [x] **Step 4: Commit, merge, push, and clean up**
 
 - Commit implementation on isolated branch.
 - Merge to `main` only after verification passes.
@@ -223,4 +223,14 @@ Update:
 
 ## Verification Evidence
 
-Pending implementation.
+- Red proof: `npm test -- tests/core/workflow-report.test.ts` failed before implementation because `src/core/workflow-report.ts` did not exist.
+- Focused core proof: `npm test -- tests/core/workflow-report.test.ts` passed: 1 file, 4 tests.
+- Focused MCP proof: `npm test -- tests/mcp/tools.test.ts tests/mcp/server.test.ts tests/package-runtime.test.ts` passed: 3 files, 78 tests.
+- Combined focused proof: `npm test -- tests/core/workflow-report.test.ts tests/mcp/tools.test.ts tests/mcp/server.test.ts tests/package-runtime.test.ts` passed: 4 files, 82 tests.
+- Typecheck: `npm run typecheck` passed.
+- Full tests: `npm test` passed: 75 files, 570 tests.
+- Build: `npm run build` passed.
+- Packaged stdio smoke: `npm run smoke:mcp-stdio` passed.
+- Invariant scan: `! rg -n "hiddenPrompt|internalPrompt|rawProvider|raw provider|providerPayload|provider payload|providerSessionId|commandArgs" src/core/workflow-report.ts src/mcp/schemas.ts src/mcp/tools.ts scripts/smoke-mcp-stdio.mjs` passed with no matches.
+- Invariant scan: `! rg -n "mock LLM|heuristic LLM|heuristic.*benchmark|mock.*benchmark|provider-ranking|auto-merge|git merge|git cherry-pick|cleanupRunWorkspace" src/core/workflow-report.ts src/mcp/schemas.ts scripts/smoke-mcp-stdio.mjs` passed with no matches.
+- CI: `npm run ci` passed.

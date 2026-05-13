@@ -55,6 +55,10 @@ import {
   type RecordWorkflowVerificationInput
 } from "../core/workflow-integration-evidence.js";
 import {
+  buildWorkflowReport,
+  type BuildWorkflowReportInput
+} from "../core/workflow-report.js";
+import {
   reviewWorkflowSlice,
   type ReviewUserEscalationInput,
   type ReviewVerdictInput,
@@ -127,6 +131,7 @@ export const TOOL_NAMES = [
   "agent_team_review_slice",
   "agent_team_integration_queue",
   "agent_team_record_integration",
+  "agent_team_workflow_report",
   "agent_team_dashboard",
   "agent_team_cancel",
   "agent_team_cancel_many",
@@ -171,6 +176,7 @@ export interface ToolDependencies {
   readonly reviewWorkflowSlice?: typeof reviewWorkflowSlice;
   readonly buildWorkflowIntegrationQueue?: typeof buildWorkflowIntegrationQueue;
   readonly recordWorkflowIntegration?: typeof recordWorkflowIntegration;
+  readonly buildWorkflowReport?: typeof buildWorkflowReport;
   readonly now?: () => Date;
   readonly createWorkflowId?: () => string;
 }
@@ -297,6 +303,19 @@ function readStringArray(
     result.push(item);
   }
   return result;
+}
+
+function readOptionalBoolean(
+  value: unknown,
+  message: string
+): boolean | JsonToolResult | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "boolean") {
+    return validationError(message);
+  }
+  return value;
 }
 
 function parseWorkflowGoalArgs(value: unknown): WorkflowGoalPacket | JsonToolResult {
@@ -1306,6 +1325,35 @@ function parseRecordWorkflowIntegrationArgs(
   };
 }
 
+function parseBuildWorkflowReportArgs(
+  args: Record<string, unknown>,
+  defaultCwd: string
+): BuildWorkflowReportInput | JsonToolResult {
+  const workflowId = readString(
+    args.workflowId,
+    "agent_team_workflow_report requires a non-empty workflowId."
+  );
+  if (isJsonToolResult(workflowId)) {
+    return workflowId;
+  }
+  const cwdValue = readOptionalString(args.cwd, "agent_team_workflow_report cwd");
+  if (cwdValue !== undefined && typeof cwdValue !== "string") {
+    return cwdValue;
+  }
+  const includeWorkflow = readOptionalBoolean(
+    args.includeWorkflow,
+    "agent_team_workflow_report includeWorkflow must be a boolean."
+  );
+  if (includeWorkflow !== undefined && typeof includeWorkflow !== "boolean") {
+    return includeWorkflow;
+  }
+  return {
+    workspaceRoot: cwdValue ?? defaultCwd,
+    workflowId,
+    ...(includeWorkflow === undefined ? {} : { includeWorkflow })
+  };
+}
+
 function readOptionalTimeout(
   value: unknown,
   message: string
@@ -2180,6 +2228,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
     deps.buildWorkflowIntegrationQueue ?? buildWorkflowIntegrationQueue;
   const workflowRecordIntegration =
     deps.recordWorkflowIntegration ?? recordWorkflowIntegration;
+  const workflowReport = deps.buildWorkflowReport ?? buildWorkflowReport;
   const cwd = deps.cwd ?? process.cwd;
   const lifecycleRegistry =
     deps.lifecycleRegistry ??
@@ -2550,6 +2599,21 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
           action: async () =>
             jsonToolResult({
               ...(await workflowRecordIntegration(parsed))
+            })
+        });
+      }
+
+      if (name === "agent_team_workflow_report") {
+        const parsed = parseBuildWorkflowReportArgs(args, cwd());
+        if (isJsonToolResult(parsed)) {
+          return parsed;
+        }
+        return recoverableLifecycleTool({
+          workspaceRoot: parsed.workspaceRoot,
+          operation: name,
+          action: async () =>
+            jsonToolResult({
+              ...(await workflowReport(parsed))
             })
         });
       }

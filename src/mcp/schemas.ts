@@ -328,6 +328,12 @@ const recordIntegrationInputSchema = {
     .optional()
 };
 
+const workflowReportInputSchema = {
+  workflowId,
+  cwd,
+  includeWorkflow: z.boolean().optional()
+};
+
 const dashboardInputSchema = {
   teamId: teamId
     .optional()
@@ -490,6 +496,12 @@ export const TOOL_METADATA_BY_NAME = {
     description:
       "Record Codex-owned integration evidence and final verification results for a queued workflow slice.",
     inputSchema: recordIntegrationInputSchema
+  },
+  agent_team_workflow_report: {
+    title: "Build Workflow Completion Report",
+    description:
+      "Read a provider-neutral workflow completion report without mutating state or claiming completion without final gate evidence.",
+    inputSchema: workflowReportInputSchema
   },
   agent_team_dashboard: {
     title: "Agent Team Dashboard",
