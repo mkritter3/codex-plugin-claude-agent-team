@@ -151,6 +151,14 @@ async function callTool(client, name, toolArgs, timeoutMs) {
   return result.structuredContent ?? {};
 }
 
+function providerEnvironment() {
+  const env = { ...process.env };
+  delete env.ANTHROPIC_API_KEY;
+  delete env.ANTHROPIC_AUTH_TOKEN;
+  delete env.CLAUDE_CODE_OAUTH_TOKEN;
+  return env;
+}
+
 async function createFixture() {
   const root = await mkdtemp(join(tmpdir(), "agent-team-live-dogfood-app-"));
   await execFileAsync("git", ["init"], { cwd: root });
@@ -304,6 +312,7 @@ async function writeFixtureConfig(root, allowedWorktreeRoot) {
                 ollamaClaudeCode: {
                   enabled: true,
                   executable: "claude",
+                  baseUrl: "https://ollama.com/anthropic",
                   apiKeyEnv: "OLLAMA_API_KEY",
                   profiles: [
                     {
@@ -770,7 +779,7 @@ async function runLiveDogfood() {
     command: "node",
     args: [runtimePath],
     cwd: repoRoot,
-    env: process.env,
+    env: providerEnvironment(),
     stderr: "pipe"
   });
   const stderrChunks = [];
