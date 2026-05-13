@@ -40,6 +40,8 @@ import {
   type WorkflowReviewerVerdict,
   type WorkflowRiskLevel,
   type WorkflowSlice,
+  type WorkflowSliceImplementationEvidence,
+  type WorkflowSliceReviewEvidence,
   type WorkflowSliceRunEvidence,
   type WorkflowSliceStartFailureEvidence,
   type WorkflowSliceState,
@@ -85,7 +87,9 @@ const SLICE_KEYS = new Set([
   "runIds",
   "runEvidence",
   "startFailureEvidence",
-  "unblockEvidence"
+  "unblockEvidence",
+  "implementationEvidence",
+  "reviewEvidence"
 ]);
 const SLICE_RUN_EVIDENCE_KEYS = new Set([
   "runId",
@@ -105,6 +109,23 @@ const SLICE_UNBLOCK_EVIDENCE_KEYS = new Set([
   "changedFiles",
   "evidencePaths",
   "sourceRunId"
+]);
+const SLICE_IMPLEMENTATION_EVIDENCE_KEYS = new Set([
+  "recordedAt",
+  "summary",
+  "changedFiles",
+  "testsRun",
+  "evidencePaths",
+  "sourceRunId",
+  "worktreePath",
+  "knownRisks"
+]);
+const SLICE_REVIEW_EVIDENCE_KEYS = new Set([
+  "reviewedAt",
+  "round",
+  "consensus",
+  "summary",
+  "reviewerRunIds"
 ]);
 const CODEX_RATIONALE_KEYS = new Set([
   "rationaleId",
@@ -344,6 +365,16 @@ function parseSlice(value: unknown, path: string, index: number): WorkflowSlice 
       : expectArray(slice.unblockEvidence, path, `slices[${index}].unblockEvidence`).map(
           (item, evidenceIndex) => parseSliceUnblockEvidence(item, path, index, evidenceIndex)
         );
+  const implementationEvidence =
+    slice.implementationEvidence === undefined
+      ? undefined
+      : parseSliceImplementationEvidence(slice.implementationEvidence, path, index);
+  const reviewEvidence =
+    slice.reviewEvidence === undefined
+      ? undefined
+      : expectArray(slice.reviewEvidence, path, `slices[${index}].reviewEvidence`).map(
+          (item, evidenceIndex) => parseSliceReviewEvidence(item, path, index, evidenceIndex)
+        );
   const readScope =
     slice.readScope === undefined
       ? undefined
@@ -406,7 +437,9 @@ function parseSlice(value: unknown, path: string, index: number): WorkflowSlice 
     ...(runIds === undefined ? {} : { runIds }),
     ...(runEvidence === undefined ? {} : { runEvidence }),
     ...(startFailureEvidence === undefined ? {} : { startFailureEvidence }),
-    ...(unblockEvidence === undefined ? {} : { unblockEvidence })
+    ...(unblockEvidence === undefined ? {} : { unblockEvidence }),
+    ...(implementationEvidence === undefined ? {} : { implementationEvidence }),
+    ...(reviewEvidence === undefined ? {} : { reviewEvidence })
   };
 }
 
@@ -486,6 +519,75 @@ function parseSliceUnblockEvidence(
     ...(changedFiles === undefined ? {} : { changedFiles }),
     ...(evidencePaths === undefined ? {} : { evidencePaths }),
     ...(sourceRunId === undefined ? {} : { sourceRunId })
+  };
+}
+
+function parseSliceImplementationEvidence(
+  value: unknown,
+  path: string,
+  sliceIndex: number
+): WorkflowSliceImplementationEvidence {
+  const field = `slices[${sliceIndex}].implementationEvidence`;
+  const evidence = expectObject(value, path, field);
+  assertKnownKeys(evidence, path, SLICE_IMPLEMENTATION_EVIDENCE_KEYS, field);
+  const sourceRunId =
+    evidence.sourceRunId === undefined
+      ? undefined
+      : expectNonEmptyString(evidence.sourceRunId, path, `${field}.sourceRunId`);
+  if (sourceRunId !== undefined && !isSafeRunId(sourceRunId)) {
+    throw corruption(path, `${field}.sourceRunId is not a safe run id`);
+  }
+  const worktreePath =
+    evidence.worktreePath === undefined
+      ? undefined
+      : expectNonEmptyString(evidence.worktreePath, path, `${field}.worktreePath`);
+  const knownRisks =
+    evidence.knownRisks === undefined
+      ? undefined
+      : expectStringArray(evidence.knownRisks, path, `${field}.knownRisks`);
+  return {
+    recordedAt: expectNonEmptyString(evidence.recordedAt, path, `${field}.recordedAt`),
+    summary: expectNonEmptyString(evidence.summary, path, `${field}.summary`),
+    changedFiles: expectStringArray(evidence.changedFiles, path, `${field}.changedFiles`),
+    testsRun: expectStringArray(evidence.testsRun, path, `${field}.testsRun`),
+    evidencePaths: expectStringArray(evidence.evidencePaths, path, `${field}.evidencePaths`),
+    ...(sourceRunId === undefined ? {} : { sourceRunId }),
+    ...(worktreePath === undefined ? {} : { worktreePath }),
+    ...(knownRisks === undefined ? {} : { knownRisks })
+  };
+}
+
+function parseSliceReviewEvidence(
+  value: unknown,
+  path: string,
+  sliceIndex: number,
+  evidenceIndex: number
+): WorkflowSliceReviewEvidence {
+  const field = `slices[${sliceIndex}].reviewEvidence[${evidenceIndex}]`;
+  const evidence = expectObject(value, path, field);
+  assertKnownKeys(evidence, path, SLICE_REVIEW_EVIDENCE_KEYS, field);
+  const reviewerRunIds =
+    evidence.reviewerRunIds === undefined
+      ? undefined
+      : expectStringArray(evidence.reviewerRunIds, path, `${field}.reviewerRunIds`);
+  if (reviewerRunIds !== undefined) {
+    for (const [runIndex, runId] of reviewerRunIds.entries()) {
+      if (!isSafeRunId(runId)) {
+        throw corruption(path, `${field}.reviewerRunIds[${runIndex}] is not a safe run id`);
+      }
+    }
+  }
+  return {
+    reviewedAt: expectNonEmptyString(evidence.reviewedAt, path, `${field}.reviewedAt`),
+    round: expectPositiveInteger(evidence.round, path, `${field}.round`),
+    consensus: expectEnum<WorkflowConsensusStatus>(
+      evidence.consensus,
+      path,
+      `${field}.consensus`,
+      CONSENSUS_STATUS_SET
+    ),
+    summary: expectNonEmptyString(evidence.summary, path, `${field}.summary`),
+    ...(reviewerRunIds === undefined ? {} : { reviewerRunIds })
   };
 }
 

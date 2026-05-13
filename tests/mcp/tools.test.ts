@@ -263,7 +263,11 @@ describe("MCP tool handlers", () => {
 
   it("exposes provider-neutral workflow slice orchestration tools with sanitized schemas", () => {
     expect(listToolNames()).toEqual(
-      expect.arrayContaining(["agent_team_start_slices", "agent_team_unblock_slice"])
+      expect.arrayContaining([
+        "agent_team_start_slices",
+        "agent_team_unblock_slice",
+        "agent_team_review_slice"
+      ])
     );
     expect(TOOL_METADATA_BY_NAME.agent_team_start_slices).toMatchObject({
       title: "Start Workflow Slices",
@@ -281,10 +285,23 @@ describe("MCP tool handlers", () => {
       sliceId: expect.any(Object),
       dependencyEvidence: expect.any(Object)
     });
+    expect(TOOL_METADATA_BY_NAME.agent_team_review_slice).toMatchObject({
+      title: "Review Workflow Slice",
+      description: expect.stringMatching(/review consensus/i)
+    });
+    expect(TOOL_METADATA_BY_NAME.agent_team_review_slice.inputSchema).toMatchObject({
+      workflowId: expect.any(Object),
+      sliceId: expect.any(Object),
+      codexDecision: expect.any(Object),
+      verdicts: expect.any(Object)
+    });
     expect(JSON.stringify(TOOL_METADATA_BY_NAME.agent_team_start_slices)).not.toMatch(
       /claude-code-cli|internal prompt|raw provider|providerPayload/i
     );
     expect(JSON.stringify(TOOL_METADATA_BY_NAME.agent_team_unblock_slice)).not.toMatch(
+      /claude-code-cli|internal prompt|raw provider|providerPayload/i
+    );
+    expect(JSON.stringify(TOOL_METADATA_BY_NAME.agent_team_review_slice)).not.toMatch(
       /claude-code-cli|internal prompt|raw provider|providerPayload/i
     );
   });
@@ -613,9 +630,122 @@ describe("MCP tool handlers", () => {
     });
   });
 
+  it("reviews workflow slices through MCP using the injected workflow service", async () => {
+    const handlers = createToolHandlers({
+      cwd: () => "/repo",
+      reviewWorkflowSlice: async (input) => ({
+        workflow: {
+          workflowId: input.workflowId,
+          createdAt: "2026-05-13T10:00:00.000Z",
+          updatedAt: "2026-05-13T12:00:00.000Z",
+          planningStatus: "approved",
+          goal: {
+            title: "Workflow",
+            successCriteria: ["slice reviewed"],
+            constraints: ["provider neutral"],
+            nonGoals: ["auto merge"]
+          },
+          seniorReview: DEFAULT_AGENT_TEAM_CONFIG.seniorReview,
+          slices: [
+            {
+              sliceId: input.sliceId,
+              title: "Core",
+              state: "approved",
+              ownerRole: "slice-implementer",
+              dependencies: [],
+              writeScope: ["src/core"],
+              acceptanceTests: ["focused tests"],
+              implementationEvidence: {
+                recordedAt: "2026-05-13T12:00:00.000Z",
+                summary: input.implementationEvidence?.summary ?? "Implementation evidence.",
+                changedFiles: input.implementationEvidence?.changedFiles ?? ["src/core"],
+                testsRun: input.implementationEvidence?.testsRun ?? ["npm test"],
+                evidencePaths: input.implementationEvidence?.evidencePaths ?? ["/repo/.agent-team/runs/run_impl.json"],
+                ...(input.implementationEvidence?.sourceRunId === undefined
+                  ? {}
+                  : { sourceRunId: input.implementationEvidence.sourceRunId })
+              },
+              reviewEvidence: [
+                {
+                  reviewedAt: "2026-05-13T12:00:00.000Z",
+                  round: 1,
+                  consensus: "approved",
+                  summary: input.codexDecision.summary
+                }
+              ]
+            }
+          ],
+          consensusRounds: [
+            {
+              round: 1,
+              phase: "review",
+              consensus: "approved",
+              verdicts: [
+                {
+                  reviewerRole: "code-reviewer",
+                  status: "approve",
+                  summary: "Looks good."
+                }
+              ],
+              startedAt: "2026-05-13T12:00:00.000Z",
+              completedAt: "2026-05-13T12:00:00.000Z"
+            }
+          ],
+          userEscalations: [],
+          opusReviewEvidence: [],
+          integrationQueue: [],
+          codexRationale: [],
+          evidencePath: "/repo/.agent-team/workflows/workflow_mcp.json"
+        }
+      })
+    });
+
+    const result = await handlers.handleToolCall("agent_team_review_slice", {
+      workflowId: "workflow_mcp",
+      sliceId: "slice_core",
+      implementationEvidence: {
+        summary: "Implemented in isolated worktree.",
+        changedFiles: ["src/core/workflow-review.ts"],
+        testsRun: ["npm test -- tests/core/workflow-review.test.ts"],
+        evidencePaths: ["/repo/.agent-team/runs/run_impl.json"],
+        sourceRunId: "run_impl"
+      },
+      codexDecision: {
+        status: "approve",
+        category: "technical",
+        summary: "Codex approves this slice."
+      },
+      verdicts: [
+        {
+          reviewerRole: "code-reviewer",
+          status: "approve",
+          summary: "The slice is safe to approve."
+        }
+      ]
+    });
+
+    expect(result.structuredContent?.workflow).toMatchObject({
+      workflowId: "workflow_mcp",
+      slices: [
+        expect.objectContaining({
+          sliceId: "slice_core",
+          state: "approved",
+          implementationEvidence: expect.objectContaining({
+            sourceRunId: "run_impl"
+          })
+        })
+      ],
+      consensusRounds: [expect.objectContaining({ phase: "review", consensus: "approved" })]
+    });
+    expect(JSON.stringify(result.structuredContent)).not.toMatch(
+      /internalPrompt|rawProvider|providerSession|commandArgs|secret/i
+    );
+  });
+
   it("rejects invalid workflow slice orchestration input before invoking injected services", async () => {
     let startCalled = false;
     let unblockCalled = false;
+    let reviewCalled = false;
     const handlers = createToolHandlers({
       cwd: () => "/repo",
       startWorkflowSlices: async () => {
@@ -625,6 +755,10 @@ describe("MCP tool handlers", () => {
       unblockWorkflowSlice: async () => {
         unblockCalled = true;
         throw new Error("should not unblock");
+      },
+      reviewWorkflowSlice: async () => {
+        reviewCalled = true;
+        throw new Error("should not review");
       }
     });
 
@@ -637,11 +771,23 @@ describe("MCP tool handlers", () => {
       sliceId: "slice_blocked",
       dependencyEvidence: []
     });
+    const reviewResult = await handlers.handleToolCall("agent_team_review_slice", {
+      workflowId: "workflow_mcp",
+      sliceId: "slice_core",
+      codexDecision: {
+        status: "approve",
+        category: "technical",
+        summary: "Missing verdicts should fail."
+      },
+      verdicts: []
+    });
 
     expect(startResult.structuredContent).toMatchObject({ status: "validation_error" });
     expect(unblockResult.structuredContent).toMatchObject({ status: "validation_error" });
+    expect(reviewResult.structuredContent).toMatchObject({ status: "validation_error" });
     expect(startCalled).toBe(false);
     expect(unblockCalled).toBe(false);
+    expect(reviewCalled).toBe(false);
   });
 
   it("loads workspace config for default lifecycle starts", async () => {
@@ -3669,6 +3815,7 @@ describe("MCP tool handlers", () => {
       "agent_team_plan_consensus",
       "agent_team_start_slices",
       "agent_team_unblock_slice",
+      "agent_team_review_slice",
       "agent_team_dashboard",
       "agent_team_cancel",
       "agent_team_cancel_many",

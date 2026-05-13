@@ -274,6 +274,28 @@ const unblockSliceInputSchema = {
   concurrency: z.number().int().min(1).max(8).optional()
 };
 
+const implementationEvidenceInputSchema = z.object({
+  summary: z.string().min(1),
+  changedFiles: z.array(z.string().min(1)).min(1),
+  testsRun: z.array(z.string().min(1)).min(1),
+  evidencePaths: z.array(z.string().min(1)).min(1),
+  sourceRunId: z.string().regex(/^run_[A-Za-z0-9_-]+$/).optional(),
+  worktreePath: z.string().min(1).optional(),
+  knownRisks: z.array(z.string().min(1)).min(1).optional()
+});
+
+const reviewSliceInputSchema = {
+  workflowId,
+  sliceId: z.string().min(1),
+  cwd,
+  roundMode: z.enum(["default", "extended"]).optional(),
+  implementationEvidence: implementationEvidenceInputSchema.optional(),
+  codexDecision: codexDecisionInputSchema,
+  verdicts: z.array(consensusVerdictInputSchema).min(1),
+  seniorReviewerEvidence: seniorReviewerEvidenceInputSchema.optional(),
+  userEscalations: z.array(userEscalationInputSchema).min(1).optional()
+};
+
 const dashboardInputSchema = {
   teamId: teamId
     .optional()
@@ -418,6 +440,12 @@ export const TOOL_METADATA_BY_NAME = {
     title: "Unblock Workflow Slice",
     description: "Record dependency evidence and optionally notify waiting workflow slice runs.",
     inputSchema: unblockSliceInputSchema
+  },
+  agent_team_review_slice: {
+    title: "Review Workflow Slice",
+    description:
+      "Record provider-neutral review consensus and sign-off evidence for one workflow slice.",
+    inputSchema: reviewSliceInputSchema
   },
   agent_team_dashboard: {
     title: "Agent Team Dashboard",

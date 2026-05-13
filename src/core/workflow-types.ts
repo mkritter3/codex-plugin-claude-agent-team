@@ -140,6 +140,8 @@ export interface WorkflowSlice {
   readonly runEvidence?: readonly WorkflowSliceRunEvidence[];
   readonly startFailureEvidence?: readonly WorkflowSliceStartFailureEvidence[];
   readonly unblockEvidence?: readonly WorkflowSliceUnblockEvidence[];
+  readonly implementationEvidence?: WorkflowSliceImplementationEvidence;
+  readonly reviewEvidence?: readonly WorkflowSliceReviewEvidence[];
 }
 
 export interface WorkflowSliceRunEvidence {
@@ -165,6 +167,25 @@ export interface WorkflowSliceUnblockEvidence {
   readonly changedFiles?: readonly string[];
   readonly evidencePaths?: readonly string[];
   readonly sourceRunId?: string;
+}
+
+export interface WorkflowSliceImplementationEvidence {
+  readonly recordedAt: string;
+  readonly summary: string;
+  readonly changedFiles: readonly string[];
+  readonly testsRun: readonly string[];
+  readonly evidencePaths: readonly string[];
+  readonly sourceRunId?: string;
+  readonly worktreePath?: string;
+  readonly knownRisks?: readonly string[];
+}
+
+export interface WorkflowSliceReviewEvidence {
+  readonly reviewedAt: string;
+  readonly round: number;
+  readonly consensus: WorkflowConsensusStatus;
+  readonly summary: string;
+  readonly reviewerRunIds?: readonly string[];
 }
 
 export interface WorkflowReviewerVerdict {

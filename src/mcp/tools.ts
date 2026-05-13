@@ -46,6 +46,13 @@ import {
   type PlanConsensusVerdictInput
 } from "../core/workflow-consensus.js";
 import {
+  reviewWorkflowSlice,
+  type ReviewUserEscalationInput,
+  type ReviewVerdictInput,
+  type ReviewWorkflowSliceInput,
+  type SliceImplementationEvidenceInput
+} from "../core/workflow-review.js";
+import {
   startWorkflowSlices,
   unblockWorkflowSlice,
   type StartWorkflowSlicesInput,
@@ -108,6 +115,7 @@ export const TOOL_NAMES = [
   "agent_team_plan_consensus",
   "agent_team_start_slices",
   "agent_team_unblock_slice",
+  "agent_team_review_slice",
   "agent_team_dashboard",
   "agent_team_cancel",
   "agent_team_cancel_many",
@@ -149,6 +157,7 @@ export interface ToolDependencies {
   readonly planConsensus?: typeof planConsensus;
   readonly startWorkflowSlices?: typeof startWorkflowSlices;
   readonly unblockWorkflowSlice?: typeof unblockWorkflowSlice;
+  readonly reviewWorkflowSlice?: typeof reviewWorkflowSlice;
   readonly now?: () => Date;
   readonly createWorkflowId?: () => string;
 }
@@ -959,6 +968,152 @@ function parseUnblockWorkflowSliceArgs(
     ...(message === undefined ? {} : { message }),
     ...(correlationId === undefined ? {} : { correlationId }),
     ...(concurrency === undefined ? {} : { concurrency }),
+    ...(deps.now === undefined ? {} : { now: deps.now })
+  };
+}
+
+function parseImplementationEvidence(
+  value: unknown
+): SliceImplementationEvidenceInput | JsonToolResult | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return validationError("agent_team_review_slice implementationEvidence must be an object.");
+  }
+  const evidence = value as Record<string, unknown>;
+  const summary = readString(
+    evidence.summary,
+    "agent_team_review_slice implementationEvidence.summary"
+  );
+  if (isJsonToolResult(summary)) {
+    return summary;
+  }
+  const changedFiles = readStringArray(
+    evidence.changedFiles,
+    "agent_team_review_slice implementationEvidence.changedFiles"
+  );
+  if (isJsonToolResult(changedFiles)) {
+    return changedFiles;
+  }
+  const testsRun = readStringArray(
+    evidence.testsRun,
+    "agent_team_review_slice implementationEvidence.testsRun"
+  );
+  if (isJsonToolResult(testsRun)) {
+    return testsRun;
+  }
+  const evidencePaths = readStringArray(
+    evidence.evidencePaths,
+    "agent_team_review_slice implementationEvidence.evidencePaths"
+  );
+  if (isJsonToolResult(evidencePaths)) {
+    return evidencePaths;
+  }
+  const sourceRunId = readOptionalString(
+    evidence.sourceRunId,
+    "agent_team_review_slice implementationEvidence.sourceRunId"
+  );
+  if (sourceRunId !== undefined && typeof sourceRunId !== "string") {
+    return sourceRunId;
+  }
+  const worktreePath = readOptionalString(
+    evidence.worktreePath,
+    "agent_team_review_slice implementationEvidence.worktreePath"
+  );
+  if (worktreePath !== undefined && typeof worktreePath !== "string") {
+    return worktreePath;
+  }
+  const knownRisks =
+    evidence.knownRisks === undefined
+      ? undefined
+      : readStringArray(
+          evidence.knownRisks,
+          "agent_team_review_slice implementationEvidence.knownRisks"
+        );
+  if (knownRisks !== undefined && isJsonToolResult(knownRisks)) {
+    return knownRisks;
+  }
+  return {
+    summary,
+    changedFiles,
+    testsRun,
+    evidencePaths,
+    ...(sourceRunId === undefined ? {} : { sourceRunId }),
+    ...(worktreePath === undefined ? {} : { worktreePath }),
+    ...(knownRisks === undefined ? {} : { knownRisks })
+  };
+}
+
+function parseReviewVerdicts(value: unknown): readonly ReviewVerdictInput[] | JsonToolResult {
+  const parsed = parseConsensusVerdicts(value);
+  return parsed;
+}
+
+function parseReviewUserEscalations(
+  value: unknown
+): readonly ReviewUserEscalationInput[] | JsonToolResult | undefined {
+  const parsed = parseConsensusUserEscalations(value);
+  return parsed;
+}
+
+function parseReviewWorkflowSliceArgs(
+  args: Record<string, unknown>,
+  defaultCwd: string,
+  deps: Pick<ToolDependencies, "now">
+): ReviewWorkflowSliceInput | JsonToolResult {
+  const workflowId = readString(
+    args.workflowId,
+    "agent_team_review_slice requires a non-empty workflowId."
+  );
+  if (isJsonToolResult(workflowId)) {
+    return workflowId;
+  }
+  const sliceId = readString(args.sliceId, "agent_team_review_slice requires a non-empty sliceId.");
+  if (isJsonToolResult(sliceId)) {
+    return sliceId;
+  }
+  const cwdValue = readOptionalString(args.cwd, "agent_team_review_slice cwd");
+  if (cwdValue !== undefined && typeof cwdValue !== "string") {
+    return cwdValue;
+  }
+  const roundMode = readOptionalString(args.roundMode, "agent_team_review_slice roundMode");
+  if (roundMode !== undefined && typeof roundMode !== "string") {
+    return roundMode;
+  }
+  if (roundMode !== undefined && roundMode !== "default" && roundMode !== "extended") {
+    return validationError("agent_team_review_slice roundMode must be default or extended.");
+  }
+  const implementationEvidence = parseImplementationEvidence(args.implementationEvidence);
+  if (implementationEvidence !== undefined && isJsonToolResult(implementationEvidence)) {
+    return implementationEvidence;
+  }
+  const codexDecision = parseCodexDecision(args.codexDecision);
+  if (isJsonToolResult(codexDecision)) {
+    return codexDecision;
+  }
+  const verdicts = parseReviewVerdicts(args.verdicts);
+  if (isJsonToolResult(verdicts)) {
+    return verdicts;
+  }
+  const seniorReviewerEvidence = parseSeniorReviewerEvidence(args.seniorReviewerEvidence);
+  if (seniorReviewerEvidence !== undefined && isJsonToolResult(seniorReviewerEvidence)) {
+    return seniorReviewerEvidence;
+  }
+  const userEscalations = parseReviewUserEscalations(args.userEscalations);
+  if (userEscalations !== undefined && isJsonToolResult(userEscalations)) {
+    return userEscalations;
+  }
+  return {
+    workspaceRoot: cwdValue ?? defaultCwd,
+    workflowId,
+    sliceId,
+    ...(roundMode === undefined ? {} : { roundMode }),
+    ...(implementationEvidence === undefined ? {} : { implementationEvidence }),
+    codexDecision,
+    verdicts,
+    ...(seniorReviewerEvidence === undefined ? {} : { seniorReviewerEvidence }),
+    ...(userEscalations === undefined ? {} : { userEscalations }),
     ...(deps.now === undefined ? {} : { now: deps.now })
   };
 }
@@ -1832,6 +1987,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
   const workflowConsensus = deps.planConsensus ?? planConsensus;
   const workflowStartSlices = deps.startWorkflowSlices ?? startWorkflowSlices;
   const workflowUnblockSlice = deps.unblockWorkflowSlice ?? unblockWorkflowSlice;
+  const workflowReviewSlice = deps.reviewWorkflowSlice ?? reviewWorkflowSlice;
   const cwd = deps.cwd ?? process.cwd;
   const lifecycleRegistry =
     deps.lifecycleRegistry ??
@@ -2157,6 +2313,21 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
                   (await lifecycleFor(request.cwd)).messageRun(request),
                 recoverStateCorruption: async (input) => recoverStateCorruption(input)
               }))
+            })
+        });
+      }
+
+      if (name === "agent_team_review_slice") {
+        const parsed = parseReviewWorkflowSliceArgs(args, cwd(), deps);
+        if (isJsonToolResult(parsed)) {
+          return parsed;
+        }
+        return recoverableLifecycleTool({
+          workspaceRoot: parsed.workspaceRoot,
+          operation: name,
+          action: async () =>
+            jsonToolResult({
+              ...(await workflowReviewSlice(parsed))
             })
         });
       }

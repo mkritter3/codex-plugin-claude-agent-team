@@ -47,6 +47,7 @@ vi.mock("../../src/mcp/tools.js", () => ({
     "agent_team_plan_consensus",
     "agent_team_start_slices",
     "agent_team_unblock_slice",
+    "agent_team_review_slice",
     "agent_team_dashboard",
     "agent_team_cancel_many",
     "agent_team_wind_down_many",
@@ -96,6 +97,7 @@ describe("MCP server", () => {
       "agent_team_plan_consensus",
       "agent_team_start_slices",
       "agent_team_unblock_slice",
+      "agent_team_review_slice",
       "agent_team_dashboard",
       "agent_team_cancel_many",
       "agent_team_wind_down_many",
@@ -165,6 +167,12 @@ describe("MCP server", () => {
       workflowId: expect.any(Object),
       sliceId: expect.any(Object),
       dependencyEvidence: expect.any(Object)
+    });
+    expect(metadataByName.get("agent_team_review_slice")?.inputSchema).toMatchObject({
+      workflowId: expect.any(Object),
+      sliceId: expect.any(Object),
+      codexDecision: expect.any(Object),
+      verdicts: expect.any(Object)
     });
     expect(metadataByName.get("agent_team_dashboard")?.inputSchema).toMatchObject({
       teamId: expect.any(Object),

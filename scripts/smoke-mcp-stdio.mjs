@@ -104,6 +104,12 @@ async function main() {
       "sliceId",
       "dependencyEvidence"
     ]);
+    assertToolRequires(tools.tools, "agent_team_review_slice", [
+      "workflowId",
+      "sliceId",
+      "codexDecision",
+      "verdicts"
+    ]);
     assertObjectSchema(tools.tools, "agent_team_dashboard");
     assertToolRequires(tools.tools, "agent_team_cancel_many", ["runs"]);
     assertToolRequires(tools.tools, "agent_team_wind_down_many", ["runs"]);

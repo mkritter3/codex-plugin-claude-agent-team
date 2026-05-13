@@ -64,6 +64,27 @@ describe("workflow view", () => {
               rawMailboxPayload: "hidden"
             }
           ],
+          implementationEvidence: {
+            recordedAt: "2026-05-13T10:04:00.000Z",
+            summary: "Implementation evidence is ready.",
+            changedFiles: ["src/core/workflow-review.ts"],
+            testsRun: ["npm test -- tests/core/workflow-review.test.ts"],
+            evidencePaths: ["/repo/.agent-team/runs/run_view.json"],
+            sourceRunId: "run_view",
+            worktreePath: "/repo/.worktrees/run_view",
+            knownRisks: ["integration queue remains out of scope"],
+            rawProviderPayload: "hidden"
+          },
+          reviewEvidence: [
+            {
+              reviewedAt: "2026-05-13T10:05:00.000Z",
+              round: 1,
+              consensus: "approved",
+              summary: "Review passed.",
+              reviewerRunIds: ["run_view"],
+              internalPrompt: "hidden"
+            }
+          ],
           internalPrompt: "do not expose"
         }
       ],
@@ -123,6 +144,17 @@ describe("workflow view", () => {
             expect.objectContaining({
               dependencySliceId: "slice_dependency",
               sourceRunId: "run_dependency"
+            })
+          ],
+          implementationEvidence: expect.objectContaining({
+            sourceRunId: "run_view",
+            changedFiles: ["src/core/workflow-review.ts"]
+          }),
+          reviewEvidence: [
+            expect.objectContaining({
+              round: 1,
+              consensus: "approved",
+              reviewerRunIds: ["run_view"]
             })
           ]
         })

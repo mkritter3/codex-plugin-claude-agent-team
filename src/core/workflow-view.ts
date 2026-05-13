@@ -5,6 +5,8 @@ import type {
   WorkflowPlanningStatus,
   WorkflowRecord,
   WorkflowSlice,
+  WorkflowSliceImplementationEvidence,
+  WorkflowSliceReviewEvidence,
   WorkflowSliceRunEvidence,
   WorkflowSliceStartFailureEvidence,
   WorkflowSliceUnblockEvidence
@@ -29,6 +31,8 @@ export interface WorkflowSliceView {
   readonly runEvidence?: WorkflowSlice["runEvidence"];
   readonly startFailureEvidence?: WorkflowSlice["startFailureEvidence"];
   readonly unblockEvidence?: WorkflowSlice["unblockEvidence"];
+  readonly implementationEvidence?: WorkflowSlice["implementationEvidence"];
+  readonly reviewEvidence?: WorkflowSlice["reviewEvidence"];
 }
 
 export interface WorkflowOpusReviewEvidenceView {
@@ -95,6 +99,33 @@ function unblockEvidenceToView(
   };
 }
 
+function implementationEvidenceToView(
+  evidence: WorkflowSliceImplementationEvidence
+): WorkflowSliceImplementationEvidence {
+  return {
+    recordedAt: evidence.recordedAt,
+    summary: evidence.summary,
+    changedFiles: evidence.changedFiles,
+    testsRun: evidence.testsRun,
+    evidencePaths: evidence.evidencePaths,
+    ...(evidence.sourceRunId === undefined ? {} : { sourceRunId: evidence.sourceRunId }),
+    ...(evidence.worktreePath === undefined ? {} : { worktreePath: evidence.worktreePath }),
+    ...(evidence.knownRisks === undefined ? {} : { knownRisks: evidence.knownRisks })
+  };
+}
+
+function reviewEvidenceToView(
+  evidence: WorkflowSliceReviewEvidence
+): WorkflowSliceReviewEvidence {
+  return {
+    reviewedAt: evidence.reviewedAt,
+    round: evidence.round,
+    consensus: evidence.consensus,
+    summary: evidence.summary,
+    ...(evidence.reviewerRunIds === undefined ? {} : { reviewerRunIds: evidence.reviewerRunIds })
+  };
+}
+
 function sliceToView(slice: WorkflowSlice): WorkflowSliceView {
   return {
     sliceId: slice.sliceId,
@@ -126,7 +157,13 @@ function sliceToView(slice: WorkflowSlice): WorkflowSliceView {
       : { startFailureEvidence: slice.startFailureEvidence.map(failureEvidenceToView) }),
     ...(slice.unblockEvidence === undefined
       ? {}
-      : { unblockEvidence: slice.unblockEvidence.map(unblockEvidenceToView) })
+      : { unblockEvidence: slice.unblockEvidence.map(unblockEvidenceToView) }),
+    ...(slice.implementationEvidence === undefined
+      ? {}
+      : { implementationEvidence: implementationEvidenceToView(slice.implementationEvidence) }),
+    ...(slice.reviewEvidence === undefined
+      ? {}
+      : { reviewEvidence: slice.reviewEvidence.map(reviewEvidenceToView) })
   };
 }
 

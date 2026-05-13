@@ -152,6 +152,25 @@ describe("workflow-store", () => {
               evidencePaths: ["/repo/.agent-team/runs/run_slice_1.json"],
               sourceRunId: "run_slice_1"
             }
+          ],
+          implementationEvidence: {
+            recordedAt: "2026-05-13T11:03:00.000Z",
+            summary: "Implementation completed in a retained worktree.",
+            changedFiles: ["src/core/workflow-review.ts"],
+            testsRun: ["npm test -- tests/core/workflow-review.test.ts"],
+            evidencePaths: ["/repo/.agent-team/runs/run_slice_1.json"],
+            sourceRunId: "run_slice_1",
+            worktreePath: "/repo/.worktrees/run_slice_1",
+            knownRisks: ["integration queue is out of scope"]
+          },
+          reviewEvidence: [
+            {
+              reviewedAt: "2026-05-13T11:04:00.000Z",
+              round: 1,
+              consensus: "approved",
+              summary: "Slice passed review.",
+              reviewerRunIds: ["run_slice_1"]
+            }
           ]
         }
       ]
