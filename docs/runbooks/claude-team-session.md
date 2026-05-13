@@ -474,6 +474,8 @@ The provider proof uses packaged MCP stdio plus `agent_team_doctor`, `agent_team
 
 Use this proof before enabling write-capable Ollama Claude Code profiles in normal workspaces. It creates a disposable git fixture for each exact `ollama-claude-code:<profile-id>` selector, enables `writeValidated: true` only in that fixture, starts a `slice-implementer`, verifies `OLLAMA_WRITE_PROOF.txt` exists only in the isolated execution worktree, records dashboard and summary evidence, and removes the retained worktree with `agent_team_cleanup`.
 
+Latest live Ollama write proof evidence is recorded in `docs/superpowers/reports/2026-05-13-agent-team-live-ollama-write-proof.md`.
+
 Inspect without provider use:
 
 ```bash

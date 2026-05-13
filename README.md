@@ -479,6 +479,8 @@ The sanitized report includes provider selectors, selected provider ids, auth mo
 
 The Ollama write validation smoke is the proof gate before any `ollama-claude-code:<profile-id>` should be enabled for normal isolated implementation work. It creates a disposable git fixture per selected provider, enables `writeValidated: true` only inside that fixture, starts a `slice-implementer`, verifies the expected file appears only in the isolated worktree, records dashboard and summary evidence, and removes the retained worktree through `agent_team_cleanup`.
 
+Latest live Ollama write proof evidence is recorded in `docs/superpowers/reports/2026-05-13-agent-team-live-ollama-write-proof.md`.
+
 Inspect the plan without provider use:
 
 ```bash
