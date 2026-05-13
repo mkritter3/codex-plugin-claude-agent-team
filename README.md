@@ -717,7 +717,7 @@ npm run build
 env -u ANTHROPIC_API_KEY npm run dogfood:live-app -- --confirm-live-provider-use --timeout-ms 300000 --max-wait-ms 360000
 ```
 
-The sanitized report uses the `dogfood_app_workflow_only` claim boundary. It can include Claude Opus required-when-available planning evidence, Gemini UI work, Codex implementation/test work, and optional Ollama Kimi junior documentation work when `OLLAMA_API_KEY` is present. It is not part of CI and does not print private prompts, task text, provider endpoints, raw provider payloads, provider session ids, process metadata, command details, environment values, mailbox payloads, or secrets. Passing the dogfood proves the public workflow/control-plane path can coordinate and integrate real provider-backed app slices in a disposable fixture; it does not compare providers, evaluate model quality, or prove broad product readiness.
+The sanitized report uses the `dogfood_app_workflow_only` claim boundary. It can include Claude Opus required-when-available planning evidence, Gemini UI work, Codex implementation/test work, and optional Ollama Kimi junior documentation work when `OLLAMA_API_KEY` is present and `--include-optional-ollama` is passed. It is not part of CI and does not print private prompts, task text, provider endpoints, raw provider payloads, provider session ids, process metadata, command details, environment values, mailbox payloads, or secrets. Passing the dogfood proves the public workflow/control-plane path can coordinate and integrate real provider-backed app slices in a disposable fixture; it does not compare providers, evaluate model quality, or prove broad product readiness.
 
 ## Basic Workflow
 

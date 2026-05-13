@@ -57,7 +57,7 @@ const BASE_PROVIDER_SELECTORS = [
 const KNOWN_LIMITATIONS = [
   "This dogfood run proves the workflow/control-plane can coordinate real provider-backed app slices in a disposable fixture; it does not compare providers or evaluate model quality.",
   "Codex-owned integration copies only whitelisted files from retained worktrees, then records final verification evidence.",
-  "Ollama junior documentation work is included only when Ollama Cloud credentials are configured.",
+  "Ollama junior documentation work is included only when Ollama Cloud credentials are configured and --include-optional-ollama is passed.",
   "Live provider use is operator-triggered and is not part of CI."
 ];
 
@@ -247,7 +247,7 @@ async function createFixture() {
 }
 
 async function writeFixtureConfig(root, allowedWorktreeRoot) {
-  const includeOllama = process.env.OLLAMA_API_KEY !== undefined;
+  const includeOllama = optionalOllamaEnabled();
   await mkdir(join(root, ".agent-team"), { recursive: true });
   await writeFile(
     join(root, ".agent-team", "config.json"),
@@ -373,7 +373,7 @@ async function writeFixtureConfig(root, allowedWorktreeRoot) {
 }
 
 function workflowSlices() {
-  const includeOllama = process.env.OLLAMA_API_KEY !== undefined;
+  const includeOllama = optionalOllamaEnabled();
   const slices = [
     {
       sliceId: "slice_ui",
@@ -520,8 +520,14 @@ async function approvePlanning(client, fixtureRoot, timeoutMs) {
 
 function enabledSlicePlans() {
   return SLICE_PROVIDER_PLAN.filter(
-    (slice) => slice.optionalEnv === undefined || process.env[slice.optionalEnv] !== undefined
+    (slice) =>
+      slice.optionalEnv === undefined ||
+      (process.env[slice.optionalEnv] !== undefined && hasFlag("--include-optional-ollama"))
   );
+}
+
+function optionalOllamaEnabled() {
+  return process.env.OLLAMA_API_KEY !== undefined && hasFlag("--include-optional-ollama");
 }
 
 async function startSlices(client, fixtureRoot, timeoutMs) {
