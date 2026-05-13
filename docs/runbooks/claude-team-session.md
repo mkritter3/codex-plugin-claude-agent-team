@@ -272,6 +272,27 @@ npm run smoke:providers-live -- --confirm-live-provider-use --cwd /absolute/path
 
 The provider proof uses packaged MCP stdio plus `agent_team_doctor`, `agent_team_list_providers`, `agent_team_dispatch`, `agent_team_dashboard`, and `agent_team_summary`. Its sanitized report includes provider selectors, selected provider ids, auth mode, run ids, sidecar/log paths, dashboard counts, summary groups, and known limitations. It does not print prompts, task text, provider endpoints, raw provider payloads, provider session ids, process metadata, command details, environment values, mailbox payloads, or secrets.
 
+## Opt-In Ollama Write Validation
+
+Use this proof before enabling write-capable Ollama Claude Code profiles in normal workspaces. It creates a disposable git fixture for each exact `ollama-claude-code:<profile-id>` selector, enables `writeValidated: true` only in that fixture, starts a `slice-implementer`, verifies `OLLAMA_WRITE_PROOF.txt` exists only in the isolated execution worktree, records dashboard and summary evidence, and removes the retained worktree with `agent_team_cleanup`.
+
+Inspect without provider use:
+
+```bash
+npm run smoke:ollama-write -- --dry-run --provider ollama-claude-code:kimi-k2.6
+```
+
+Run after building:
+
+```bash
+npm run build
+npm run smoke:ollama-write -- --confirm-live-provider-use --provider ollama-claude-code:kimi-k2.6
+```
+
+The report includes provider ids, run ids, terminal status, changed files, worktree containment, cleanup status, dashboard counts, summary groups, sidecar/log paths, and known limitations. It does not print prompts, task text, provider endpoints, raw provider payloads, provider session ids, process metadata, command details, environment values, mailbox payloads, or secrets. A passing run proves isolated write containment for the selected provider only; it is not a model-quality, ranking, or broad autonomous-implementation claim.
+
+In this repository, `kimi-k2.6`, `glm-5.1`, and `deepseek-v4-flash` have passed this disposable-fixture write validation through the packaged MCP path. Keep any other Ollama Claude Code profile read-only until it passes the same proof.
+
 ## Start A Team
 
 Use `agent_team_start_parallel` to start a bounded team:

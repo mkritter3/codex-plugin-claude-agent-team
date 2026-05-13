@@ -426,6 +426,27 @@ npm run smoke:providers-live -- --confirm-live-provider-use --cwd /absolute/path
 
 The sanitized report includes provider selectors, selected provider ids, auth mode, run ids, run statuses, sidecar/log evidence paths, dashboard counts, summary groups, and known limitations. It does not print private prompts, task text, provider endpoints, raw provider payloads, provider session ids, process metadata, command details, environment values, or secrets.
 
+## Opt-In Ollama Write Validation Smoke
+
+The Ollama write validation smoke is the proof gate before any `ollama-claude-code:<profile-id>` should be enabled for normal isolated implementation work. It creates a disposable git fixture per selected provider, enables `writeValidated: true` only inside that fixture, starts a `slice-implementer`, verifies the expected file appears only in the isolated worktree, records dashboard and summary evidence, and removes the retained worktree through `agent_team_cleanup`.
+
+Inspect the plan without provider use:
+
+```bash
+npm run smoke:ollama-write -- --dry-run --provider ollama-claude-code:kimi-k2.6
+```
+
+Run the confirmed validation after building the packaged runtime:
+
+```bash
+npm run build
+npm run smoke:ollama-write -- --confirm-live-provider-use --provider ollama-claude-code:kimi-k2.6
+```
+
+The report includes provider ids, run ids, terminal status, changed files, isolated worktree evidence, cleanup status, dashboard counts, summary groups, sidecar/log paths, and known limitations. It does not print prompts, task text, provider endpoints, raw provider payloads, provider session ids, process metadata, command details, environment values, mailbox payloads, or secrets. Passing this smoke proves isolated write containment for the selected profile only; it makes no model-quality, ranking, autonomous-implementation, or broad write-readiness claim.
+
+In this repository, `kimi-k2.6`, `glm-5.1`, and `deepseek-v4-flash` have passed this disposable-fixture write validation through the packaged MCP path. Other profiles should keep `writeValidated: false` until they pass the same proof.
+
 ## Basic Workflow
 
 1. Build and smoke the packaged runtime with `npm run build`, `npm run smoke:mcp-stdio`, and `npm run smoke:package`.

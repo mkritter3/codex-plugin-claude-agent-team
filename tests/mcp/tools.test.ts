@@ -59,6 +59,27 @@ describe("MCP tool handlers", () => {
     );
   });
 
+  it("lists providers from an explicit cwd when supplied", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-providers-cwd-"));
+    await mkdir(join(workspace, ".agent-team"), { recursive: true });
+    await writeFile(
+      join(workspace, ".agent-team", "config.json"),
+      JSON.stringify({
+        writeMode: { enabled: true, requireIsolatedWorktree: true }
+      }),
+      "utf8"
+    );
+    const handlers = createToolHandlers({
+      cwd: () => "/repo"
+    });
+
+    const result = await handlers.handleToolCall("agent_team_list_providers", {
+      cwd: workspace
+    });
+
+    expect(result.structuredContent?.providers?.[0]?.capabilities).toContain("edits");
+  });
+
   it("describes provider inputs as neutral selector strings without provider-specific fields", () => {
     expect(TOOL_METADATA_BY_NAME.agent_team_dispatch.inputSchema.provider?.description).toBe(
       "Preferred provider selector."

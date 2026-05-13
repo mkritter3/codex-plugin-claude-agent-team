@@ -382,6 +382,22 @@ That gate requires:
 
 **Status:** Complete. `providers.ollamaClaudeCode` now defines explicit `ollama-claude-code:<profile-id>` providers with one shared API-key env, scoped Anthropic-compatible launch environment, Claude Code lifecycle reuse for dispatch/background sessions, doctor health checks, conservative write-validation gating, and docs/runbook coverage without public MCP schema changes or provider-quality claims.
 
+### Milestone 49: Ollama Write Validation
+
+**Goal:** Prove selected Ollama Claude Code profiles can perform isolated implementation writes before enabling their write-capable capabilities in normal workspaces.
+
+**Success Criteria:**
+
+- `npm run smoke:ollama-write` exists and is excluded from CI.
+- The command fails closed unless `--dry-run` or `--confirm-live-provider-use` is supplied.
+- Only exact `ollama-claude-code:<profile-id>` selectors are accepted; write validation is never inferred from family selectors or Claude subscription mode.
+- Live validation creates a disposable git fixture per selected provider and enables `writeValidated: true` only in that fixture.
+- The selected provider must expose `edits` and `workspaceIsolation` in fixture-local config before starting.
+- The `slice-implementer` run must complete in an isolated git worktree, change only `OLLAMA_WRITE_PROOF.txt`, leave the source workspace unmodified, emit sidecar/log/dashboard/summary evidence, and clean up the retained worktree.
+- Reports remain sanitized and make no model-quality, benchmark, ranking, autonomous-implementation, or practical long-context claim.
+
+**Status:** Complete. `npm run smoke:ollama-write` now provides a fail-closed dry-run and opt-in live write-validation harness for exact `ollama-claude-code:<profile-id>` selectors. Kimi K2.6, GLM 5.1, and DeepSeek V4 Flash have each passed disposable-fixture isolated write validation through packaged MCP, including source-workspace containment, retained worktree evidence, dashboard, summary, and cleanup.
+
 ## Definition Of Done For V1
 
 V1 is complete when Codex can reliably:
@@ -402,4 +418,4 @@ V1.5 is complete when at least one non-Claude provider can be configured explici
 
 ## Near-Term Recommendation
 
-Milestones 40 through 48 are complete. The next implementation target should be an opt-in live Ollama Claude Code proof harness that validates one configured read-only profile through the packaged MCP boundary before any write-capable profile is enabled.
+Milestones 40 through 49 are complete. The next implementation target should be explicit model-profile proof for named Claude models or an OpenAI Responses provider for GPT/Codex models.

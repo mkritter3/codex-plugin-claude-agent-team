@@ -294,6 +294,6 @@ export const TOOL_METADATA_BY_NAME = {
   agent_team_list_providers: {
     title: "List Agent Providers",
     description: "List configured providers and exposed capabilities.",
-    inputSchema: z.object({})
+    inputSchema: cwdOnlyInputSchema
   }
 } satisfies Record<ToolName, ToolMetadata>;

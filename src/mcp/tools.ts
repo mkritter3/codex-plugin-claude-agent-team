@@ -1082,7 +1082,11 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
       }
 
       if (name === "agent_team_list_providers") {
-        return jsonToolResult({ providers: listProviders({ config: await config(cwd()) }) });
+        if (args.cwd !== undefined && typeof args.cwd !== "string") {
+          return validationError("agent_team_list_providers cwd must be a string.");
+        }
+        const workspaceRoot = args.cwd ?? cwd();
+        return jsonToolResult({ providers: listProviders({ config: await config(workspaceRoot) }) });
       }
 
       if (name === "agent_team_doctor") {

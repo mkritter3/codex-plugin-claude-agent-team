@@ -4,6 +4,7 @@ All notable changes to this private local plugin are recorded here.
 
 ## Unreleased
 
+- Added an opt-in Ollama Claude Code write-validation smoke that proves fixture-local isolated implementation, source-workspace containment, dashboard/summary evidence, and cleanup before profiles are treated as write-capable.
 - Switched Ollama Claude Code profiles to the direct Ollama Cloud Anthropic-compatible endpoint (`https://ollama.com`) with bare model ids and Claude Code-compatible `ANTHROPIC_AUTH_TOKEN` / blank `ANTHROPIC_API_KEY` scoped env mapping.
 - Added explicit Ollama Claude Code profiles with a single `OLLAMA_API_KEY`, scoped Anthropic-compatible environment mapping, conservative write-validation gating, and reuse of the Claude Code lifecycle for configured `ollama-claude-code:<profile-id>` providers.
 - Added an opt-in Claude live capability matrix that uses packaged public MCP tools to validate direct dispatch, parallel read-only teams, isolated implementation handoff, mailbox delivery, wind-down, cancellation, team records, dashboard, summary, cleanup, and policy failure evidence; it is not part of CI and makes no provider ranking or model-quality claim.
