@@ -667,7 +667,7 @@ describe("selectProvider", () => {
     ).toThrow(ProviderCapabilityError);
   });
 
-  it("supports explicit Opus planning and Sonnet execution role pins", () => {
+  it("supports explicit Opus planning, Haiku search, and Sonnet execution role pins", () => {
     const providers = listProviders({
       config: {
         ...DEFAULT_AGENT_TEAM_CONFIG,
@@ -687,6 +687,22 @@ describe("selectProvider", () => {
                   sessionResume: true,
                   cancellation: true,
                   reasoning: true,
+                  edits: false,
+                  workspaceIsolation: false
+                }
+              },
+              {
+                id: "haiku",
+                model: "haiku",
+                displayName: "Claude Haiku",
+                writeValidated: false,
+                capabilities: {
+                  structuredOutput: true,
+                  longContext: false,
+                  tools: true,
+                  sessionResume: true,
+                  cancellation: true,
+                  reasoning: false,
                   edits: false,
                   workspaceIsolation: false
                 }
@@ -718,11 +734,12 @@ describe("selectProvider", () => {
         planner: "model:opus",
         "code-reviewer": "model:opus",
         debugger: "model:opus",
+        "docs-dx-writer": "model:haiku",
         "frontend-engineer": "model:sonnet",
         "backend-engineer": "model:sonnet",
         "slice-implementer": "model:sonnet"
       },
-      providerOrder: ["model:opus", "model:sonnet"]
+      providerOrder: ["model:opus", "model:haiku", "model:sonnet"]
     };
 
     expect(
@@ -745,6 +762,17 @@ describe("selectProvider", () => {
     ).toMatchObject({
       ok: true,
       selectedProviderId: "claude-code-cli:opus"
+    });
+    expect(
+      explainProviderSelection({
+        roleId: "docs-dx-writer",
+        providers,
+        routingPolicy
+      })
+    ).toMatchObject({
+      ok: true,
+      selectedProviderId: "claude-code-cli:haiku",
+      selector: { source: "role-pin", kind: "model", value: "model:haiku" }
     });
     expect(
       explainProviderSelection({

@@ -154,7 +154,7 @@ Claude Code CLI model profiles let a workspace expose explicit subscription-OAut
 
 Profile provider ids use `claude-code-cli:<profile-id>`, for example `claude-code-cli:opus`. They use `authMode: "subscription-oauth"` and do not introduce API-key env handling. Write capabilities remain withheld unless an exact profile is explicitly marked `writeValidated: true` and the workspace has isolated write mode enabled.
 
-For the default Claude team shape, pin planning, architecture, senior review, and other high-complexity read-only roles to Opus. Pin implementation and bounded execution roles to a write-validated Sonnet profile. The model aliases stay deliberately unversioned so Claude Code resolves `opus` and `sonnet` to the latest subscription-backed aliases available in the installed CLI.
+For the default Claude team shape, pin planning, architecture, senior review, and other high-complexity read-only roles to Opus. Route search-style reconnaissance, documentation lookup, and low-risk fact-gathering tasks to Haiku. Pin implementation and bounded execution roles to a write-validated Sonnet profile. The model aliases stay deliberately unversioned so Claude Code resolves `opus`, `haiku`, and `sonnet` to the latest subscription-backed aliases available in the installed CLI.
 
 ```json
 {
@@ -169,6 +169,17 @@ For the default Claude team shape, pin planning, architecture, senior review, an
             "structuredOutput": true,
             "longContext": true,
             "reasoning": true
+          }
+        },
+        {
+          "id": "haiku",
+          "model": "haiku",
+          "displayName": "Claude Haiku - search and reconnaissance",
+          "capabilities": {
+            "structuredOutput": true,
+            "tools": true,
+            "sessionResume": true,
+            "cancellation": true
           }
         },
         {
@@ -199,19 +210,20 @@ For the default Claude team shape, pin planning, architecture, senior review, an
       "security-reviewer": "model:opus",
       "performance-reviewer": "model:opus",
       "integration-engineer": "model:opus",
+      "docs-dx-writer": "model:haiku",
       "frontend-engineer": "model:sonnet",
       "backend-engineer": "model:sonnet",
       "slice-implementer": "model:sonnet"
     },
-    "providerOrder": ["model:opus", "model:sonnet"]
+    "providerOrder": ["model:opus", "model:haiku", "model:sonnet"]
   },
   "policy": {
-    "allowedProviderSelectors": ["model:opus", "model:sonnet"]
+    "allowedProviderSelectors": ["model:opus", "model:haiku", "model:sonnet"]
   }
 }
 ```
 
-Treat Opus as the high-reasoning brain for ambiguous architecture, planning consensus, product-risk review, security/performance review, and final sign-off. Treat Sonnet as the default execution worker for isolated implementation slices. A request-level provider selector can still override these pins when Codex intentionally probes another provider or assigns a specialty worker, and every route still has to pass capability and write-validation checks.
+Treat Opus as the high-reasoning brain for ambiguous architecture, planning consensus, product-risk review, security/performance review, and final sign-off. Treat Haiku as the fast search lane for bounded repo/document reconnaissance and information gathering. Treat Sonnet as the default execution worker for isolated implementation slices. A request-level provider selector can still override these pins when Codex intentionally probes another provider or assigns a specialty worker, and every route still has to pass capability and write-validation checks.
 
 Policy controls are also optional and provider-neutral. They restrict which roles and providers may start, whether write-capable starts are allowed, where retained worktrees may be created, and whether local live smoke is enabled for operator-run checks:
 

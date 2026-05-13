@@ -281,7 +281,7 @@ Run `npm run smoke:claude-models -- --dry-run` to inspect the packaged MCP proof
 
 ### Recommended Claude Routing
 
-Use Opus as the default high-reasoning lane for planning, architecture, complex debugging, senior review, and final sign-off. Use Sonnet as the default execution lane for implementation slices that need isolated writes. Keep both aliases unpinned so Claude Code resolves `opus` and `sonnet` to the latest subscription-backed aliases available in the installed CLI.
+Use Opus as the default high-reasoning lane for planning, architecture, complex debugging, senior review, and final sign-off. Use Haiku as the default search lane for bounded repo/document reconnaissance, documentation lookup, and low-risk fact gathering. Use Sonnet as the default execution lane for implementation slices that need isolated writes. Keep the aliases unpinned so Claude Code resolves `opus`, `haiku`, and `sonnet` to the latest subscription-backed aliases available in the installed CLI.
 
 ```json
 {
@@ -297,6 +297,17 @@ Use Opus as the default high-reasoning lane for planning, architecture, complex 
             "structuredOutput": true,
             "longContext": true,
             "reasoning": true
+          }
+        },
+        {
+          "id": "haiku",
+          "model": "haiku",
+          "displayName": "Claude Haiku - search and reconnaissance",
+          "capabilities": {
+            "structuredOutput": true,
+            "tools": true,
+            "sessionResume": true,
+            "cancellation": true
           }
         },
         {
@@ -327,21 +338,22 @@ Use Opus as the default high-reasoning lane for planning, architecture, complex 
       "security-reviewer": "model:opus",
       "performance-reviewer": "model:opus",
       "integration-engineer": "model:opus",
+      "docs-dx-writer": "model:haiku",
       "frontend-engineer": "model:sonnet",
       "backend-engineer": "model:sonnet",
       "slice-implementer": "model:sonnet"
     },
-    "providerOrder": ["model:opus", "model:sonnet"]
+    "providerOrder": ["model:opus", "model:haiku", "model:sonnet"]
   },
   "policy": {
-    "allowedProviderSelectors": ["model:opus", "model:sonnet"],
+    "allowedProviderSelectors": ["model:opus", "model:haiku", "model:sonnet"],
     "allowWriteMode": true,
     "auditEnabled": true
   }
 }
 ```
 
-This is a routing and capability policy, not comparative model evidence. Request-level provider selectors remain available for deliberate probes or specialty assignments, and write-capable Sonnet execution still requires isolated worktree mode plus `writeValidated: true`.
+For ad hoc search-style work that does not map cleanly to a pinned role, pass a request-level provider selector such as `model:haiku` or `claude-code-cli:haiku`. This is a routing and capability policy, not comparative model evidence. Request-level provider selectors remain available for deliberate probes or specialty assignments, and write-capable Sonnet execution still requires isolated worktree mode plus `writeValidated: true`.
 
 ## State Layout Check
 
