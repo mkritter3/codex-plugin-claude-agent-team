@@ -41,6 +41,7 @@ describe("Claude team session runbook", () => {
       "npm run build",
       "npm run install:check",
       "npm run smoke:mcp-stdio",
+      "npm run smoke:workflow-orchestrator",
       "npm run smoke:package",
       "npm run smoke:claude-live",
       "npm run smoke:claude-live-matrix",

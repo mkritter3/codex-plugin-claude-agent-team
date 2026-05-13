@@ -27,7 +27,7 @@ Codex should be able to stand up and manage an external AI agent team from insid
 
 ## Current Baseline
 
-Completed through Milestone 59:
+Completed through Milestone 60:
 
 - package scaffold, MCP server, CI, stdio smoke, and schema coverage
 - provider-neutral roles, capabilities, router, config, and doctor
@@ -81,6 +81,7 @@ Completed through Milestone 59:
 - Codex-owned integration evidence recording with final gate verification, integrated slice marking, integration queue state updates, and cleanup handoff recommendations without source mutation or cleanup execution
 - read-only workflow completion reporting with strict final-gate completion claims, blocked/incomplete categorization, per-slice addressability, and cleanup-ready recommendations without source mutation
 - operator-facing workflow orchestrator runbook coverage for the complete create, consensus, start, unblock, review, queue, integrate, record, report, and explicit cleanup loop
+- fixture-safe packaged workflow orchestrator smoke that drives public workflow tools through `dist/index.js`, proves blocked/unblocked and completion-report gates, records degraded Opus evidence, and runs in CI without live provider calls
 
 ## Roadmap Shape
 
@@ -438,7 +439,7 @@ V1.5 is complete when at least one non-Claude provider can be configured explici
 
 ## Workflow Orchestrator Continuation
 
-Milestones 50 through 59 establish the L11 workflow orchestrator foundation:
+Milestones 50 through 60 establish the L11 workflow orchestrator foundation:
 
 - senior-review policy defaults and environment/workspace config
 - expanded L11 role roster
@@ -450,5 +451,6 @@ Milestones 50 through 59 establish the L11 workflow orchestrator foundation:
 - integration evidence recording after Codex-owned manual integration, with final verification evidence and cleanup handoff boundaries
 - workflow completion reporting that refuses completion claims until all slices have durable passing final gate evidence
 - operator-facing runbook coverage for the complete public MCP workflow loop without internal prompt, secret, provider payload, or provider-specific implementation leakage
+- packaged fixture-safe workflow orchestrator smoke in CI for creation, planning, unblock, review, queue, integration evidence, completion reporting, listing, and disposable fixture cleanup
 
-The next implementation target should be a fixture-safe packaged workflow orchestrator smoke that drives the public MCP loop end-to-end against generated workflow state without live provider calls. Merge execution should remain Codex-owned and should not be automated by the plugin.
+The next implementation target should be a final product readiness pass for workflow-orchestrator ergonomics: verify the public runbook, packaged smoke, install handoff, and tool surfaces together, then stop if the product-level success criteria are met. Merge execution should remain Codex-owned and should not be automated by the plugin.

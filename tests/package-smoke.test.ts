@@ -38,6 +38,7 @@ describe("package smoke gate", () => {
     expect(smokeScript).toContain('"docs/runbooks/claude-team-session.md"');
     expect(smokeScript).toContain('"scripts/install-check.mjs"');
     expect(smokeScript).toContain('"scripts/lib/install-preflight.mjs"');
+    expect(smokeScript).toContain('"scripts/smoke-workflow-orchestrator.mjs"');
     expect(smokeScript).toContain('"scripts/live-smoke-claude-team.mjs"');
     expect(smokeScript).toContain('"scripts/live-smoke-claude-utils.mjs"');
     expect(smokeScript).toContain('"scripts/live-smoke-readonly-providers.mjs"');

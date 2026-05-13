@@ -30,6 +30,7 @@ npm ci
 npm run build
 npm run install:check
 npm run smoke:mcp-stdio
+npm run smoke:workflow-orchestrator
 npm run smoke:package
 npm run smoke:claude-live -- --dry-run --cwd /absolute/path/to/workspace
 npm run smoke:claude-live-matrix -- --dry-run --cwd /absolute/path/to/workspace
@@ -493,7 +494,7 @@ In this repository, `kimi-k2.6`, `glm-5.1`, and `deepseek-v4-flash` have passed 
 
 ## Basic Workflow
 
-1. Build and smoke the packaged runtime with `npm run build`, `npm run smoke:mcp-stdio`, and `npm run smoke:package`.
+1. Build and smoke the packaged runtime with `npm run build`, `npm run smoke:mcp-stdio`, `npm run smoke:workflow-orchestrator`, and `npm run smoke:package`.
 2. Run `agent_team_doctor`.
 3. Start a bounded team with `agent_team_start_parallel`.
 4. Optionally group returned run ids with `agent_team_create_team`.
@@ -531,6 +532,8 @@ The public workflow loop is:
 `agent_team_workflow_report` returns `completionStatus` and only reports `complete` after planning is approved, every slice is integrated, and durable passing final gate verification exists for every slice. It also reports blocked, incomplete, ready-to-integrate, missing-evidence, and cleanup-ready rows.
 
 Codex owns technical decisions, integration, review synthesis, and final authority. Users should only be asked CEO/product-level decisions with practical product, trust, cost, user-impact, or release-tradeoff consequences. Cleanup is explicit, and cleanup only after integration evidence is saved.
+
+Run `npm run smoke:workflow-orchestrator` after `npm run build` for a fixture-safe packaged MCP proof of this loop. It creates a disposable git workspace, drives public workflow tools through `dist/index.js`, records degraded Opus evidence without blocking, proves `completionStatus` only becomes `complete` after final gate evidence, and removes the fixture. It does not call providers, does not use API keys, and makes no model-quality or provider capability claim.
 
 ## Evidence
 

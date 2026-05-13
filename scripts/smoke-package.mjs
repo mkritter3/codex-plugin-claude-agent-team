@@ -72,6 +72,7 @@ function main() {
     "docs/runbooks/claude-team-session.md",
     "scripts/install-check.mjs",
     "scripts/lib/install-preflight.mjs",
+    "scripts/smoke-workflow-orchestrator.mjs",
     "scripts/live-smoke-claude-team.mjs",
     "scripts/live-smoke-claude-utils.mjs",
     "scripts/live-smoke-readonly-providers.mjs"

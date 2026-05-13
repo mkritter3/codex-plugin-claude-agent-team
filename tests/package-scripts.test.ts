@@ -10,6 +10,9 @@ describe("package scripts", () => {
     expect(packageJson.scripts?.["smoke:mcp-stdio"]).toBe(
       "node scripts/smoke-mcp-stdio.mjs"
     );
+    expect(packageJson.scripts?.["smoke:workflow-orchestrator"]).toBe(
+      "node scripts/smoke-workflow-orchestrator.mjs"
+    );
     expect(packageJson.scripts?.["smoke:package"]).toBe(
       "node scripts/smoke-package.mjs"
     );
@@ -26,7 +29,7 @@ describe("package scripts", () => {
       "node scripts/install-check.mjs"
     );
     expect(packageJson.scripts?.ci).toBe(
-      "npm run typecheck && npm test && npm run build && npm run install:check && npm run smoke:mcp-stdio && npm run smoke:package"
+      "npm run typecheck && npm test && npm run build && npm run install:check && npm run smoke:mcp-stdio && npm run smoke:workflow-orchestrator && npm run smoke:package"
     );
     expect(packageJson.scripts?.ci).not.toContain("smoke:claude-live");
     expect(packageJson.scripts?.ci).not.toContain("smoke:claude-live-matrix");
@@ -39,6 +42,9 @@ describe("package scripts", () => {
       ci.indexOf("npm run smoke:mcp-stdio")
     );
     expect(ci.indexOf("npm run smoke:mcp-stdio")).toBeLessThan(
+      ci.indexOf("npm run smoke:workflow-orchestrator")
+    );
+    expect(ci.indexOf("npm run smoke:workflow-orchestrator")).toBeLessThan(
       ci.indexOf("npm run smoke:package")
     );
   });

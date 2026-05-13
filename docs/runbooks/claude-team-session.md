@@ -19,6 +19,7 @@ Run these before changing installation or docs examples:
 npm run build
 npm run install:check
 npm run smoke:mcp-stdio
+npm run smoke:workflow-orchestrator
 npm run smoke:package
 npm run smoke:claude-live-matrix -- --dry-run --cwd /absolute/path/to/workspace
 npm run smoke:claude-models -- --dry-run
@@ -29,6 +30,8 @@ npm run ci
 These commands are CI-safe. They verify package/runtime wiring and fixture behavior without starting a live Claude session.
 
 `npm run install:check` emits an absolute MCP config and ordered install checks. It does not call providers, read credentials, or start live runs.
+
+`npm run smoke:workflow-orchestrator` is the fixture-safe packaged MCP proof for the L11 workflow loop. It creates a disposable git workspace, calls public workflow tools through `dist/index.js`, records degraded Opus evidence without blocking, verifies `completionStatus` stays incomplete before final gate evidence, verifies it becomes `complete` after integration evidence, and removes the fixture. It does not call providers, use API keys, or make model-quality/provider capability claims.
 
 ## MCP Configuration Check
 
@@ -691,7 +694,7 @@ Do not overwrite state by hand. Preserve the archive and re-run the relevant rea
 
 ## Practical Session Checklist
 
-1. Run fixture-safe verification with `npm run build`, `npm run install:check`, `npm run smoke:mcp-stdio`, `npm run smoke:package`, and `npm run ci`.
+1. Run fixture-safe verification with `npm run build`, `npm run install:check`, `npm run smoke:mcp-stdio`, `npm run smoke:workflow-orchestrator`, `npm run smoke:package`, and `npm run ci`.
 2. Build the package before using the packaged MCP entrypoint.
 3. Run `agent_team_doctor` against the target workspace.
 4. Start a small team with `agent_team_start_parallel`.

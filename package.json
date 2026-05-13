@@ -34,13 +34,14 @@
     "start": "tsx src/index.ts",
     "install:check": "node scripts/install-check.mjs",
     "smoke:mcp-stdio": "node scripts/smoke-mcp-stdio.mjs",
+    "smoke:workflow-orchestrator": "node scripts/smoke-workflow-orchestrator.mjs",
     "smoke:package": "node scripts/smoke-package.mjs",
     "smoke:claude-live": "node scripts/live-smoke-claude-team.mjs",
     "smoke:claude-live-matrix": "node scripts/live-smoke-claude-capability-matrix.mjs",
     "smoke:claude-models": "node scripts/live-smoke-claude-model-profiles.mjs",
     "smoke:providers-live": "node scripts/live-smoke-readonly-providers.mjs",
     "smoke:ollama-write": "node scripts/live-smoke-ollama-write-validation.mjs",
-    "ci": "npm run typecheck && npm test && npm run build && npm run install:check && npm run smoke:mcp-stdio && npm run smoke:package"
+    "ci": "npm run typecheck && npm test && npm run build && npm run install:check && npm run smoke:mcp-stdio && npm run smoke:workflow-orchestrator && npm run smoke:package"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",

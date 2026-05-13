@@ -14,6 +14,7 @@ describe("packaging and install docs", () => {
       "npm ci",
       "npm run build",
       "npm run install:check",
+      "npm run smoke:workflow-orchestrator",
       "npm run smoke:package",
       "npm run smoke:claude-live",
       "npm run smoke:claude-live-matrix",
