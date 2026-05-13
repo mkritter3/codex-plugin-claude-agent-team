@@ -27,7 +27,7 @@ Codex should be able to stand up and manage an external AI agent team from insid
 
 ## Current Baseline
 
-Completed through Milestone 54:
+Completed through Milestone 55:
 
 - package scaffold, MCP server, CI, stdio smoke, and schema coverage
 - provider-neutral roles, capabilities, router, config, and doctor
@@ -70,8 +70,10 @@ Completed through Milestone 54:
 - `agent_team_plan_consensus`
 - `agent_team_start_slices`
 - `agent_team_unblock_slice`
+- `agent_team_review_slice`
 - planning consensus mechanics with 10/15-round handling, Codex rationale, user-decision filtering, senior-review degraded evidence, and fail-closed required-blocking behavior
 - slice start and unblock mechanics with bounded concurrency, ordered per-slice results, partial-failure evidence, per-run addressability, mailbox dependency updates, and durable slice run evidence
+- slice review consensus with implementation evidence, reviewer verdicts, Opus implementation-review posture, approval/revision/blocking state transitions, hard review blockers, and sanitized public MCP output
 
 ## Roadmap Shape
 
@@ -429,12 +431,13 @@ V1.5 is complete when at least one non-Claude provider can be configured explici
 
 ## Workflow Orchestrator Continuation
 
-Milestones 50 through 54 establish the L11 workflow orchestrator foundation:
+Milestones 50 through 55 establish the L11 workflow orchestrator foundation:
 
 - senior-review policy defaults and environment/workspace config
 - expanded L11 role roster
 - durable workflow state and public workflow create/get/list tools
 - planning consensus with Codex rationale, Opus planning evidence, user-level escalation filtering, and 10/15-round rules
 - slice start/unblock mechanics using existing lifecycle and mailbox pipelines
+- slice review consensus with Codex and Opus implementation-review evidence before integration
 
-The next implementation target is Milestone 55: provider-neutral slice review consensus and sign-off via `agent_team_review_slice`. Integration queue computation should follow only after review evidence can mark slices `approved`, `needs-revision`, or `blocked`.
+The next implementation target is Milestone 56: read-only integration queue computation via `agent_team_integration_queue`. Merge execution should remain Codex-owned and should not be automated by the plugin.
