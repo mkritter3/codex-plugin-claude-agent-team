@@ -16,6 +16,7 @@ describe("packaging and install docs", () => {
       "npm run install:check",
       "npm run smoke:package",
       "npm run smoke:claude-live",
+      "npm run smoke:claude-live-matrix",
       "npm run smoke:providers-live",
       "agent-team-mcp",
       "\"./dist/index.js\"",
@@ -41,6 +42,13 @@ describe("packaging and install docs", () => {
     expect(readme).toContain("--confirm-live-provider-use");
     expect(readme).toContain("policy.liveSmokeEnabled");
     expect(readme).toContain("sanitized report");
+    expect(readme).toContain("capability matrix");
+    expect(readme).toContain("isolated worktree");
+    expect(readme).toContain("mailbox");
+    expect(readme).toContain("wind-down");
+    expect(readme).toContain("cancel");
+    expect(readme).toContain("cleanup");
+    expect(readme).toContain("no provider ranking");
     expect(readme).toContain("--provider family:gemini");
     expect(readme).toContain("explicit read-only provider routing");
     expect(readme).toContain("no provider comparison, ranking, score, or long-context claim");
@@ -61,6 +69,7 @@ describe("packaging and install docs", () => {
     expect(changelog).toContain("Versioning Policy");
     expect(changelog).toContain("config schema and state layout compatibility checks");
     expect(changelog).toContain("opt-in live Claude team smoke harness");
+    expect(changelog).toContain("opt-in Claude live capability matrix");
     expect(changelog).toContain("read-only provider proof smoke harness");
     expect(changelog).toContain("install handoff preflight");
     expect(changelog).toContain("policy and audit controls");

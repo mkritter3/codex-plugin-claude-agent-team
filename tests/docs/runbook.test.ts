@@ -35,6 +35,7 @@ describe("Claude team session runbook", () => {
       "npm run smoke:mcp-stdio",
       "npm run smoke:package",
       "npm run smoke:claude-live",
+      "npm run smoke:claude-live-matrix",
       "npm run smoke:providers-live",
       "npm run ci"
     ]) {
@@ -48,6 +49,13 @@ describe("Claude team session runbook", () => {
     expect(doc).toContain("no provider comparison, ranking, score, or long-context claim");
     expect(doc).toContain("policy.liveSmokeEnabled");
     expect(doc).toContain("sanitized report");
+    expect(doc).toContain("capability matrix");
+    expect(doc).toContain("isolated worktree");
+    expect(doc).toContain("mailbox");
+    expect(doc).toContain("wind-down");
+    expect(doc).toContain("cancel");
+    expect(doc).toContain("cleanup");
+    expect(doc).toContain("no provider ranking");
     expect(doc).toContain("absolute MCP config");
     expect(doc).toContain("does not call providers");
     expect(doc).toContain(".agent-team/audit/events.jsonl");

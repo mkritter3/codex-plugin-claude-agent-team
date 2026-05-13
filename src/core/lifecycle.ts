@@ -613,7 +613,7 @@ export class AgentLifecycleManager {
     const cancelled = await transitionRunSidecar(workspaceRoot, runId, (current) => ({
       ...current,
       ...implementationEvidence.sidecar,
-      status: "cancelled",
+      status: isTerminalRunStatus(current.status) ? current.status : "cancelled",
       updatedAt: this.now().toISOString(),
       cleanup: "partial",
       evidencePaths: [
@@ -624,7 +624,13 @@ export class AgentLifecycleManager {
       ]
     }));
 
-    return this.result(workspaceRoot, cancelled, "Run cancelled.");
+    return this.result(
+      workspaceRoot,
+      cancelled,
+      cancelled.status === "cancelled"
+        ? "Run cancelled."
+        : "Run reached terminal state while cancellation was requested."
+    );
   }
 
   async windDownRun(
@@ -1145,6 +1151,9 @@ export class AgentLifecycleManager {
     try {
       const existing = await readRunSidecar(workspaceRoot, runId);
       if (isTerminalRunStatus(existing.status)) {
+        return;
+      }
+      if (existing.status === "cancelling" && status === "interrupted") {
         return;
       }
       if (status === "completed") {

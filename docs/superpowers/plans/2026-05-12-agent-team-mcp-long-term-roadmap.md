@@ -27,7 +27,7 @@ Codex should be able to stand up and manage an external AI agent team from insid
 
 ## Current Baseline
 
-Completed through Milestone 46:
+Completed through Milestone 47:
 
 - package scaffold, MCP server, CI, stdio smoke, and schema coverage
 - provider-neutral roles, capabilities, router, config, and doctor
@@ -59,6 +59,7 @@ Completed through Milestone 46:
 - opt-in read-only provider proof smoke harness through the packaged MCP boundary
 - README, changelog/versioning policy, license, and package/plugin metadata alignment
 - real Claude call reliability hardening for honest terminal-state reporting, MCP request-timeout alignment, stream-json background input, wind-down timeout finalization, and evidence-preserving failure cleanup in the opt-in Claude live smoke
+- opt-in Claude live capability matrix that validates direct dispatch, bounded parallel read-only teams, isolated implementation handoff, mailbox delivery, wind-down, cancellation, team records, dashboard, summary, cleanup, and policy failure through packaged public MCP tools
 
 ## Roadmap Shape
 
@@ -361,7 +362,7 @@ That gate requires:
 - Reports include run ids, roles, provider ids, terminal states, evidence paths, changed files, cleanup state, and known limitations without prompts, secrets, provider session ids, raw payloads, process ids, or command args.
 - No model-quality, benchmark, or provider-ranking claim is made from this validation.
 
-**Status:** Planned. This milestone should run before the Ollama Claude Code adapter so the existing Claude control plane has live evidence for every operational control path that future providers will inherit.
+**Status:** Complete. `npm run smoke:claude-live-matrix` now provides a fail-closed dry-run and opt-in live capability matrix through the packaged `dist/index.js` MCP stdio boundary. It validates direct dispatch, bounded parallel read-only starts, isolated `slice-implementer` handoff, active mailbox delivery, graceful wind-down, explicit cancellation, team records, dashboard, summary, cleanup, and policy failure for disallowed write roots while emitting sanitized control-plane evidence only. The command remains excluded from CI and makes no provider ranking, model-quality, or practical long-context claim.
 
 ### Milestone 48: Ollama Claude Code Profiles
 
@@ -400,4 +401,4 @@ V1.5 is complete when at least one non-Claude provider can be configured explici
 
 ## Near-Term Recommendation
 
-Milestones 40 through 46 are complete. The next implementation target should be Milestone 47, because it live-validates the operational controls future write-capable providers will inherit. Milestone 48 should follow with explicit Ollama Claude Code profiles for Kimi, GLM, and DeepSeek cloud models, using a single plugin-level Ollama API key and the existing Claude Code lifecycle surface.
+Milestones 40 through 47 are complete. The next implementation target should be Milestone 48, which adds explicit Ollama Claude Code profiles for Kimi, GLM, and DeepSeek cloud models, using a single plugin-level Ollama API key and the existing Claude Code lifecycle surface.

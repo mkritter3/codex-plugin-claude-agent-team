@@ -32,6 +32,7 @@ npm run install:check
 npm run smoke:mcp-stdio
 npm run smoke:package
 npm run smoke:claude-live -- --dry-run --cwd /absolute/path/to/workspace
+npm run smoke:claude-live-matrix -- --dry-run --cwd /absolute/path/to/workspace
 npm run smoke:providers-live -- --dry-run --cwd /absolute/path/to/workspace --provider family:gemini
 ```
 
@@ -289,6 +290,47 @@ Then run the confirmed smoke after building the packaged runtime:
 npm run build
 npm run smoke:claude-live -- --confirm-live-provider-use --cwd /absolute/path/to/workspace
 ```
+
+## Opt-In Claude Live Capability Matrix
+
+The Claude live capability matrix is the broader pre-provider-expansion validation. It uses the packaged MCP stdio boundary and public tools only, then exercises direct dispatch, bounded parallel read-only starts, an isolated worktree `slice-implementer`, active mailbox delivery, graceful wind-down, explicit cancel, team records, dashboard, summary, cleanup, and a policy failure for a disallowed write root.
+
+It is opt-in, not part of CI, and makes no provider ranking, model-quality, or practical long-context claim. The report is a sanitized control-plane evidence bundle with run ids, roles, provider ids, terminal states, evidence paths, changed files, cleanup states, dashboard counts, summary groups, policy-failure status, and known limitations.
+
+Inspect the planned capability matrix without provider use:
+
+```bash
+npm run smoke:claude-live-matrix -- --dry-run --cwd /absolute/path/to/workspace
+```
+
+Confirmed live execution requires `policy.liveSmokeEnabled` and write-mode policy that permits retained implementation worktrees when `slice-implementer` is included:
+
+```json
+{
+  "schemaVersion": 1,
+  "writeMode": {
+    "enabled": true,
+    "requireIsolatedWorktree": true
+  },
+  "policy": {
+    "allowedRoles": ["planner", "code-reviewer", "slice-implementer"],
+    "allowedProviderSelectors": ["claude-code-cli"],
+    "allowWriteMode": true,
+    "allowedWorktreeRoots": ["/absolute/path/to/.agent-team-worktrees"],
+    "liveSmokeEnabled": true,
+    "auditEnabled": true
+  }
+}
+```
+
+Then run the confirmed matrix after building the packaged runtime:
+
+```bash
+npm run build
+npm run smoke:claude-live-matrix -- --confirm-live-provider-use --cwd /absolute/path/to/workspace
+```
+
+The matrix preserves sidecars, logs, transcripts, mailboxes, retained worktree evidence, audit records, and cleanup evidence. It does not print private prompts, provider command details, provider session ids, raw provider payloads, environment values, command args, mailbox payloads, or secrets.
 
 ## Opt-In Read-Only Provider Proof Smoke
 

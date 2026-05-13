@@ -2,6 +2,11 @@
 
 All notable changes to this private local plugin are recorded here.
 
+## Unreleased
+
+- Added an opt-in Claude live capability matrix that uses packaged public MCP tools to validate direct dispatch, parallel read-only teams, isolated implementation handoff, mailbox delivery, wind-down, cancellation, team records, dashboard, summary, cleanup, and policy failure evidence; it is not part of CI and makes no provider ranking or model-quality claim.
+- Hardened cancellation races so provider interruption caused by an explicit cancel request is recorded as `cancelled`, while genuine provider failure during cancellation remains terminal failure evidence instead of crashing control flow.
+
 ## 0.1.0
 
 - Bootstrapped the Agent Team MCP package, plugin manifest, CI, package runtime, and stdio smoke.

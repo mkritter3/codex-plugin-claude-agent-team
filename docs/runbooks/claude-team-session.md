@@ -20,6 +20,7 @@ npm run build
 npm run install:check
 npm run smoke:mcp-stdio
 npm run smoke:package
+npm run smoke:claude-live-matrix -- --dry-run --cwd /absolute/path/to/workspace
 npm run smoke:providers-live -- --dry-run --cwd /absolute/path/to/workspace --provider family:gemini
 npm run ci
 ```
@@ -126,6 +127,45 @@ npm run smoke:claude-live -- --confirm-live-provider-use --cwd /absolute/path/to
 The smoke uses Claude Code CLI subscription OAuth through the packaged MCP stdio runtime. Its sanitized report includes direct proof, run ids, statuses, evidence paths, summary groups, dashboard counts, message status, wind-down status, cleanup status, and known limitations. It does not print private prompts, provider command details, provider session ids, process metadata, environment values, mailbox payloads, secrets, provider ranking claims, or comparative capability claims.
 
 The smoke exits `0` only when tracked Claude runs reach `completed`. Graceful wind-down states are useful evidence, but they are not successful completion. If the bounded wait expires, the harness asks remaining runs to wind down, records cancellation intent for lingering nonterminal runs, emits a sanitized failed report, and preserves sidecars, logs, transcripts, and retained worktrees for inspection.
+
+## Opt-In Claude Live Capability Matrix
+
+Run the capability matrix before treating the Claude-backed control plane as ready for write-capable provider expansion. It is not part of CI, uses public packaged MCP tools only, and validates control-plane behavior rather than provider quality.
+
+Inspect the planned flow without provider use:
+
+```bash
+npm run smoke:claude-live-matrix -- --dry-run --cwd /absolute/path/to/workspace
+```
+
+For a real local matrix, the workspace policy must allow live smoke, the Claude provider selector, and isolated worktree creation for `slice-implementer`:
+
+```json
+{
+  "schemaVersion": 1,
+  "writeMode": {
+    "enabled": true,
+    "requireIsolatedWorktree": true
+  },
+  "policy": {
+    "allowedRoles": ["planner", "code-reviewer", "slice-implementer"],
+    "allowedProviderSelectors": ["claude-code-cli"],
+    "allowWriteMode": true,
+    "allowedWorktreeRoots": ["/absolute/path/to/.agent-team-worktrees"],
+    "liveSmokeEnabled": true,
+    "auditEnabled": true
+  }
+}
+```
+
+Then run the confirmed matrix:
+
+```bash
+npm run build
+npm run smoke:claude-live-matrix -- --confirm-live-provider-use --cwd /absolute/path/to/workspace
+```
+
+The matrix covers direct dispatch, bounded read-only parallel starts, active mailbox delivery, graceful wind-down, explicit cancel, isolated worktree implementation, retained diff handoff, team record creation, dashboard, summary, cleanup, and policy failure for a disallowed write root. Its sanitized report includes run ids, roles, provider ids, terminal states, evidence paths, changed files, cleanup states, dashboard counts, summary groups, policy-failure status, and known limitations. It does not print prompts, provider command details, provider session ids, raw provider payloads, environment values, command args, mailbox payloads, secrets, or no provider ranking evidence.
 
 ## Opt-In Read-Only Provider Proof Smoke
 

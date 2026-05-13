@@ -594,6 +594,66 @@ describe("AgentLifecycleManager", () => {
     ]);
   });
 
+  it("preserves terminal failure evidence when provider fails during cancellation", async () => {
+    const done = deferred<ProviderSessionDoneStatus>();
+    const handle = fakeHandle(done.promise);
+    const manager = new AgentLifecycleManager({
+      createRunId: () => "run_cancel_race_failed",
+      startSession: () => handle,
+      cancelGraceMs: 0,
+      sleep: async () => {
+        done.resolve("failed");
+        await flushMicrotasks();
+        await waitForSidecar("run_cancel_race_failed", (sidecar) => sidecar.status === "failed");
+      }
+    });
+    await manager.startRun({ role: "planner", task: "Review", cwd: workspace });
+
+    const result = await manager.cancelRun(workspace, "run_cancel_race_failed");
+
+    expect(handle.killed).toBe(true);
+    expect(handle.forceKilled).toBe(true);
+    expect(result).toMatchObject({
+      status: "failed",
+      message: "Run reached terminal state while cancellation was requested."
+    });
+    await expect(readRunSidecar(workspace, "run_cancel_race_failed")).resolves.toMatchObject({
+      status: "failed",
+      cleanup: "partial"
+    });
+    await expect(readMailboxRecords(workspace, "run_cancel_race_failed", "control")).resolves.toMatchObject([
+      { messageType: "cancel_requested" }
+    ]);
+  });
+
+  it("lets cancellation win when the killed provider reports interrupted", async () => {
+    const done = deferred<ProviderSessionDoneStatus>();
+    const handle = fakeHandle(done.promise);
+    const manager = new AgentLifecycleManager({
+      createRunId: () => "run_cancel_interrupted",
+      startSession: () => handle,
+      cancelGraceMs: 0,
+      sleep: async () => {
+        done.resolve("interrupted");
+        await flushMicrotasks();
+      }
+    });
+    await manager.startRun({ role: "planner", task: "Review", cwd: workspace });
+
+    const result = await manager.cancelRun(workspace, "run_cancel_interrupted");
+
+    expect(handle.killed).toBe(true);
+    expect(handle.forceKilled).toBe(true);
+    expect(result).toMatchObject({
+      status: "cancelled",
+      message: "Run cancelled."
+    });
+    await expect(readRunSidecar(workspace, "run_cancel_interrupted")).resolves.toMatchObject({
+      status: "cancelled",
+      cleanup: "partial"
+    });
+  });
+
   it("records cancel intent for detached active-looking sidecars", async () => {
     const sidecar: RunSidecar = {
       runId: "run_detached",
