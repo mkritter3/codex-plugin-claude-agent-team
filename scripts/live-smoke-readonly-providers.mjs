@@ -5,6 +5,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { buildToolRequestOptions } from "./live-smoke-claude-utils.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = dirname(scriptDir);
@@ -108,8 +109,9 @@ async function assertRuntimeExists() {
   }
 }
 
-async function callTool(client, name, toolArgs) {
-  const result = await client.callTool({ name, arguments: toolArgs });
+async function callTool(client, name, toolArgs, timeoutMs) {
+  const options = timeoutMs === undefined ? undefined : buildToolRequestOptions(timeoutMs);
+  const result = await client.callTool({ name, arguments: toolArgs }, undefined, options);
   return result.structuredContent ?? {};
 }
 
@@ -226,7 +228,7 @@ async function runLiveSmoke(workspaceRoot, providerSelectors) {
 
   try {
     await client.connect(transport);
-    const doctor = await callTool(client, "agent_team_doctor", { cwd: workspaceRoot });
+    const doctor = await callTool(client, "agent_team_doctor", { cwd: workspaceRoot }, 30000);
     if (doctor.ok !== true) {
       throw new Error("agent_team_doctor did not pass for the provider proof workspace.");
     }
@@ -237,20 +239,25 @@ async function runLiveSmoke(workspaceRoot, providerSelectors) {
     }
 
     const providers = providerById(
-      await callTool(client, "agent_team_list_providers", { cwd: workspaceRoot })
+      await callTool(client, "agent_team_list_providers", { cwd: workspaceRoot }, 30000)
     );
     const proofs = await runBoundedProofs(
       providerSelectors,
       concurrency,
       async (providerSelector, index) => {
         try {
-          const result = await callTool(client, "agent_team_dispatch", {
-            cwd: workspaceRoot,
-            provider: providerSelector,
-            role: "code-reviewer",
-            task: "Live provider transport proof only. Do not inspect files. Return a concise SHIP/BLOCK/NEEDS_INPUT verdict stating whether the provider route responded successfully.",
+          const result = await callTool(
+            client,
+            "agent_team_dispatch",
+            {
+              cwd: workspaceRoot,
+              provider: providerSelector,
+              role: "code-reviewer",
+              task: "Live provider transport proof only. Do not inspect files. Return a concise SHIP/BLOCK/NEEDS_INPUT verdict stating whether the provider route responded successfully.",
+              timeoutMs
+            },
             timeoutMs
-          });
+          );
           return compactRunResult({
             index,
             providerSelector,
@@ -267,19 +274,29 @@ async function runLiveSmoke(workspaceRoot, providerSelectors) {
     const dashboard =
       refs.length === 0
         ? undefined
-        : await callTool(client, "agent_team_dashboard", {
-            cwd: workspaceRoot,
-            runs: refs,
-            concurrency
-          });
+        : await callTool(
+            client,
+            "agent_team_dashboard",
+            {
+              cwd: workspaceRoot,
+              runs: refs,
+              concurrency
+            },
+            timeoutMs
+          );
     const summary =
       refs.length === 0
         ? undefined
-        : await callTool(client, "agent_team_summary", {
-            cwd: workspaceRoot,
-            runs: refs,
-            concurrency
-          });
+        : await callTool(
+            client,
+            "agent_team_summary",
+            {
+              cwd: workspaceRoot,
+              runs: refs,
+              concurrency
+            },
+            timeoutMs
+          );
 
     return compactEvidenceReport({
       workspaceRoot,

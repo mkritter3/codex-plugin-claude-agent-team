@@ -126,6 +126,7 @@ describe("read-only provider live smoke script", () => {
 
     expect(script).toContain("@modelcontextprotocol/sdk/client/index.js");
     expect(script).toContain("@modelcontextprotocol/sdk/client/stdio.js");
+    expect(script).toContain("buildToolRequestOptions");
     expect(script).toContain('join(repoRoot, "dist", "index.js")');
     for (const toolName of [
       "agent_team_doctor",
@@ -143,6 +144,7 @@ describe("read-only provider live smoke script", () => {
     expect(script).toContain("Do not inspect files");
     expect(script).toContain("StdioClientTransport");
     expect(script).toContain("env: process.env");
+    expect(script).toContain("timeoutMs)");
     expect(script).not.toContain("runClaudePrint");
     expect(script).not.toContain("startClaudeBackgroundSession");
     expect(script).not.toContain("requireProviderRuntime");
