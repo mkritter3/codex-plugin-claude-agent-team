@@ -117,6 +117,13 @@ describe("Claude team session runbook", () => {
     expect(doc).toContain("CEO/product-level");
     expect(doc).toContain("final gate verification");
     expect(doc).toContain("cleanup only after integration evidence is saved");
+    expect(doc).toContain("Codex Operator Boundary");
+    expect(doc).toContain("skills/codex-agent-team-orchestrator/SKILL.md");
+    expect(doc).toContain("Harnesses and dogfood scripts are regression and live-proof tools only");
+    expect(doc).toContain("not the orchestration path for user work");
+    expect(doc).toContain("direct MCP orchestration");
+    expect(doc).toContain("mailbox steering");
+    expect(doc).toContain("Codex-owned manual integration");
 	  });
 
   it("keeps documentation provider-neutral and avoids private implementation disclosure", async () => {

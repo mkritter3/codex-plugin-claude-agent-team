@@ -70,6 +70,7 @@ function main() {
     "CHANGELOG.md",
     "LICENSE",
     "docs/runbooks/claude-team-session.md",
+    "skills/codex-agent-team-orchestrator/SKILL.md",
     "scripts/install-check.mjs",
     "scripts/lib/install-preflight.mjs",
     "scripts/smoke-workflow-orchestrator.mjs",

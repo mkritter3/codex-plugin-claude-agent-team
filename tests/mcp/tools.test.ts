@@ -4137,12 +4137,17 @@ describe("MCP tool handlers", () => {
     });
   });
 
-  it("includes a guarded implementation handoff prompt in plugin metadata", async () => {
+  it("includes guarded Codex orchestration prompts in plugin metadata", async () => {
     const plugin = JSON.parse(
       await readFile(new URL("../../.codex-plugin/plugin.json", import.meta.url), "utf8")
     ) as { interface?: { defaultPrompt?: readonly string[] } };
 
-    expect(plugin.interface?.defaultPrompt).toContain("Start a bounded Claude agent team.");
+    expect(plugin.interface?.defaultPrompt).toContain(
+      "Start an L11 agent-team workflow with Codex as orchestrator."
+    );
+    expect(plugin.interface?.defaultPrompt).not.toContain(
+      "Start a bounded Claude agent team."
+    );
     expect(plugin.interface?.defaultPrompt?.length).toBeLessThanOrEqual(3);
   });
 

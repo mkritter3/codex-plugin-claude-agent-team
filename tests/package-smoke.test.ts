@@ -22,6 +22,7 @@ describe("package smoke gate", () => {
       "LICENSE",
       "docs/releases",
       "docs/runbooks",
+      "skills",
       "scripts"
     ]);
     expect(packageJson.scripts?.["smoke:package"]).toBe(
@@ -36,6 +37,7 @@ describe("package smoke gate", () => {
     expect(smokeScript).toContain('"CHANGELOG.md"');
     expect(smokeScript).toContain('"LICENSE"');
     expect(smokeScript).toContain('"docs/runbooks/claude-team-session.md"');
+    expect(smokeScript).toContain('"skills/codex-agent-team-orchestrator/SKILL.md"');
     expect(smokeScript).toContain('"scripts/install-check.mjs"');
     expect(smokeScript).toContain('"scripts/lib/install-preflight.mjs"');
     expect(smokeScript).toContain('"scripts/smoke-workflow-orchestrator.mjs"');

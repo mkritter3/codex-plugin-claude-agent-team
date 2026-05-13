@@ -11,6 +11,12 @@ This runbook shows how to operate an Agent Team MCP session from Codex with Clau
 - Implementation agents work in a retained implementation worktree and require human/Codex review before cleanup.
 - Live provider use is an opt-in live smoke and is not part of CI.
 
+## Codex Operator Boundary
+
+Operate Agent Team directly through public MCP tools from Codex. Harnesses and dogfood scripts are regression and live-proof tools only; they prove installability, provider wiring, and workflow fixtures, but they are not the orchestration path for user work.
+
+The plugin ships `skills/codex-agent-team-orchestrator/SKILL.md` to keep Codex aligned on direct MCP orchestration: doctor, workflow creation, planning consensus, bounded slice starts, mailbox steering, slice review, integration queue, Codex-owned manual integration, final evidence recording, reporting, and cleanup.
+
 ## Fixture-Safe Verification
 
 Run these before changing installation or docs examples:

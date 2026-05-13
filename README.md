@@ -13,6 +13,14 @@ Claude Code CLI subscription OAuth is the primary v1 transport. The core stays p
 - Cleanup is explicit through `agent_team_cleanup`.
 - Live provider usage is an opt-in live smoke and is not part of CI.
 
+## Codex-Orchestrated Product Path
+
+The product path is direct MCP orchestration from Codex, not a harness. Codex should run `agent_team_doctor`, create the workflow, record planning consensus, start bounded slices, steer agents through mailboxes, review slice evidence, integrate approved retained worktree diffs, record integration verification, and clean up only after evidence is saved.
+
+Dogfood and live-smoke scripts are regression and live-proof tools. They are useful for proving packaging, provider wiring, and edge cases, but they are not the user-facing way to operate an agent team.
+
+The packaged plugin ships `skills/codex-agent-team-orchestrator/SKILL.md` so a loaded Codex session has direct operating instructions for this workflow.
+
 ## Prerequisites
 
 - Node.js 22 or newer.

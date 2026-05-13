@@ -21,6 +21,7 @@
     "LICENSE",
     "docs/releases",
     "docs/runbooks",
+    "skills",
     "scripts"
   ],
   "bin": {
