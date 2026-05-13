@@ -27,7 +27,7 @@ Codex should be able to stand up and manage an external AI agent team from insid
 
 ## Current Baseline
 
-Completed through Milestone 47:
+Completed through Milestone 48:
 
 - package scaffold, MCP server, CI, stdio smoke, and schema coverage
 - provider-neutral roles, capabilities, router, config, and doctor
@@ -60,6 +60,7 @@ Completed through Milestone 47:
 - README, changelog/versioning policy, license, and package/plugin metadata alignment
 - real Claude call reliability hardening for honest terminal-state reporting, MCP request-timeout alignment, stream-json background input, wind-down timeout finalization, and evidence-preserving failure cleanup in the opt-in Claude live smoke
 - opt-in Claude live capability matrix that validates direct dispatch, bounded parallel read-only teams, isolated implementation handoff, mailbox delivery, wind-down, cancellation, team records, dashboard, summary, cleanup, and policy failure through packaged public MCP tools
+- explicit Ollama Claude Code profiles backed by one shared `OLLAMA_API_KEY` and scoped Anthropic-compatible Claude Code launch environment
 
 ## Roadmap Shape
 
@@ -379,7 +380,7 @@ That gate requires:
 - Write-capable Ollama Claude Code profiles are disabled until live proof validates implementation, mailbox, wind-down, cancellation, cleanup, and source-checkout containment for that model/profile.
 - Live proof is opt-in, excluded from CI, and makes no model-quality, benchmark, ranking, or practical long-context claim.
 
-**Status:** Planned. This should build on Milestone 47's live capability matrix and reuse the already-validated Claude Code lifecycle rather than creating a parallel implementation-agent engine.
+**Status:** Complete. `providers.ollamaClaudeCode` now defines explicit `ollama-claude-code:<profile-id>` providers with one shared API-key env, scoped Anthropic-compatible launch environment, Claude Code lifecycle reuse for dispatch/background sessions, doctor health checks, conservative write-validation gating, and docs/runbook coverage without public MCP schema changes or provider-quality claims.
 
 ## Definition Of Done For V1
 
@@ -401,4 +402,4 @@ V1.5 is complete when at least one non-Claude provider can be configured explici
 
 ## Near-Term Recommendation
 
-Milestones 40 through 47 are complete. The next implementation target should be Milestone 48, which adds explicit Ollama Claude Code profiles for Kimi, GLM, and DeepSeek cloud models, using a single plugin-level Ollama API key and the existing Claude Code lifecycle surface.
+Milestones 40 through 48 are complete. The next implementation target should be an opt-in live Ollama Claude Code proof harness that validates one configured read-only profile through the packaged MCP boundary before any write-capable profile is enabled.

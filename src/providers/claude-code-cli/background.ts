@@ -4,7 +4,7 @@ import { createInterface } from "node:readline";
 import type { Readable, Writable } from "node:stream";
 import { appendBoundedLog } from "../../core/logs.js";
 import { runLogPath } from "../../core/state/paths.js";
-import type { AgentExecutionPolicy, RoleId } from "../../core/types.js";
+import type { AgentExecutionPolicy, ProviderAuthMode, RoleId } from "../../core/types.js";
 import type {
   ProviderSessionDoneStatus,
   ProviderSessionHandle,
@@ -31,6 +31,8 @@ export interface StartClaudeBackgroundSessionInput {
   readonly runId: string;
   readonly roleId?: RoleId;
   readonly executionPolicy?: AgentExecutionPolicy;
+  readonly providerAuthMode?: ProviderAuthMode;
+  readonly model?: string;
   readonly env?: NodeJS.ProcessEnv;
   readonly sessionId?: string;
   readonly permissionMode?: ClaudePermissionMode;
@@ -96,7 +98,7 @@ export function startClaudeBackgroundSession(
 ): ProviderSessionHandle {
   const env = input.env ?? process.env;
   const inspection = inspectClaudeEnvironment({
-    authMode: "subscription-oauth",
+    authMode: input.providerAuthMode ?? "subscription-oauth",
     env
   });
   if (inspection.warnings.length > 0) {
@@ -121,6 +123,7 @@ export function startClaudeBackgroundSession(
     cwd: input.cwd,
     outputFormat: "stream-json",
     inputFormat: "stream-json",
+    ...(input.model === undefined ? {} : { model: input.model }),
     ...(input.roleId === undefined
       ? {}
       : {

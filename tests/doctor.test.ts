@@ -600,6 +600,106 @@ describe("runDoctor", () => {
     });
   });
 
+  it("reports explicit Ollama Claude Code config and missing shared auth env", async () => {
+    const workspace = await tempWorkspace();
+    await writeConfig(workspace, {
+      providers: {
+        ollamaClaudeCode: {
+          enabled: true,
+          baseUrl: "http://localhost:11434",
+          apiKeyEnv: "OLLAMA_API_KEY",
+          profiles: [
+            {
+              id: "kimi-k2.6",
+              model: "kimi-k2.6:cloud",
+              displayName: "Kimi K2.6",
+              capabilities: { structuredOutput: true, longContext: true, reasoning: true }
+            }
+          ]
+        }
+      }
+    });
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: {},
+      ...cliFound()
+    });
+
+    expect(report.ok).toBe(false);
+    expect(report.checks.find((check) => check.id === "config")).toMatchObject({
+      details: {
+        providers: {
+          ollamaClaudeCode: {
+            enabled: true,
+            hasBaseUrl: true,
+            apiKeyEnv: "OLLAMA_API_KEY",
+            profileCount: 1
+          }
+        }
+      }
+    });
+    expect(
+      report.checks.find((check) => check.id === "ollama-claude-code:kimi-k2.6:config")
+    ).toMatchObject({
+      status: "pass",
+      details: {
+        providerId: "ollama-claude-code:kimi-k2.6",
+        hasBaseUrl: true,
+        hasModel: true,
+        apiKeyEnv: "OLLAMA_API_KEY"
+      }
+    });
+    expect(
+      report.checks.find((check) => check.id === "ollama-claude-code:kimi-k2.6:auth-env")
+    ).toMatchObject({
+      status: "fail",
+      message: "Ollama Claude Code profile Kimi K2.6 auth env OLLAMA_API_KEY is missing.",
+      details: { env: "OLLAMA_API_KEY", present: false }
+    });
+    expect(report.checks.find((check) => check.id === "auth-precedence")).toMatchObject({
+      status: "pass"
+    });
+  });
+
+  it("does not treat scoped Ollama Claude Code Anthropic env as Claude subscription fallback", async () => {
+    const workspace = await tempWorkspace();
+    await writeConfig(workspace, {
+      providers: {
+        ollamaClaudeCode: {
+          enabled: true,
+          baseUrl: "http://localhost:11434",
+          profiles: [
+            {
+              id: "glm-5.1",
+              model: "glm-5.1:cloud",
+              capabilities: { structuredOutput: true }
+            }
+          ]
+        }
+      }
+    });
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: {
+        OLLAMA_API_KEY: "secret-token"
+      },
+      ...cliFound()
+    });
+
+    expect(report.ok).toBe(true);
+    expect(
+      report.checks.find((check) => check.id === "ollama-claude-code:glm-5.1:auth-env")
+    ).toMatchObject({
+      status: "pass",
+      details: { env: "OLLAMA_API_KEY", present: true }
+    });
+    expect(report.checks.find((check) => check.id === "auth-precedence")).toMatchObject({
+      status: "pass"
+    });
+  });
+
   it("reports explicit Grok profile config and missing provider auth env", async () => {
     const workspace = await tempWorkspace();
     await writeConfig(workspace, {

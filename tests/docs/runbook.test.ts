@@ -68,10 +68,20 @@ describe("Claude team session runbook", () => {
     expect(doc).toContain("partial_failure");
     expect(doc).toContain("awaiting-input");
     expect(doc).toContain("cleanupBlocked");
-    expect(doc).toContain("read-only dashboard");
-    expect(doc).toContain(".agent-team/teams/");
-    expect(doc).toContain("Per-run sidecars remain authoritative");
-  });
+	    expect(doc).toContain("read-only dashboard");
+	    expect(doc).toContain(".agent-team/teams/");
+	    expect(doc).toContain("Per-run sidecars remain authoritative");
+	    expect(doc).toContain("providers.ollamaClaudeCode");
+	    expect(doc).toContain("OLLAMA_API_KEY");
+	    expect(doc).toContain("ollama-claude-code:kimi-k2.6");
+	    expect(doc).toContain("ANTHROPIC_BASE_URL");
+	    expect(doc).toContain("scoped provider env");
+	    expect(doc).toContain("writeValidated");
+	    expect(doc).toContain("Kimi K2.6");
+	    expect(doc).toContain("GLM 5.1");
+	    expect(doc).toContain("DeepSeek");
+	    expect(doc).toContain("model-quality claim");
+	  });
 
   it("keeps documentation provider-neutral and avoids private implementation disclosure", async () => {
     const doc = await readRunbook();

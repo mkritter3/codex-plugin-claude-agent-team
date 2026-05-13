@@ -22,6 +22,7 @@ function configIdentity(config: AgentTeamConfig): string {
     providers: {
       openaiCompatible: config.providers.openaiCompatible,
       ollamaCloud: config.providers.ollamaCloud,
+      ollamaClaudeCode: config.providers.ollamaClaudeCode,
       grok: config.providers.grok,
       gemini: config.providers.gemini
     }

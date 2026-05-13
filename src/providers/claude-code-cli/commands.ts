@@ -26,6 +26,9 @@ export function buildClaudeCommand(input: ClaudeCommandInput): ClaudeCommand {
   if (input.sessionId !== undefined) {
     args.push("--resume", input.sessionId);
   }
+  if (input.model !== undefined) {
+    args.push("--model", input.model);
+  }
   if (input.agents !== undefined) {
     args.push("--agents", serializeClaudeAgentDefinitions(input.agents));
   }

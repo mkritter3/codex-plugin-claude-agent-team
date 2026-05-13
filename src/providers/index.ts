@@ -2,6 +2,7 @@ import { DEFAULT_AGENT_TEAM_CONFIG } from "../core/config.js";
 import type { AgentProviderDescriptor, AgentTeamConfig } from "../core/types.js";
 import { openAICompatibleProvider } from "./openai-compatible/config.js";
 import { listOllamaCloudProviders } from "./ollama-cloud/config.js";
+import { listOllamaClaudeCodeProviders } from "./ollama-claude-code/config.js";
 import { listGrokProviders } from "./grok/config.js";
 import { geminiProvider } from "./gemini/config.js";
 
@@ -44,6 +45,7 @@ export function listProviders(
     providers.push(openAIProvider);
   }
   providers.push(...listOllamaCloudProviders(config));
+  providers.push(...listOllamaClaudeCodeProviders(config));
   providers.push(...listGrokProviders(config));
   const gemini = geminiProvider(config);
   if (gemini !== undefined) {

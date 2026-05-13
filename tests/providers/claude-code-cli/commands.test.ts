@@ -39,6 +39,18 @@ describe("buildClaudeCommand", () => {
     expect(command.args).toContain("--verbose");
   });
 
+  it("adds an explicit model when a provider profile supplies one", () => {
+    const command = buildClaudeCommand({
+      prompt: "Review",
+      outputFormat: "json",
+      model: "kimi-k2.6:cloud",
+      cwd: "/repo"
+    });
+
+    expect(command.args).toContain("--model");
+    expect(command.args[command.args.indexOf("--model") + 1]).toBe("kimi-k2.6:cloud");
+  });
+
   it("adds generated agents and selected agent only when provided", () => {
     const definitions = buildClaudeAgentDefinitions();
     const command = buildClaudeCommand({

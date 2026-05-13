@@ -55,10 +55,20 @@ describe("packaging and install docs", () => {
     expect(readme).toContain("absolute MCP config");
     expect(readme).toContain("does not call providers");
     expect(readme).toContain("read-only dashboard");
-    expect(readme).toContain("policy");
-    expect(readme).toContain("allowedProviderSelectors");
-    expect(readme).toContain("auditEnabled");
-  });
+	    expect(readme).toContain("policy");
+	    expect(readme).toContain("allowedProviderSelectors");
+	    expect(readme).toContain("auditEnabled");
+	    expect(readme).toContain("providers.ollamaClaudeCode");
+	    expect(readme).toContain("OLLAMA_API_KEY");
+	    expect(readme).toContain("ollama-claude-code:kimi-k2.6");
+	    expect(readme).toContain("ANTHROPIC_BASE_URL");
+	    expect(readme).toContain("scoped provider env");
+	    expect(readme).toContain("writeValidated");
+	    expect(readme).toContain("Kimi K2.6");
+	    expect(readme).toContain("GLM 5.1");
+	    expect(readme).toContain("DeepSeek");
+	    expect(readme).toContain("model-quality claim");
+	  });
 
   it("documents versioning and changelog policy", async () => {
     const changelog = await readText("../../CHANGELOG.md");
@@ -69,9 +79,12 @@ describe("packaging and install docs", () => {
     expect(changelog).toContain("Versioning Policy");
     expect(changelog).toContain("config schema and state layout compatibility checks");
     expect(changelog).toContain("opt-in live Claude team smoke harness");
-    expect(changelog).toContain("opt-in Claude live capability matrix");
-    expect(changelog).toContain("read-only provider proof smoke harness");
-    expect(changelog).toContain("install handoff preflight");
+	    expect(changelog).toContain("opt-in Claude live capability matrix");
+	    expect(changelog).toContain("read-only provider proof smoke harness");
+	    expect(changelog).toContain("Ollama Claude Code profiles");
+	    expect(changelog).toContain("single `OLLAMA_API_KEY`");
+	    expect(changelog).toContain("scoped Anthropic-compatible environment");
+	    expect(changelog).toContain("install handoff preflight");
     expect(changelog).toContain("policy and audit controls");
     expect(changelog).toContain("MCP tool surface changes");
     expect(changelog).toContain("npm run smoke:package");

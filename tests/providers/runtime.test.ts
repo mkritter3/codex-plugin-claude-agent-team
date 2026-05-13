@@ -11,6 +11,7 @@ describe("provider runtime registry", () => {
     expect(listProviderRuntimes().map((runtime) => runtime.id)).toEqual([
       "claude-code-cli",
       "openai-compatible",
+      "ollama-claude-code",
       "gemini"
     ]);
   });
@@ -46,6 +47,12 @@ describe("provider runtime registry", () => {
     const runtime = getProviderRuntime("grok:grok-4.20-reasoning");
 
     expect(runtime?.id).toBe("openai-compatible");
+  });
+
+  it("aliases Ollama Claude Code profile provider ids to the scoped Claude Code runtime", () => {
+    const runtime = getProviderRuntime("ollama-claude-code:kimi-k2.6");
+
+    expect(runtime?.id).toBe("ollama-claude-code");
   });
 
   it("fails closed when a selected provider has no runtime", () => {

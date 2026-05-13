@@ -89,6 +89,75 @@ When `auditEnabled` is true, dispatch and lifecycle start decisions write saniti
 
 Doctor also inspects `.agent-team/state-layout.json` when present. Missing markers are compatible with layout version `1`; current markers are compatible; future layout versions fail closed; corrupt markers require operator review. Doctor is read-only for this check and does not auto-migrate or repair state.
 
+## Ollama Claude Code Profiles
+
+Use `providers.ollamaClaudeCode` when you want Claude Code to route through an Ollama Anthropic-compatible endpoint while preserving the existing Agent Team lifecycle. The user supplies one plugin-level token, usually `OLLAMA_API_KEY`; profile config stays non-secret and names the endpoint, model, display name, and declared capabilities.
+
+```json
+{
+  "schemaVersion": 1,
+  "providers": {
+    "ollamaClaudeCode": {
+      "enabled": true,
+      "baseUrl": "http://localhost:11434",
+      "apiKeyEnv": "OLLAMA_API_KEY",
+      "profiles": [
+        {
+          "id": "kimi-k2.6",
+          "model": "kimi-k2.6:cloud",
+          "displayName": "Kimi K2.6",
+          "writeValidated": false,
+          "capabilities": {
+            "structuredOutput": true,
+            "longContext": true,
+            "reasoning": true,
+            "tools": true,
+            "sessionResume": true,
+            "cancellation": true
+          }
+        },
+        {
+          "id": "glm-5.1",
+          "model": "glm-5.1:cloud",
+          "displayName": "GLM 5.1",
+          "writeValidated": false,
+          "capabilities": {
+            "structuredOutput": true,
+            "longContext": true,
+            "tools": true,
+            "sessionResume": true,
+            "cancellation": true
+          }
+        },
+        {
+          "id": "deepseek-v4-flash",
+          "model": "deepseek-v4-flash:cloud",
+          "displayName": "DeepSeek V4 Flash",
+          "writeValidated": false,
+          "capabilities": {
+            "structuredOutput": true,
+            "tools": true,
+            "sessionResume": true,
+            "cancellation": true
+          }
+        }
+      ]
+    }
+  },
+  "policy": {
+    "allowedRoles": ["planner", "code-reviewer"],
+    "allowedProviderSelectors": ["family:ollama-claude-code"],
+    "allowWriteMode": false,
+    "liveSmokeEnabled": false,
+    "auditEnabled": true
+  }
+}
+```
+
+The resulting provider ids are explicit, such as `ollama-claude-code:kimi-k2.6`. At provider launch, the runtime creates a scoped provider env for that run only and maps `OLLAMA_API_KEY` into `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_API_KEY`, and `OLLAMA_API_KEY` for Claude Code's Anthropic-compatible path. The normal `claude-code-cli` provider continues to use Claude Code CLI subscription OAuth and keeps its auth-precedence checks.
+
+Keep `writeValidated` false until a live implementation proof validates edits, isolated worktree containment, mailbox delivery, wind-down, cancellation, cleanup, and source-checkout cleanliness for the exact profile. Enabling write capabilities is an operator proof gate and not a provider ranking, provider comparison, or model-quality claim.
+
 ## Opt-In Live Smoke
 
 This section is the opt-in live smoke. It is not part of CI because it uses local subscription credentials and may start external provider processes.
@@ -175,6 +244,7 @@ Inspect the public MCP flow without provider use:
 
 ```bash
 npm run smoke:providers-live -- --dry-run --cwd /absolute/path/to/workspace --provider family:gemini
+npm run smoke:providers-live -- --dry-run --cwd /absolute/path/to/workspace --provider family:ollama-claude-code
 ```
 
 For a real local proof, configure the provider and policy first:

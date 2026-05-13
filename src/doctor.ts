@@ -229,6 +229,12 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
             enabled: config.providers.ollamaCloud.enabled,
             profileCount: config.providers.ollamaCloud.profiles.length
           },
+          ollamaClaudeCode: {
+            enabled: config.providers.ollamaClaudeCode.enabled,
+            hasBaseUrl: config.providers.ollamaClaudeCode.baseUrl !== undefined,
+            apiKeyEnv: config.providers.ollamaClaudeCode.apiKeyEnv,
+            profileCount: config.providers.ollamaClaudeCode.profiles.length
+          },
           grok: {
             enabled: config.providers.grok.enabled,
             profileCount: config.providers.grok.profiles.length

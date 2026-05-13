@@ -200,6 +200,65 @@ Ollama Cloud profiles are an explicit OpenAI-compatible profile layer. They are 
 
 Profile provider ids use `ollama-cloud:<profile-id>`, for example `ollama-cloud:kimi-k2.6`. Profiles support synchronous read-only dispatch only; run live smoke separately before making any real-provider readiness, provider performance, or long-context claims.
 
+Ollama Claude Code profiles are an explicit Anthropic-compatible profile layer for routing Claude Code through Ollama-compatible endpoints while keeping the same lifecycle, mailbox, status, wind-down, cancellation, dashboard, summary, and cleanup contracts. They are disabled by default. Configure `providers.ollamaClaudeCode` with one shared API-key environment variable, usually `OLLAMA_API_KEY`, plus non-secret model profiles:
+
+```json
+{
+  "providers": {
+    "ollamaClaudeCode": {
+      "enabled": true,
+      "baseUrl": "http://localhost:11434",
+      "apiKeyEnv": "OLLAMA_API_KEY",
+      "profiles": [
+        {
+          "id": "kimi-k2.6",
+          "model": "kimi-k2.6:cloud",
+          "displayName": "Kimi K2.6",
+          "writeValidated": false,
+          "capabilities": {
+            "structuredOutput": true,
+            "longContext": true,
+            "reasoning": true,
+            "tools": true,
+            "sessionResume": true,
+            "cancellation": true
+          }
+        },
+        {
+          "id": "glm-5.1",
+          "model": "glm-5.1:cloud",
+          "displayName": "GLM 5.1",
+          "writeValidated": false,
+          "capabilities": {
+            "structuredOutput": true,
+            "longContext": true,
+            "tools": true,
+            "sessionResume": true,
+            "cancellation": true
+          }
+        },
+        {
+          "id": "deepseek-v4-flash",
+          "model": "deepseek-v4-flash:cloud",
+          "displayName": "DeepSeek V4 Flash",
+          "writeValidated": false,
+          "capabilities": {
+            "structuredOutput": true,
+            "tools": true,
+            "sessionResume": true,
+            "cancellation": true
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+Profile provider ids use `ollama-claude-code:<profile-id>`, for example `ollama-claude-code:kimi-k2.6`. At launch time the adapter builds a scoped provider env for that run only, mapping the single Ollama token into the Anthropic-compatible variables Claude Code expects, including `ANTHROPIC_BASE_URL`, `ANTHROPIC_AUTH_TOKEN`, `ANTHROPIC_API_KEY`, and `OLLAMA_API_KEY`. This scoped provider env is not applied to the normal `claude-code-cli` provider, so Claude Code CLI subscription OAuth keeps its fail-closed auth posture.
+
+Write-capable capabilities such as edits and workspace isolation are withheld unless a profile explicitly sets `writeValidated: true` and declares those capabilities. Treat that as an operator proof gate, not a model-quality claim. Run opt-in live validation before using any Ollama Claude Code profile for implementation work, and keep no provider ranking or comparative readiness claim in reports.
+
 Grok profiles are another explicit OpenAI-compatible profile layer. They are disabled by default, use provider-scoped auth env names, and route through profile ids such as `grok:grok-4.20-reasoning`:
 
 ```json
@@ -340,6 +399,7 @@ Inspect the planned flow without provider use:
 
 ```bash
 npm run smoke:providers-live -- --dry-run --cwd /absolute/path/to/workspace --provider family:gemini
+npm run smoke:providers-live -- --dry-run --cwd /absolute/path/to/workspace --provider family:ollama-claude-code
 ```
 
 For a real local proof, the target workspace must explicitly configure the provider, allow the provider selector in policy, and set `policy.liveSmokeEnabled`:

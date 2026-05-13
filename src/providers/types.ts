@@ -27,6 +27,7 @@ export interface ProviderPrintInput {
   readonly cwd: string;
   readonly roleId?: RoleId;
   readonly executionPolicy?: AgentExecutionPolicy;
+  readonly model?: string;
   readonly timeoutMs?: number;
   readonly env?: NodeJS.ProcessEnv;
   readonly config?: AgentTeamConfig;
@@ -49,6 +50,7 @@ export interface ProviderStartSessionInput {
   readonly runId: string;
   readonly roleId?: RoleId;
   readonly executionPolicy?: AgentExecutionPolicy;
+  readonly model?: string;
   readonly env?: NodeJS.ProcessEnv;
   readonly config?: AgentTeamConfig;
   readonly sessionId?: string;

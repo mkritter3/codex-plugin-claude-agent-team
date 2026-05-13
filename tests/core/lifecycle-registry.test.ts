@@ -59,9 +59,9 @@ function config(input: {
           reasoning: false
         }
       },
-      ollamaCloud: {
-        enabled: input.ollamaEnabled ?? false,
-        profiles:
+	      ollamaCloud: {
+	        enabled: input.ollamaEnabled ?? false,
+	        profiles:
           input.ollamaEnabled === true
             ? [
                 {
@@ -76,10 +76,15 @@ function config(input: {
                   }
                 }
               ]
-            : []
-      },
-      gemini: {
-        enabled: input.geminiEnabled ?? false,
+	            : []
+	      },
+	      ollamaClaudeCode: {
+	        enabled: false,
+	        apiKeyEnv: "OLLAMA_API_KEY",
+	        profiles: []
+	      },
+	      gemini: {
+	        enabled: input.geminiEnabled ?? false,
         ...(input.geminiModel === undefined ? {} : { model: input.geminiModel }),
         capabilities: {
           structuredOutput: input.geminiEnabled ?? false,

@@ -66,6 +66,7 @@ export async function runClaudePrint(input: {
   readonly cwd: string;
   readonly roleId?: RoleId;
   readonly executionPolicy?: AgentExecutionPolicy;
+  readonly model?: string;
   readonly timeoutMs?: number;
   readonly execFile?: ExecFileLike;
   readonly env?: NodeJS.ProcessEnv;
@@ -83,6 +84,7 @@ export async function runClaudePrint(input: {
     prompt: input.prompt,
     cwd: input.cwd,
     outputFormat: "json",
+    ...(input.model === undefined ? {} : { model: input.model }),
     ...(input.roleId === undefined
       ? {}
       : {

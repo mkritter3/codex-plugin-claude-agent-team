@@ -81,6 +81,32 @@ export interface OllamaCloudProviderConfig {
   readonly profiles: readonly OllamaCloudProfileConfig[];
 }
 
+export interface OllamaClaudeCodeProviderCapabilitiesConfig {
+  readonly structuredOutput: boolean;
+  readonly longContext: boolean;
+  readonly tools: boolean;
+  readonly sessionResume: boolean;
+  readonly cancellation: boolean;
+  readonly reasoning: boolean;
+  readonly edits: boolean;
+  readonly workspaceIsolation: boolean;
+}
+
+export interface OllamaClaudeCodeProfileConfig {
+  readonly id: string;
+  readonly model?: string;
+  readonly displayName?: string;
+  readonly writeValidated: boolean;
+  readonly capabilities: OllamaClaudeCodeProviderCapabilitiesConfig;
+}
+
+export interface OllamaClaudeCodeProviderConfig {
+  readonly enabled: boolean;
+  readonly baseUrl?: string;
+  readonly apiKeyEnv: string;
+  readonly profiles: readonly OllamaClaudeCodeProfileConfig[];
+}
+
 export interface GrokProfileConfig {
   readonly id: string;
   readonly baseUrl?: string;
@@ -107,6 +133,7 @@ export interface GeminiProviderConfig {
 export interface AgentTeamProviderConfig {
   readonly openaiCompatible: OpenAICompatibleProviderConfig;
   readonly ollamaCloud: OllamaCloudProviderConfig;
+  readonly ollamaClaudeCode: OllamaClaudeCodeProviderConfig;
   readonly grok: GrokProviderConfig;
   readonly gemini: GeminiProviderConfig;
 }

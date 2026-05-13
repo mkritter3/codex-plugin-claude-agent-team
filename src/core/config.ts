@@ -48,6 +48,11 @@ export const DEFAULT_AGENT_TEAM_CONFIG: AgentTeamConfig = {
       enabled: false,
       profiles: []
     },
+    ollamaClaudeCode: {
+      enabled: false,
+      apiKeyEnv: "OLLAMA_API_KEY",
+      profiles: []
+    },
     grok: {
       enabled: false,
       profiles: []
@@ -286,6 +291,57 @@ function parseOllamaCloudProviderConfig(
   };
 }
 
+function parseOllamaClaudeCodeProviderConfig(
+  providers: Record<string, unknown>
+): AgentTeamConfig["providers"]["ollamaClaudeCode"] {
+  const ollamaClaudeCode = objectField(providers, "ollamaClaudeCode");
+  const baseUrl = readString(ollamaClaudeCode.baseUrl);
+  const apiKeyEnv =
+    readString(ollamaClaudeCode.apiKeyEnv) ??
+    DEFAULT_AGENT_TEAM_CONFIG.providers.ollamaClaudeCode.apiKeyEnv;
+  const seenIds = new Set<string>();
+  const profiles = arrayField(ollamaClaudeCode, "profiles").map((profile, index) => {
+    const profileObject = typeof profile === "object" && profile !== null
+      ? (profile as Record<string, unknown>)
+      : {};
+    const profileId = readRequiredId(profileObject.id, `profile-${index + 1}`);
+    if (seenIds.has(profileId)) {
+      throw new AgentTeamConfigError(`Duplicate Ollama Claude Code profile id: ${profileId}`);
+    }
+    seenIds.add(profileId);
+    const capabilities = objectField(profileObject, "capabilities");
+    const model = readString(profileObject.model);
+    const displayName = readString(profileObject.displayName);
+
+    return {
+      id: profileId,
+      ...(model === undefined ? {} : { model }),
+      ...(displayName === undefined ? {} : { displayName }),
+      writeValidated: readBoolean(profileObject.writeValidated, false),
+      capabilities: {
+        structuredOutput: readBoolean(capabilities.structuredOutput, true),
+        longContext: readBoolean(capabilities.longContext, false),
+        tools: readBoolean(capabilities.tools, true),
+        sessionResume: readBoolean(capabilities.sessionResume, true),
+        cancellation: readBoolean(capabilities.cancellation, true),
+        reasoning: readBoolean(capabilities.reasoning, false),
+        edits: readBoolean(capabilities.edits, false),
+        workspaceIsolation: readBoolean(capabilities.workspaceIsolation, false)
+      }
+    };
+  });
+
+  return {
+    enabled: readBoolean(
+      ollamaClaudeCode.enabled,
+      DEFAULT_AGENT_TEAM_CONFIG.providers.ollamaClaudeCode.enabled
+    ),
+    ...(baseUrl === undefined ? {} : { baseUrl }),
+    apiKeyEnv,
+    profiles
+  };
+}
+
 function parseGrokProviderConfig(
   providers: Record<string, unknown>
 ): AgentTeamConfig["providers"]["grok"] {
@@ -491,6 +547,7 @@ export async function loadAgentTeamConfig(
     providers: {
       openaiCompatible: parseOpenAICompatibleProviderConfig(providers),
       ollamaCloud: parseOllamaCloudProviderConfig(providers),
+      ollamaClaudeCode: parseOllamaClaudeCodeProviderConfig(providers),
       grok: parseGrokProviderConfig(providers),
       gemini: parseGeminiProviderConfig(providers)
     },

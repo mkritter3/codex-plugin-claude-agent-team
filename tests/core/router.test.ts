@@ -332,13 +332,14 @@ describe("selectProvider", () => {
               reasoning: false
             }
           },
-          ollamaCloud: {
-            enabled: false,
-            profiles: []
-          },
-          grok: {
-            enabled: false,
-            profiles: []
+	          ollamaCloud: {
+	            enabled: false,
+	            profiles: []
+	          },
+	          ollamaClaudeCode: DEFAULT_AGENT_TEAM_CONFIG.providers.ollamaClaudeCode,
+	          grok: {
+	            enabled: false,
+	            profiles: []
           },
           gemini: {
             enabled: false,
@@ -390,13 +391,14 @@ describe("selectProvider", () => {
               reasoning: false
             }
           },
-          ollamaCloud: {
-            enabled: false,
-            profiles: []
-          },
-          grok: {
-            enabled: false,
-            profiles: []
+	          ollamaCloud: {
+	            enabled: false,
+	            profiles: []
+	          },
+	          ollamaClaudeCode: DEFAULT_AGENT_TEAM_CONFIG.providers.ollamaClaudeCode,
+	          grok: {
+	            enabled: false,
+	            profiles: []
           },
           gemini: {
             enabled: false,
@@ -450,9 +452,9 @@ describe("selectProvider", () => {
               reasoning: false
             }
           },
-          ollamaCloud: {
-            enabled: true,
-            profiles: [
+	          ollamaCloud: {
+	            enabled: true,
+	            profiles: [
               {
                 id: "kimi-k2.6",
                 baseUrl: "https://ollama.example/v1",
@@ -474,12 +476,13 @@ describe("selectProvider", () => {
                   longContext: false,
                   reasoning: false
                 }
-              }
-            ]
-          },
-          grok: {
-            enabled: false,
-            profiles: []
+	              }
+	            ]
+	          },
+	          ollamaClaudeCode: DEFAULT_AGENT_TEAM_CONFIG.providers.ollamaClaudeCode,
+	          grok: {
+	            enabled: false,
+	            profiles: []
           },
           gemini: {
             enabled: false,
@@ -523,6 +526,55 @@ describe("selectProvider", () => {
     ).toThrow(ProviderCapabilityError);
   });
 
+  it("routes requested Ollama Claude Code profiles through lifecycle-safe capabilities", () => {
+    const providers = listProviders({
+      config: {
+        ...DEFAULT_AGENT_TEAM_CONFIG,
+        providers: {
+          ...DEFAULT_AGENT_TEAM_CONFIG.providers,
+          ollamaClaudeCode: {
+            enabled: true,
+            baseUrl: "http://localhost:11434",
+            apiKeyEnv: "OLLAMA_API_KEY",
+            profiles: [
+              {
+                id: "kimi-k2.6",
+                model: "kimi-k2.6:cloud",
+                displayName: "Kimi K2.6",
+                writeValidated: false,
+                capabilities: {
+                  structuredOutput: true,
+                  longContext: true,
+                  tools: true,
+                  sessionResume: true,
+                  cancellation: true,
+                  reasoning: true,
+                  edits: false,
+                  workspaceIsolation: false
+                }
+              }
+            ]
+          }
+        }
+      }
+    });
+
+    expect(
+      selectProvider({
+        roleId: "architect",
+        providers,
+        requestedProviderId: "ollama-claude-code:kimi-k2.6"
+      }).id
+    ).toBe("ollama-claude-code:kimi-k2.6");
+    expect(() =>
+      selectProvider({
+        roleId: "slice-implementer",
+        providers,
+        requestedProviderId: "ollama-claude-code:kimi-k2.6"
+      })
+    ).toThrow(ProviderCapabilityError);
+  });
+
   it("routes requested Gemini only through declared read-only capabilities", () => {
     const providers = listProviders({
 	      config: {
@@ -540,13 +592,14 @@ describe("selectProvider", () => {
               reasoning: false
             }
           },
-          ollamaCloud: {
-            enabled: false,
-            profiles: []
-          },
-          grok: {
-            enabled: false,
-            profiles: []
+	          ollamaCloud: {
+	            enabled: false,
+	            profiles: []
+	          },
+	          ollamaClaudeCode: DEFAULT_AGENT_TEAM_CONFIG.providers.ollamaClaudeCode,
+	          grok: {
+	            enabled: false,
+	            profiles: []
           },
           gemini: {
             enabled: true,
@@ -603,13 +656,14 @@ describe("selectProvider", () => {
               reasoning: false
             }
           },
-          ollamaCloud: {
-            enabled: false,
-            profiles: []
-          },
-          grok: {
-            enabled: false,
-            profiles: []
+	          ollamaCloud: {
+	            enabled: false,
+	            profiles: []
+	          },
+	          ollamaClaudeCode: DEFAULT_AGENT_TEAM_CONFIG.providers.ollamaClaudeCode,
+	          grok: {
+	            enabled: false,
+	            profiles: []
           },
           gemini: {
             enabled: true,
@@ -652,12 +706,13 @@ describe("selectProvider", () => {
               reasoning: false
             }
           },
-          ollamaCloud: {
-            enabled: false,
-            profiles: []
-          },
-          gemini: {
-            enabled: false,
+	          ollamaCloud: {
+	            enabled: false,
+	            profiles: []
+	          },
+	          ollamaClaudeCode: DEFAULT_AGENT_TEAM_CONFIG.providers.ollamaClaudeCode,
+	          gemini: {
+	            enabled: false,
             capabilities: {
               structuredOutput: false,
               longContext: false,

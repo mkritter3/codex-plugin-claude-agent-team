@@ -16,6 +16,7 @@ export interface ClaudeCommandInput {
   readonly outputFormat: ClaudeOutputFormat;
   readonly inputFormat?: ClaudeInputFormat;
   readonly sessionId?: string;
+  readonly model?: string;
   readonly agentName?: string;
   readonly agents?: ClaudeAgentDefinitions;
   readonly allowedTools?: readonly string[];

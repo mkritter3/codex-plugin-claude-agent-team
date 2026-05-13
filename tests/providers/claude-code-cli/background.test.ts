@@ -100,6 +100,46 @@ describe("Claude background session runner", () => {
     });
   });
 
+  it("allows scoped API-key auth mode for non-subscription Claude Code profiles", () => {
+    const child = new FakeChildProcess();
+    const calls: Array<{ args: readonly string[]; env?: NodeJS.ProcessEnv }> = [];
+
+    startClaudeBackgroundSession(
+      {
+        prompt: "Inspect the repo",
+        cwd: workspace,
+        workspaceRoot: workspace,
+        runId: "run_bg_api_key_profile",
+        providerAuthMode: "api-key",
+        model: "kimi-k2.6:cloud",
+        env: {
+          ANTHROPIC_BASE_URL: "http://localhost:11434",
+          ANTHROPIC_AUTH_TOKEN: "secret-token",
+          ANTHROPIC_API_KEY: "secret-token",
+          OLLAMA_API_KEY: "secret-token"
+        }
+      },
+      {
+        spawn: (_command, args, options) => {
+          calls.push({
+            args,
+            ...(options.env === undefined ? {} : { env: options.env })
+          });
+          return child;
+        }
+      }
+    );
+
+    expect(calls[0]?.args).toContain("--model");
+    expect(calls[0]?.args[calls[0]?.args.indexOf("--model") + 1]).toBe("kimi-k2.6:cloud");
+    expect(calls[0]?.env).toMatchObject({
+      ANTHROPIC_BASE_URL: "http://localhost:11434",
+      ANTHROPIC_AUTH_TOKEN: "secret-token",
+      ANTHROPIC_API_KEY: "secret-token",
+      OLLAMA_API_KEY: "secret-token"
+    });
+  });
+
   it("applies read-only role policy to background sessions", () => {
     const child = new FakeChildProcess();
     const calls: Array<{ args: readonly string[] }> = [];
