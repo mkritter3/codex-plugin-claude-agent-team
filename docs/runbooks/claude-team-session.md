@@ -389,6 +389,8 @@ npm run smoke:claude-live -- --confirm-live-provider-use --cwd /absolute/path/to
 
 The smoke uses Claude Code CLI subscription OAuth through the packaged MCP stdio runtime. Its sanitized report includes direct proof, run ids, statuses, evidence paths, summary groups, dashboard counts, message status, wind-down status, cleanup status, and known limitations. It does not print private prompts, provider command details, provider session ids, process metadata, environment values, mailbox payloads, secrets, provider ranking claims, or comparative capability claims.
 
+Latest live Claude proof evidence is recorded in `docs/superpowers/reports/2026-05-13-agent-team-live-claude-provider-proof.md`.
+
 The smoke exits `0` only when tracked Claude runs reach `completed`. Graceful wind-down states are useful evidence, but they are not successful completion. If the bounded wait expires, the harness asks remaining runs to wind down, records cancellation intent for lingering nonterminal runs, emits a sanitized failed report, and preserves sidecars, logs, transcripts, and retained worktrees for inspection.
 
 ## Opt-In Claude Live Capability Matrix
@@ -420,6 +422,8 @@ For a real local matrix, the workspace policy must allow live smoke, the Claude 
   }
 }
 ```
+
+Use the canonical worktree root that git will resolve for the source checkout. On macOS, `/tmp` often resolves to `/private/tmp`; if `allowedWorktreeRoots` uses the non-canonical path, the matrix should fail closed with `worktree_root_not_allowed`.
 
 Then run the confirmed matrix:
 

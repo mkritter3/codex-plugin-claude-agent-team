@@ -365,6 +365,8 @@ Do not route around doctor failures. Claude Code CLI subscription OAuth remains 
 
 The optional live smoke exercises the packaged MCP stdio entrypoint and public tools against Claude Code CLI subscription OAuth. It is not part of CI, makes no provider ranking or comparative capability claim, and emits a sanitized report with direct proof, run ids, statuses, evidence paths, summary groups, and dashboard counts instead of private prompts or provider implementation details.
 
+Latest live Claude proof evidence is recorded in `docs/superpowers/reports/2026-05-13-agent-team-live-claude-provider-proof.md`.
+
 The report is successful only when tracked Claude runs reach `completed`. Intermediate states such as graceful wind-down requests remain nonterminal; if a bounded smoke cannot finish, the harness records wind-down or cancellation evidence and exits non-zero without deleting logs, sidecars, transcripts, or retained worktrees.
 
 Inspect the planned flow without provider use:
@@ -426,6 +428,8 @@ Confirmed live execution requires `policy.liveSmokeEnabled` and write-mode polic
   }
 }
 ```
+
+Use the canonical worktree root that git will resolve for the source checkout. On macOS, `/tmp` often resolves to `/private/tmp`; if `allowedWorktreeRoots` uses the non-canonical path, the matrix should fail closed with `worktree_root_not_allowed`.
 
 Then run the confirmed matrix after building the packaged runtime:
 
