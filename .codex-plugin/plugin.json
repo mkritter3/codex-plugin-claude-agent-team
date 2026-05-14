@@ -1,6 +1,6 @@
 {
   "name": "codex-plugin-claude-agent-team",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Provider-neutral agent team MCP plugin for Codex with Claude Code CLI subscription support.",
   "author": {
     "name": "mkritter3",

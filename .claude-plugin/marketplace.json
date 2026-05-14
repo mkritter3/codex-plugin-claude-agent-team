@@ -1,0 +1,16 @@
+{
+  "name": "codex-plugin-claude-agent-team",
+  "description": "Single-plugin marketplace for codex-plugin-claude-agent-team. Adding this marketplace exposes one Claude Code plugin: the agent-team MCP runtime with provider-routed multi-agent execution.",
+  "owner": { "name": "mkritter3" },
+  "plugins": [
+    {
+      "name": "codex-plugin-claude-agent-team",
+      "description": "Provider-neutral agent team MCP plugin. Durable multi-agent workflows over a slice DAG with inter-agent mailboxes (inbox/outbox/control/events), isolated write worktrees, slice-review-before-integration, and provider routing across Claude Code CLI, codex-cli, gemini, grok, openai-compatible, ollama-cloud, and ollama-claude-code. Complements codex-paired-superpowers (which owns spec/plan + audit gate) by owning execution.",
+      "version": "0.1.2",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/mkritter3/codex-plugin-claude-agent-team.git"
+      }
+    }
+  ]
+}

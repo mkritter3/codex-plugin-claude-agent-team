@@ -4,6 +4,14 @@ All notable changes to this private local plugin are recorded here.
 
 ## Unreleased
 
+## 0.1.2
+
+- Added Claude Code plugin packaging (`.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json`) so the same repo dual-hosts: Codex installs via `.codex-plugin/`, Claude Code installs via `.claude-plugin/`. Same MCP server, same orchestrator skill markdown, both hosts. The MCP runtime is host-agnostic at the protocol boundary as documented; this just adds the second plugin manifest.
+- Added `scripts/start-mcp.sh` wrapper that auto-installs `node_modules` and builds `dist/` on first run, since both are gitignored. Wrapper communicates over stdio for MCP and routes setup progress to stderr so it does not corrupt the protocol channel. Subsequent runs `exec node dist/index.js` directly with no overhead.
+- Bumped manifest versions to `0.1.2` in `package.json`, `.codex-plugin/plugin.json`, and the new `.claude-plugin/plugin.json` / `marketplace.json`.
+
+## 0.1.1 (pre-Claude-Code-packaging)
+
 - Added MCP runtime reload hardening: `agent_team_doctor` now reports live schema compatibility, install preflight warns about already-running Agent Team MCP servers with sanitized evidence, and the operator docs explain how to recover from stale schemas or `Transport closed` after rebuilds.
 - Added explicit Claude Code CLI alias profiles for `opus`, `sonnet`, and `haiku` with subscription-OAuth routing plus an opt-in packaged MCP live proof script for exact model-profile dispatch.
 - Added an opt-in Ollama Claude Code write-validation smoke that proves fixture-local isolated implementation, source-workspace containment, dashboard/summary evidence, and cleanup before profiles are treated as write-capable.
