@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-import { access } from "node:fs/promises";
+import { access, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -42,6 +43,82 @@ async function assertValidationError(client, toolName, args) {
   );
 }
 
+async function callTool(client, toolName, args) {
+  const result = await client.callTool({
+    name: toolName,
+    arguments: args
+  });
+  if (result.isError) {
+    throw new Error(`${toolName} returned an MCP error: ${JSON.stringify(result)}`);
+  }
+  if (result.structuredContent !== undefined) {
+    return result.structuredContent;
+  }
+  const text = result.content?.find((item) => item.type === "text")?.text;
+  if (typeof text === "string") {
+    return JSON.parse(text);
+  }
+  throw new Error(`${toolName} did not return structured or JSON text content.`);
+}
+
+function assertDoctorRuntimeMetadata(report) {
+  const checks = report.checks;
+  assert(Array.isArray(checks), "agent_team_doctor did not return ordered checks.");
+  const runtime = checks.find((check) => check?.id === "mcp-runtime");
+  assert(runtime !== undefined, "agent_team_doctor did not return mcp-runtime evidence.");
+  assert(runtime.status === "pass", "agent_team_doctor mcp-runtime check did not pass.");
+  assert(
+    runtime.details?.workflowWriteScopeAllowsEmpty === true,
+    "agent_team_doctor mcp-runtime did not prove workflowWriteScopeAllowsEmpty."
+  );
+}
+
+async function assertReadOnlyWorkflowCreation(client, workspaceRoot) {
+  const created = await callTool(client, "agent_team_create_workflow", {
+    cwd: workspaceRoot,
+    workflowId: "workflow_stdio_readonly",
+    name: "Packaged stdio read-only workflow proof",
+    goal: {
+      title: "Prove packaged read-only workflow schema",
+      successCriteria: ["read-only workflow slices cross the MCP boundary"],
+      constraints: ["no provider calls"],
+      nonGoals: ["source edits"]
+    },
+    slices: [
+      {
+        sliceId: "slice_readonly",
+        title: "Read-only workflow slice",
+        ownerRole: "planner",
+        state: "ready",
+        dependencies: [],
+        writeScope: [],
+        acceptanceTests: ["agent_team_workflow_report"],
+        expectedEvidence: ["packaged stdio schema evidence"],
+        riskLevel: "low"
+      }
+    ]
+  });
+  const createdSlice = created.workflow?.slices?.find(
+    (slice) => slice?.sliceId === "slice_readonly"
+  );
+  assert(createdSlice !== undefined, "read-only workflow slice was not created.");
+  assert(Array.isArray(createdSlice.dependencies), "read-only slice dependencies missing.");
+  assert(createdSlice.dependencies.length === 0, "read-only slice dependencies changed.");
+  assert(Array.isArray(createdSlice.writeScope), "read-only slice writeScope missing.");
+  assert(createdSlice.writeScope.length === 0, "read-only slice writeScope changed.");
+
+  const readBack = await callTool(client, "agent_team_get_workflow", {
+    cwd: workspaceRoot,
+    workflowId: "workflow_stdio_readonly"
+  });
+  const readBackSlice = readBack.workflow?.slices?.find(
+    (slice) => slice?.sliceId === "slice_readonly"
+  );
+  assert(readBackSlice !== undefined, "read-only workflow slice was not persisted.");
+  assert(readBackSlice.dependencies.length === 0, "persisted dependencies changed.");
+  assert(readBackSlice.writeScope.length === 0, "persisted writeScope changed.");
+}
+
 async function assertRuntimeExists() {
   try {
     await access(runtimePath);
@@ -66,9 +143,10 @@ async function main() {
     stderrChunks.push(Buffer.from(chunk).toString("utf8"));
   });
 
+  const workspaceRoot = await mkdtemp(join(tmpdir(), "agent-team-stdio-smoke-"));
   const client = new Client({
     name: "agent-team-smoke",
-    version: "0.1.0"
+    version: "0.1.1"
   });
 
   try {
@@ -133,11 +211,8 @@ async function main() {
     assertToolRequires(tools.tools, "agent_team_wind_down_many", ["runs"]);
     assertObjectSchema(tools.tools, "agent_team_list_roles");
 
-    const result = await client.callTool({
-      name: "agent_team_list_roles",
-      arguments: {}
-    });
-    const roles = result.structuredContent?.roles;
+    const result = await callTool(client, "agent_team_list_roles", {});
+    const roles = result.roles;
     assert(Array.isArray(roles), "agent_team_list_roles did not return roles.");
     assert(
       roles.some((role) => role?.id === "planner"),
@@ -159,6 +234,12 @@ async function main() {
       slices: []
     });
 
+    const doctor = await callTool(client, "agent_team_doctor", {
+      cwd: workspaceRoot
+    });
+    assertDoctorRuntimeMetadata(doctor);
+    await assertReadOnlyWorkflowCreation(client, workspaceRoot);
+
     console.log("MCP stdio smoke passed.");
   } catch (error) {
     const stderr = stderrChunks.join("").trim();
@@ -166,6 +247,7 @@ async function main() {
     throw new Error(stderr.length === 0 ? message : `${message}\nServer stderr:\n${stderr}`);
   } finally {
     await client.close();
+    await rm(workspaceRoot, { recursive: true, force: true });
   }
 }
 

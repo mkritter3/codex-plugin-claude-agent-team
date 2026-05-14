@@ -121,6 +121,11 @@ describe("package runtime contract", () => {
     expect(smokeScript).toContain(
       'assertToolRequires(tools.tools, "agent_team_create_workflow", ["goal", "slices"])'
     );
+    expect(smokeScript).toContain("assertDoctorRuntimeMetadata");
+    expect(smokeScript).toContain("workflowWriteScopeAllowsEmpty");
+    expect(smokeScript).toContain("assertReadOnlyWorkflowCreation");
+    expect(smokeScript).toContain("writeScope: []");
+    expect(smokeScript).toContain("dependencies: []");
     expect(smokeScript).toContain(
       'assertToolRequires(tools.tools, "agent_team_get_workflow", ["workflowId"])'
     );
