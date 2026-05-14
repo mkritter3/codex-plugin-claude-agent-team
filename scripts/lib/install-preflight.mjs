@@ -1,8 +1,11 @@
+import { execFile } from "node:child_process";
 import { access, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
+import { promisify } from "node:util";
 
 const DEFAULT_SERVER_NAME = "agent-team";
 const SERVER_NAME_PATTERN = /^[A-Za-z0-9_-]+$/;
+const execFileAsync = promisify(execFile);
 
 function assertServerName(serverName) {
   if (!SERVER_NAME_PATTERN.test(serverName)) {
@@ -30,13 +33,39 @@ async function readJsonFile(path) {
   }
 }
 
-function check(id, path, passed, message) {
+function check(id, path, passed, message, details) {
   return {
     id,
     status: passed ? "pass" : "fail",
     path,
-    ...(passed || message === undefined ? {} : { message })
+    ...(passed || message === undefined ? {} : { message }),
+    ...(details === undefined ? {} : { details })
   };
+}
+
+export async function listAgentTeamServerProcesses() {
+  if (process.platform === "win32") {
+    return [];
+  }
+  try {
+    const { stdout } = await execFileAsync("ps", ["-axo", "pid=,command="], {
+      timeout: 5000,
+      maxBuffer: 1024 * 1024
+    });
+    return stdout
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.includes("codex-plugin-claude-agent-team/dist/index.js"))
+      .map((line) => {
+        const match = line.match(/^(\d+)\s+(.*)$/);
+        return {
+          pid: match === null ? 0 : Number(match[1]),
+          command: match === null ? line : match[2]
+        };
+      });
+  } catch {
+    return [];
+  }
 }
 
 export function buildMcpConfig(input) {
@@ -63,6 +92,8 @@ export async function buildInstallPreflightReport(input) {
   const localMcpConfigPath = join(packageRoot, ".mcp.json");
   const runtimePath = join(packageRoot, "dist", "index.js");
   const installCheckScriptPath = join(packageRoot, "scripts", "install-check.mjs");
+  const runningProcesses = await (input.listServerProcesses ??
+    listAgentTeamServerProcesses)();
 
   const packageJson = await readJsonFile(packageJsonPath);
   const pluginManifest = await readJsonFile(pluginManifestPath);
@@ -106,6 +137,21 @@ export async function buildInstallPreflightReport(input) {
       installCheckScriptPath,
       await pathExists(installCheckScriptPath),
       "Install check script is missing from the package surface."
+    ),
+    check(
+      "running-mcp-processes",
+      runtimePath,
+      true,
+      undefined,
+      {
+        runningProcessCount: runningProcesses.length,
+        ...(runningProcesses.length === 0
+          ? {}
+          : {
+              message:
+                "Existing Agent Team MCP server processes may keep serving old schemas until Codex reloads or restarts them."
+            })
+      }
     )
   ];
 
@@ -117,7 +163,8 @@ export async function buildInstallPreflightReport(input) {
     checks,
     nextSteps: [
       `Add mcpConfig.mcpServers.${serverName} to the Codex MCP client configuration.`,
-      "Run agent_team_doctor for the target workspace before starting live runs."
+      "Run agent_team_doctor for the target workspace before starting live runs.",
+      "After rebuilds, reload or restart Codex and confirm doctor mcp-runtime.workflowWriteScopeAllowsEmpty is true before direct workflow operations."
     ]
   };
 }

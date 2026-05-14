@@ -12,6 +12,7 @@ interface InstallCheck {
   readonly status: "pass" | "fail";
   readonly path: string;
   readonly message?: string;
+  readonly details?: Record<string, unknown>;
 }
 
 interface InstallPreflightReport {
@@ -29,6 +30,9 @@ async function loadPreflight(): Promise<{
   buildInstallPreflightReport(input: {
     readonly packageRoot: string;
     readonly serverName?: string;
+    readonly listServerProcesses?: () => Promise<
+      readonly { readonly pid: number; readonly command: string }[]
+    >;
   }): Promise<InstallPreflightReport>;
 }> {
   return (await import(
@@ -37,6 +41,9 @@ async function loadPreflight(): Promise<{
     buildInstallPreflightReport(input: {
       readonly packageRoot: string;
       readonly serverName?: string;
+      readonly listServerProcesses?: () => Promise<
+        readonly { readonly pid: number; readonly command: string }[]
+      >;
     }): Promise<InstallPreflightReport>;
   };
 }
@@ -95,7 +102,8 @@ describe("install handoff preflight", () => {
       "plugin-manifest",
       "local-mcp-config",
       "runtime-entrypoint",
-      "install-check-script"
+      "install-check-script",
+      "running-mcp-processes"
     ]);
     expect(report.checks.every((check) => check.status === "pass")).toBe(true);
     expect(report.nextSteps).toContain(
@@ -123,6 +131,43 @@ describe("install handoff preflight", () => {
         path: join(fixtureRoot, "dist", "index.js")
       })
     );
+  });
+
+  it("warns with sanitized evidence when stale Agent Team MCP server processes are running", async () => {
+    const { buildInstallPreflightReport } = await loadPreflight();
+    const fixtureRoot = await createInstallFixture();
+
+    const report = await buildInstallPreflightReport({
+      packageRoot: fixtureRoot,
+      serverName: "agent-team",
+      listServerProcesses: async () => [
+        {
+          pid: 12345,
+          command: `node ${join(fixtureRoot, "dist", "index.js")}`
+        },
+        {
+          pid: 67890,
+          command: `node ${join(fixtureRoot, "dist", "index.js")} --old`
+        }
+      ]
+    });
+
+    expect(report.status).toBe("ready");
+    expect(report.checks).toContainEqual(
+      expect.objectContaining({
+        id: "running-mcp-processes",
+        status: "pass",
+        details: {
+          runningProcessCount: 2,
+          message:
+            "Existing Agent Team MCP server processes may keep serving old schemas until Codex reloads or restarts them."
+        }
+      })
+    );
+    const processCheck = report.checks.find((check) => check.id === "running-mcp-processes");
+    expect(JSON.stringify(processCheck?.details)).not.toContain("12345");
+    expect(JSON.stringify(processCheck?.details)).not.toContain("67890");
+    expect(JSON.stringify(processCheck?.details)).not.toContain(fixtureRoot);
   });
 
   it("returns blocked with sanitized evidence when local MCP config is malformed", async () => {

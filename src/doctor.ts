@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import { z } from "zod";
 import {
   AGENT_TEAM_CONFIG_SCHEMA_VERSION,
   DEFAULT_AGENT_TEAM_CONFIG,
@@ -24,6 +25,7 @@ import {
   listProviders,
   type AgentProviderRuntime
 } from "./providers/index.js";
+import { TOOL_METADATA_BY_NAME } from "./mcp/schemas.js";
 import type {
   ProviderCommandOptions,
   ProviderCommandResult,
@@ -148,6 +150,33 @@ function nodeMajor(version: string): number | undefined {
   return match === null ? undefined : Number(match[1]);
 }
 
+function workflowWriteScopeAllowsEmpty(): boolean {
+  const schema = z.object(
+    TOOL_METADATA_BY_NAME.agent_team_create_workflow.inputSchema as z.ZodRawShape
+  );
+  return schema.safeParse({
+    workflowId: "workflow_doctor_schema_probe",
+    goal: {
+      title: "Doctor schema probe",
+      successCriteria: ["direct MCP schema accepts read-only workflow slices"],
+      constraints: ["no provider calls"],
+      nonGoals: ["workflow mutation"]
+    },
+    slices: [
+      {
+        sliceId: "slice_readonly",
+        title: "Read-only schema probe",
+        ownerRole: "planner",
+        state: "ready",
+        dependencies: [],
+        writeScope: [],
+        acceptanceTests: ["agent_team_workflow_report"],
+        expectedEvidence: ["schema parse result"]
+      }
+    ]
+  }).success;
+}
+
 export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> {
   const workspaceRoot = input.workspaceRoot ?? process.cwd();
   const env = input.env ?? process.env;
@@ -193,6 +222,24 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
       id: "mcp-server-loadable",
       status: "pass",
       message: "Agent Team MCP server module is loadable."
+    });
+    const allowsReadOnlyWorkflowSlices = workflowWriteScopeAllowsEmpty();
+    checks.push({
+      id: "mcp-runtime",
+      status: allowsReadOnlyWorkflowSlices ? "pass" : "fail",
+      message: allowsReadOnlyWorkflowSlices
+        ? "Agent Team MCP runtime metadata and direct workflow schema are current."
+        : "Agent Team MCP runtime schema rejects read-only workflow slices.",
+      details: {
+        pid: process.pid,
+        nodeVersion,
+        workflowWriteScopeAllowsEmpty: allowsReadOnlyWorkflowSlices,
+        ...(allowsReadOnlyWorkflowSlices
+          ? {}
+          : {
+              fix: "Rebuild the package, stop stale Agent Team MCP server processes, reload plugins, and rerun doctor."
+            })
+      }
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

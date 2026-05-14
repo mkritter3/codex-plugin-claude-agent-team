@@ -48,6 +48,8 @@ Batch calls must preserve ordered per-item results, partial-failure evidence, pe
 
 `agent_team_start_slices` returns per-slice evidence that Codex should retain in the working notes: `runId`, `sidecarPath`, `logPath`, `transcriptPath`, and `mailboxPaths`. Treat those paths as the durable handoff contract for status polling, review, mailbox steering, and cleanup.
 
+After rebuilding or reinstalling the plugin, use `/reload-plugins` or restart Codex, then rerun `agent_team_doctor`. The live server should report `mcp-runtime.details.workflowWriteScopeAllowsEmpty: true`; if it does not, or if Agent Team tools return `Transport closed`, reload/restart before continuing. stale Agent Team MCP server processes can keep serving old schemas even when the repo build is current, so treat `mcp-runtime` as the direct MCP schema proof for the running server.
+
 ## Planning Rules
 
 Planning is consensus-driven, not yes-man approval. Each role advocates from its specialty. Use 10 rounds by default, up to 15 only when the team is close and one or two issues remain. Escalate unresolved material disagreement after 15 rounds.

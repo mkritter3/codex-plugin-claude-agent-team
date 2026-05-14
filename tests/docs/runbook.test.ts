@@ -137,6 +137,11 @@ describe("Claude team session runbook", () => {
     expect(doc).toContain("mid-flight steering");
     expect(doc).toContain("final integration evidence");
     expect(doc).toContain("Codex-owned manual integration");
+    expect(doc).toContain("mcp-runtime");
+    expect(doc).toContain("workflowWriteScopeAllowsEmpty");
+    expect(doc).toContain("stale Agent Team MCP server processes");
+    expect(doc).toContain("/reload-plugins");
+    expect(doc).toContain("Transport closed");
 	  });
 
   it("keeps documentation provider-neutral and avoids private implementation disclosure", async () => {

@@ -54,6 +54,26 @@ describe("runDoctor", () => {
     });
   });
 
+  it("reports MCP runtime metadata and direct schema compatibility", async () => {
+    const workspace = await tempWorkspace();
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: {},
+      nodeVersion: "22.15.3",
+      ...cliFound()
+    });
+
+    expect(report.checks.find((check) => check.id === "mcp-runtime")).toMatchObject({
+      status: "pass",
+      details: {
+        pid: expect.any(Number),
+        nodeVersion: "22.15.3",
+        workflowWriteScopeAllowsEmpty: true
+      }
+    });
+  });
+
   it("fails closed when host Node is below the runtime floor", async () => {
     const workspace = await tempWorkspace();
 

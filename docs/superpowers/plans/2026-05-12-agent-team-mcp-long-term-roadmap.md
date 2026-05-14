@@ -27,7 +27,7 @@ Codex should be able to stand up and manage an external AI agent team from insid
 
 ## Current Baseline
 
-Completed through Milestone 61:
+Completed through Milestone 70:
 
 - package scaffold, MCP server, CI, stdio smoke, and schema coverage
 - provider-neutral roles, capabilities, router, config, and doctor
@@ -83,6 +83,7 @@ Completed through Milestone 61:
 - operator-facing workflow orchestrator runbook coverage for the complete create, consensus, start, unblock, review, queue, integrate, record, report, and explicit cleanup loop
 - fixture-safe packaged workflow orchestrator smoke that drives public workflow tools through `dist/index.js`, proves blocked/unblocked and completion-report gates, records degraded Opus evidence, and runs in CI without live provider calls
 - final workflow-orchestrator readiness report that maps product-level success criteria to repo evidence and records the accepted completion stop condition
+- MCP runtime reload hardening with doctor `mcp-runtime` schema evidence, sanitized install preflight running-process warnings, operator reload guidance, and a patch metadata bump for local plugin cache refresh
 
 ## Roadmap Shape
 

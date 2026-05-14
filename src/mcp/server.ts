@@ -6,7 +6,7 @@ import { createToolHandlers, listToolNames } from "./tools.js";
 export function createAgentTeamServer(): McpServer {
   const server = new McpServer({
     name: "agent-team",
-    version: "0.1.0"
+    version: "0.1.1"
   });
   const handlers = createToolHandlers();
 

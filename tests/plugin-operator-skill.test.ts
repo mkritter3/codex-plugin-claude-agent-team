@@ -67,7 +67,11 @@ describe("Codex operator skill packaging", () => {
       "retained isolated worktrees",
       "bounded concurrency",
       "partial-failure evidence",
-      "no provider ranking"
+      "no provider ranking",
+      "mcp-runtime",
+      "workflowWriteScopeAllowsEmpty",
+      "stale Agent Team MCP server processes",
+      "/reload-plugins"
     ]) {
       expect(skill).toContain(text);
     }

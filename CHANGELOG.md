@@ -4,6 +4,7 @@ All notable changes to this private local plugin are recorded here.
 
 ## Unreleased
 
+- Added MCP runtime reload hardening: `agent_team_doctor` now reports live schema compatibility, install preflight warns about already-running Agent Team MCP servers with sanitized evidence, and the operator docs explain how to recover from stale schemas or `Transport closed` after rebuilds.
 - Added explicit Claude Code CLI alias profiles for `opus`, `sonnet`, and `haiku` with subscription-OAuth routing plus an opt-in packaged MCP live proof script for exact model-profile dispatch.
 - Added an opt-in Ollama Claude Code write-validation smoke that proves fixture-local isolated implementation, source-workspace containment, dashboard/summary evidence, and cleanup before profiles are treated as write-capable.
 - Switched Ollama Claude Code profiles to the direct Ollama Cloud Anthropic-compatible endpoint (`https://ollama.com`) with bare model ids and Claude Code-compatible `ANTHROPIC_AUTH_TOKEN` / blank `ANTHROPIC_API_KEY` scoped env mapping.

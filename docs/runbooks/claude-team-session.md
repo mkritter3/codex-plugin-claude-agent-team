@@ -77,6 +77,12 @@ Before any live dispatch, call `agent_team_doctor` for the workspace:
 
 Proceed only when doctor reports the workspace, package runtime, provider routing, policy posture, and Claude Code CLI subscription OAuth posture are ready. If doctor reports a failure, fix that issue first. Do not route around the preflight with a different billing or transport path.
 
+Doctor includes an `mcp-runtime` check for the currently running server process. Confirm `mcp-runtime.details.workflowWriteScopeAllowsEmpty` is `true` before direct workflow operations; this proves the live MCP schema accepts read-only workflow slices with `writeScope: []`.
+
+After rebuilding the package, run `/reload-plugins` or restart Codex, then rerun `agent_team_doctor`. If a tool returns `Transport closed`, reload or restart Codex before calling more Agent Team tools. If doctor or direct workflow creation still shows old validation behavior, stop stale Agent Team MCP server processes, reload again, and confirm the new `mcp-runtime` evidence before proceeding.
+
+`npm run install:check` reports `running-mcp-processes` with a sanitized count when existing Agent Team MCP server processes may keep serving old schemas. It intentionally omits PIDs and command lines from the report.
+
 Workspace policy can restrict role starts, provider selectors, write-capable starts, retained worktree roots, and live-smoke posture through `.agent-team/config.json`:
 
 ```json

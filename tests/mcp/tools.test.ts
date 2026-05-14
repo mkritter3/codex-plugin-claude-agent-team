@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { z } from "zod";
 import { StateCorruptionError } from "../../src/core/errors.js";
 import { DEFAULT_AGENT_TEAM_CONFIG } from "../../src/core/config.js";
 import {
@@ -235,6 +236,36 @@ describe("MCP tool handlers", () => {
     expect(JSON.stringify(TOOL_METADATA_BY_NAME.agent_team_create_workflow)).not.toMatch(
       /Claude|claude-code-cli|internal prompt|raw provider/i
     );
+  });
+
+  it("public create workflow MCP schema accepts read-only slices with empty write scope", () => {
+    const schema = z.object(
+      TOOL_METADATA_BY_NAME.agent_team_create_workflow.inputSchema as z.ZodRawShape
+    );
+
+    const result = schema.safeParse({
+      workflowId: "workflow_schema_readonly",
+      goal: {
+        title: "Read-only schema proof",
+        successCriteria: ["direct MCP schema accepts read-only slices"],
+        constraints: ["no source edits"],
+        nonGoals: ["provider calls"]
+      },
+      slices: [
+        {
+          sliceId: "slice_readonly",
+          title: "Read-only workflow slice",
+          ownerRole: "planner",
+          state: "ready",
+          dependencies: [],
+          writeScope: [],
+          acceptanceTests: ["agent_team_workflow_report"],
+          expectedEvidence: ["workflow evidence"]
+        }
+      ]
+    });
+
+    expect(result.success).toBe(true);
   });
 
   it("exposes provider-neutral workflow planning consensus tool with sanitized schema", () => {
