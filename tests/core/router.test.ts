@@ -483,6 +483,7 @@ describe("selectProvider", () => {
 
   it("advertises implementation capabilities only when isolated write mode is enabled", () => {
     const providers = listProviders({
+      cliAvailability: { claude: true, ollama: true, gemini: false, codex: false },
 	      config: {
 	        schemaVersion: DEFAULT_AGENT_TEAM_CONFIG.schemaVersion,
 	        writeMode: { enabled: true, requireIsolatedWorktree: true },
@@ -715,6 +716,7 @@ describe("selectProvider", () => {
 
   it("routes requested Ollama Claude Code profiles through lifecycle-safe capabilities", () => {
     const providers = listProviders({
+      cliAvailability: { claude: true, ollama: true, gemini: false, codex: false },
       env: { OLLAMA_API_KEY: "secret-token" },
       config: {
         ...DEFAULT_AGENT_TEAM_CONFIG,
@@ -768,6 +770,7 @@ describe("selectProvider", () => {
 
   it("routes requested Claude Code CLI model profiles through subscription OAuth capabilities", () => {
     const providers = listProviders({
+      cliAvailability: { claude: true, ollama: true, gemini: false, codex: false },
       config: {
         ...DEFAULT_AGENT_TEAM_CONFIG,
         providers: {

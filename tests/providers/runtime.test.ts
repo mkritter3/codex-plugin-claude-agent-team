@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  claudeCodeCliProvider,
   getProviderRuntime,
   listProviderRuntimes,
   requireProviderRuntime
@@ -22,7 +23,7 @@ describe("provider runtime registry", () => {
     const runtime = getProviderRuntime("claude-code-cli");
 
     expect(runtime?.descriptor().authMode).toBe("subscription-oauth");
-    expect(runtime?.descriptor().available).toBe(true);
+    expect(runtime?.descriptor).toBe(claudeCodeCliProvider);
   });
 
   it("resolves the OpenAI-compatible runtime as disabled by default", () => {

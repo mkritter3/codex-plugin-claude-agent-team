@@ -4,6 +4,8 @@ All notable changes to this local plugin are recorded here.
 
 ## Unreleased
 
+- Made dispatch, lifecycle, routing, and runtime test fixtures independent of locally installed provider CLIs.
+
 - Refreshed the Codex listing to describe native and cross-provider orchestration, replaced internal workflow jargon with plain-language prompts, and assigned a distinct install version.
 
 - Made distribution verification work from standalone checkouts while retaining optional strict personal-marketplace validation, refreshed compatible dependency fixes, and excluded local environment files from Git.

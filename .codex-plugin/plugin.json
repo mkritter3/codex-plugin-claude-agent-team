@@ -1,6 +1,6 @@
 {
   "name": "codex-plugin-claude-agent-team",
-  "version": "0.1.5+codex.20260918180939",
+  "version": "0.1.5+codex.20260918181753",
   "description": "Coordinate native Codex and external AI models for planning, implementation, and independent review.",
   "author": {
     "name": "mkritter3",

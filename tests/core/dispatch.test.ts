@@ -11,7 +11,7 @@ import { readRunSidecar } from "../../src/core/state/run-store.js";
 import { dispatchReadOnlyAgent } from "../../src/core/dispatch.js";
 import { DEFAULT_AGENT_TEAM_CONFIG } from "../../src/core/config.js";
 import type { AgentTeamConfig } from "../../src/core/types.js";
-import type { AgentProviderRuntime } from "../../src/providers/index.js";
+import { CLAUDE_CODE_CLI_PROVIDER, type AgentProviderRuntime } from "../../src/providers/index.js";
 import {
   createOpenAICompatibleRuntime,
   openAICompatibleProvider
@@ -241,6 +241,7 @@ describe("dispatchReadOnlyAgent", () => {
             allowedRoles: ["code-reviewer"]
           }
         },
+        providers: [CLAUDE_CODE_CLI_PROVIDER],
         createRunId: () => "run_policy_role_blocked",
         runtimes: [
           claudeRuntime(async () => {
@@ -255,7 +256,7 @@ describe("dispatchReadOnlyAgent", () => {
     expect(result).toMatchObject({
       runId: "run_policy_role_blocked",
       status: "failed",
-      provider: "ollama-claude-code:glm-5.2",
+      provider: "claude-code-cli",
       role: "planner"
     });
     expect(result.verdict.summary).toContain("role_not_allowed");
@@ -264,7 +265,7 @@ describe("dispatchReadOnlyAgent", () => {
         eventType: "policy_blocked",
         operation: "dispatch",
         role: "planner",
-        provider: "ollama-claude-code:glm-5.2",
+        provider: "claude-code-cli",
         decision: "blocked",
         reason: "role_not_allowed"
       }
@@ -288,6 +289,7 @@ describe("dispatchReadOnlyAgent", () => {
             allowedProviderSelectors: ["family:grok"]
           }
         },
+        providers: [CLAUDE_CODE_CLI_PROVIDER],
         createRunId: () => "run_policy_provider_blocked",
         runtimes: [
           claudeRuntime(async () => {
@@ -320,6 +322,7 @@ describe("dispatchReadOnlyAgent", () => {
         provider: "claude-code-cli"
       },
       {
+        providers: [CLAUDE_CODE_CLI_PROVIDER],
         createRunId: () => "run_policy_allowed",
         now: () => new Date("2026-05-12T10:00:00.000Z"),
         runtimes: [
@@ -364,6 +367,7 @@ describe("dispatchReadOnlyAgent", () => {
           cwd: workspace
         },
         {
+          providers: [CLAUDE_CODE_CLI_PROVIDER],
           createRunId: () => "run_policy_audit_failed",
           appendAudit: async () => {
             throw new Error("audit unavailable");
@@ -889,6 +893,7 @@ describe("dispatchReadOnlyAgent", () => {
         provider: "claude-code-cli"
       },
       {
+        providers: [CLAUDE_CODE_CLI_PROVIDER],
         createRunId: () => "run_test",
         now: () => new Date("2026-05-11T00:00:00.000Z"),
         env: {},
@@ -946,6 +951,7 @@ describe("dispatchReadOnlyAgent", () => {
         cwd: workspace
       },
       {
+        providers: [CLAUDE_CODE_CLI_PROVIDER],
         createRunId: () => "run_impl",
         runtimes: [
           claudeRuntime(async () => {
@@ -983,6 +989,7 @@ describe("dispatchReadOnlyAgent", () => {
         provider: "claude-code-cli"
       },
       {
+        providers: [CLAUDE_CODE_CLI_PROVIDER],
         createRunId: () => "run_auth",
         env: { ANTHROPIC_API_KEY: "secret" },
         runtimes: [
@@ -1024,6 +1031,7 @@ describe("dispatchReadOnlyAgent", () => {
         provider: "claude-code-cli"
       },
       {
+        providers: [CLAUDE_CODE_CLI_PROVIDER],
         createRunId: () => "run_failed",
         now: () => new Date("2026-05-11T00:00:00.000Z"),
         env: {},
@@ -1072,6 +1080,7 @@ describe("dispatchReadOnlyAgent", () => {
         provider: "claude-code-cli"
       },
       {
+        providers: [CLAUDE_CODE_CLI_PROVIDER],
         createRunId: () => "run_sync",
         env: {},
         runtimes: [

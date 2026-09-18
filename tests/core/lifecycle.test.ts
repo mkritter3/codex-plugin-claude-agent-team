@@ -12,7 +12,7 @@ import type {
   MailboxRecord,
   RunSidecar
 } from "../../src/core/types.js";
-import type { AgentProviderRuntime } from "../../src/providers/index.js";
+import { CLAUDE_CODE_CLI_PROVIDER, type AgentProviderRuntime } from "../../src/providers/index.js";
 import type {
   ProviderSessionDoneStatus,
   ProviderSessionHandle,
@@ -334,6 +334,7 @@ describe("AgentLifecycleManager", () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       createRunId: () => "run_life_1",
       now: () => new Date("2026-05-11T00:00:00.000Z"),
       startSession: () => handle
@@ -348,7 +349,7 @@ describe("AgentLifecycleManager", () => {
     expect(result).toMatchObject({
       runId: "run_life_1",
       status: "running",
-      provider: "ollama-claude-code:glm-5.2",
+      provider: "claude-code-cli",
       role: "planner"
     });
     await expect(readRunSidecar(workspace, "run_life_1")).resolves.toMatchObject({
@@ -360,6 +361,7 @@ describe("AgentLifecycleManager", () => {
 
   it("writes failed sidecar and event when provider start throws", async () => {
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       createRunId: () => "run_start_failure",
       now: () => new Date("2026-05-11T00:00:00.000Z"),
       startSession: () => {
@@ -386,6 +388,7 @@ describe("AgentLifecycleManager", () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       createRunId: () => "run_life_2",
       now: () => new Date("2026-05-11T00:00:00.000Z"),
       startSession: () => handle
@@ -432,6 +435,7 @@ describe("AgentLifecycleManager", () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       createRunId: () => "run_life_expired",
       now: () => new Date("2026-05-11T00:00:00.000Z"),
       startSession: () => handle
@@ -474,6 +478,7 @@ describe("AgentLifecycleManager", () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       createRunId: () => "run_wind_down_expired",
       now: () => new Date("2026-05-11T00:00:00.000Z"),
       windDownGraceMs: 0,
@@ -506,6 +511,7 @@ describe("AgentLifecycleManager", () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       createRunId: () => "run_life_3",
       startSession: () => handle
     });
@@ -572,6 +578,7 @@ describe("AgentLifecycleManager", () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       createRunId: () => "run_life_4",
       startSession: () => handle,
       cancelGraceMs: 0
@@ -598,6 +605,7 @@ describe("AgentLifecycleManager", () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       createRunId: () => "run_cancel_race_failed",
       startSession: () => handle,
       cancelGraceMs: 0,
@@ -630,6 +638,7 @@ describe("AgentLifecycleManager", () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       createRunId: () => "run_cancel_interrupted",
       startSession: () => handle,
       cancelGraceMs: 0,
@@ -702,6 +711,7 @@ describe("AgentLifecycleManager", () => {
     await writeRunSidecar(workspace, sidecar);
 
     const result = await new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       now: () => new Date("2026-05-11T00:02:00.000Z")
     }).windDownRun(workspace, "run_detached_wind");
 
@@ -739,6 +749,7 @@ describe("AgentLifecycleManager", () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       createRunId: () => "run_life_5",
       startSession: () => handle
     });
@@ -757,6 +768,7 @@ describe("AgentLifecycleManager", () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       createRunId: () => "run_wind_close",
       now: () => new Date("2026-05-11T00:01:30.000Z"),
       windDownGraceMs: 0,
@@ -785,6 +797,7 @@ describe("AgentLifecycleManager", () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       createRunId: () => "run_wind_reject",
       windDownGraceMs: 0,
       sleep: async () => undefined,
@@ -807,6 +820,7 @@ describe("AgentLifecycleManager", () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       createRunId: () => "run_wind_completed",
       windDownGraceMs: 50,
       startSession: () => handle
@@ -823,6 +837,7 @@ describe("AgentLifecycleManager", () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       createRunId: () => "run_wind_elapsed",
       windDownGraceMs: 1,
       sleep: async () => undefined,
@@ -857,6 +872,7 @@ describe("AgentLifecycleManager", () => {
     await writeRunSidecar(workspace, sidecar);
 
     const result = await new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       now: () => new Date("2026-05-11T00:01:00.000Z")
     }).messageRun({
       runId: "run_parent_message",
@@ -888,6 +904,7 @@ describe("AgentLifecycleManager", () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       createRunId: () => "run_live_message",
       now: () => new Date("2026-05-11T00:01:00.000Z"),
       startSession: () => handle
@@ -939,6 +956,7 @@ describe("AgentLifecycleManager", () => {
       writeSucceeds: false
     });
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       createRunId: () => "run_recorded_message",
       startSession: () => handle
     });
@@ -967,6 +985,7 @@ describe("AgentLifecycleManager", () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       createRunId: () => "run_awaiting_input",
       now: () => new Date("2026-05-11T00:02:00.000Z"),
       startSession: () => handle
@@ -1014,6 +1033,7 @@ describe("AgentLifecycleManager", () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       createRunId: () => "run_outbox_race",
       now: () => new Date("2026-05-11T00:02:00.000Z"),
       startSession: () => handle
@@ -1053,6 +1073,7 @@ describe("AgentLifecycleManager", () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       createRunId: () => "run_awaiting_reply",
       now: () => new Date("2026-05-11T00:02:30.000Z"),
       startSession: () => handle
@@ -1128,6 +1149,7 @@ describe("AgentLifecycleManager", () => {
     }> = [];
     const order: string[] = [];
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       createRunId: () => "run_reply_child",
       now: () => new Date("2026-05-11T00:02:00.000Z"),
       appendAudit: async (root, input) => {
@@ -1225,6 +1247,7 @@ describe("AgentLifecycleManager", () => {
     await writeRunSidecar(workspace, parent);
     let started = false;
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       config: {
         ...DEFAULT_AGENT_TEAM_CONFIG,
         policy: {
@@ -1291,6 +1314,7 @@ describe("AgentLifecycleManager", () => {
 
   it("rejects slice implementer runs when write mode is disabled", async () => {
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       config: {
         ...DEFAULT_AGENT_TEAM_CONFIG,
         writeMode: { enabled: false, requireIsolatedWorktree: true }
@@ -1314,6 +1338,7 @@ describe("AgentLifecycleManager", () => {
     let started = false;
     let allocated = false;
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       config: {
         ...DEFAULT_AGENT_TEAM_CONFIG,
         policy: {
@@ -1348,7 +1373,7 @@ describe("AgentLifecycleManager", () => {
         eventType: "policy_blocked",
         operation: "start",
         role: "planner",
-        provider: "ollama-claude-code:glm-5.2",
+        provider: "claude-code-cli",
         decision: "blocked",
         reason: "role_not_allowed"
       }
@@ -1358,6 +1383,7 @@ describe("AgentLifecycleManager", () => {
   it("blocks write mode denied by policy before worktree allocation", async () => {
     let allocated = false;
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       config: {
         ...DEFAULT_AGENT_TEAM_CONFIG,
         writeMode: { enabled: true, requireIsolatedWorktree: true },
@@ -1396,6 +1422,7 @@ describe("AgentLifecycleManager", () => {
   it("blocks disallowed retained worktree roots before worktree allocation", async () => {
     let allocated = false;
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       config: {
         ...DEFAULT_AGENT_TEAM_CONFIG,
         writeMode: { enabled: true, requireIsolatedWorktree: true },
@@ -1444,6 +1471,7 @@ describe("AgentLifecycleManager", () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const order: string[] = [];
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       createRunId: () => "run_policy_lifecycle_allowed",
       now: () => new Date("2026-05-12T10:00:00.000Z"),
       startSession: () => {
@@ -1475,7 +1503,7 @@ describe("AgentLifecycleManager", () => {
         eventType: "policy_allowed",
         operation: "start",
         role: "planner",
-        provider: "ollama-claude-code:glm-5.2"
+        provider: "claude-code-cli"
       }
     ]);
     expect(JSON.stringify(audit)).not.toMatch(/prompt|providerSessionId|command|payload|secret/i);
@@ -1484,6 +1512,7 @@ describe("AgentLifecycleManager", () => {
   it("fails closed before provider session when policy audit append fails", async () => {
     let started = false;
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       createRunId: () => "run_policy_audit_failed",
       appendAudit: async () => {
         throw new Error("audit unavailable");
@@ -1518,6 +1547,7 @@ describe("AgentLifecycleManager", () => {
       permissionMode?: string;
     }> = [];
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
 	      config: {
 	        schemaVersion: DEFAULT_AGENT_TEAM_CONFIG.schemaVersion,
 	        writeMode: { enabled: true, requireIsolatedWorktree: true },
@@ -1589,6 +1619,7 @@ describe("AgentLifecycleManager", () => {
 
   it("preserves isolated worktree metadata when slice provider start fails", async () => {
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
 	      config: {
 	        schemaVersion: DEFAULT_AGENT_TEAM_CONFIG.schemaVersion,
 	        writeMode: { enabled: true, requireIsolatedWorktree: true },
@@ -1635,6 +1666,7 @@ describe("AgentLifecycleManager", () => {
     const handle = fakeHandle(done.promise);
     const inspected: string[] = [];
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
 	      config: {
 	        schemaVersion: DEFAULT_AGENT_TEAM_CONFIG.schemaVersion,
 	        writeMode: { enabled: true, requireIsolatedWorktree: true },
@@ -1704,6 +1736,7 @@ describe("AgentLifecycleManager", () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
 	      config: {
 	        schemaVersion: DEFAULT_AGENT_TEAM_CONFIG.schemaVersion,
 	        writeMode: { enabled: true, requireIsolatedWorktree: true },
@@ -1752,6 +1785,7 @@ describe("AgentLifecycleManager", () => {
     const handle = fakeHandle(done.promise);
     let inspected = false;
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       createRunId: () => "run_readonly_no_inspect",
       inspectWorkspace: async () => {
         inspected = true;
@@ -1774,6 +1808,7 @@ describe("AgentLifecycleManager", () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
 	      config: {
 	        schemaVersion: DEFAULT_AGENT_TEAM_CONFIG.schemaVersion,
 	        writeMode: { enabled: true, requireIsolatedWorktree: true },
@@ -1832,6 +1867,7 @@ describe("AgentLifecycleManager", () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
 	      config: {
 	        schemaVersion: DEFAULT_AGENT_TEAM_CONFIG.schemaVersion,
 	        writeMode: { enabled: true, requireIsolatedWorktree: true },
@@ -1881,6 +1917,7 @@ describe("AgentLifecycleManager", () => {
     const done = deferred<ProviderSessionDoneStatus>();
     const handle = fakeHandle(done.promise);
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
 	      config: {
 	        schemaVersion: DEFAULT_AGENT_TEAM_CONFIG.schemaVersion,
 	        writeMode: { enabled: true, requireIsolatedWorktree: true },
@@ -1926,6 +1963,7 @@ describe("AgentLifecycleManager", () => {
     const handle = fakeHandle(done.promise);
     let inspected = false;
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       createRunId: () => "run_readonly_cancel_no_inspect",
       cancelGraceMs: 0,
       inspectWorkspace: async () => {
@@ -1970,6 +2008,7 @@ describe("AgentLifecycleManager", () => {
     await writeRunSidecar(workspace, sidecar);
     const removed: Array<{ executionCwd: string; force: boolean | undefined }> = [];
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       now: () => new Date("2026-05-11T00:11:00.000Z"),
       cleanupWorkspace: async ({ lease, force }) => {
         removed.push({ executionCwd: lease.executionCwd, force });
@@ -2036,6 +2075,7 @@ describe("AgentLifecycleManager", () => {
     });
     let cleanupCalled = false;
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       cleanupWorkspace: async () => {
         cleanupCalled = true;
         throw new Error("should not cleanup");
@@ -2080,6 +2120,7 @@ describe("AgentLifecycleManager", () => {
     });
     let cleanupCalled = false;
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       cleanupWorkspace: async () => {
         cleanupCalled = true;
         throw new Error("should not cleanup");
@@ -2142,6 +2183,7 @@ describe("AgentLifecycleManager", () => {
     });
     let cleanupCalled = false;
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       cleanupWorkspace: async () => {
         cleanupCalled = true;
         throw new Error("should not cleanup");
@@ -2179,6 +2221,7 @@ describe("AgentLifecycleManager", () => {
       workspaceCleanup: "retained"
     });
     const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
       cleanupWorkspace: async () => {
         throw new Error("git worktree remove failed");
       }
