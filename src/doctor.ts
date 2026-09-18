@@ -67,9 +67,7 @@ export interface DoctorInput {
 
 async function defaultFindExecutable(name: string): Promise<string | undefined> {
   try {
-    const { stdout } = await execFileAsync("command", ["-v", name], {
-      shell: true
-    });
+    const { stdout } = await execFileAsync("which", [name]);
     const path = stdout.trim();
     return path.length === 0 ? undefined : path;
   } catch {
@@ -234,6 +232,7 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
         pid: process.pid,
         nodeVersion,
         workflowWriteScopeAllowsEmpty: allowsReadOnlyWorkflowSlices,
+        orchestrationProtocol: 1,
         ...(allowsReadOnlyWorkflowSlices
           ? {}
           : {
@@ -441,8 +440,8 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
           }
         : {
             id: "git-worktree",
-            status: "fail",
-            message: "Git worktree support is required for isolated write mode.",
+            status: "warn",
+            message: "Git worktree support is required before starting isolated write runs.",
             details: {
               error: git.message,
               fix: "Install git and run doctor from inside a git workspace."
@@ -457,7 +456,25 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
     });
   }
 
-  const providers = input.providers ?? listProviders({ config });
+  const cliAvailability = {
+    claude: (await findExecutable("claude")) !== undefined,
+    gemini:
+      (await findExecutable(
+        (config.providers.geminiCli ?? DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli)
+          .executable
+      )) !== undefined,
+    codex:
+      (await findExecutable(
+        (config.providers.codexCli ?? DEFAULT_AGENT_TEAM_CONFIG.providers.codexCli)
+          .executable
+      )) !== undefined,
+    ollama:
+      (await findExecutable(
+        (config.providers.ollamaClaudeCode ??
+          DEFAULT_AGENT_TEAM_CONFIG.providers.ollamaClaudeCode).executable
+      )) !== undefined
+  };
+  const providers = input.providers ?? listProviders({ config, cliAvailability, env });
   const providerHealth = await readProviderHealthRecords(workspaceRoot);
   const activeDegradedProviders = providerHealth.filter((record) =>
     isProviderDegraded(record)
@@ -486,6 +503,18 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
   );
   const environmentWarnings: string[] = [];
   for (const provider of providers) {
+    if (!provider.available) {
+      checks.push({
+        id: `provider-discovery:${provider.id}`,
+        status: "warn",
+        message: `${provider.displayName} is configured but not currently available.`,
+        details: {
+          providerId: provider.id,
+          warnings: provider.warnings ?? []
+        }
+      });
+      continue;
+    }
     const runtime = getProviderRuntime(
       provider.id,
       input.runtimes === undefined ? {} : { runtimes: input.runtimes }

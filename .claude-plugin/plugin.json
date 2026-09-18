@@ -1,7 +1,7 @@
 {
   "name": "codex-plugin-claude-agent-team",
-  "description": "Provider-neutral agent team MCP plugin. Codex (or any MCP host) orchestrates durable multi-agent workflows over a slice DAG with inter-agent mailboxes, isolated write worktrees, and slice-review-before-integration. Primary v1 provider is Claude Code CLI subscription OAuth; adapters also cover codex-cli, gemini, grok, openai-compatible, ollama-cloud, and ollama-claude-code. Use alongside codex-paired-superpowers (v0.10.1+) which contributes the spec/plan workflow + audit gate; this plugin contributes the execution runtime.",
-  "version": "0.1.2",
+  "description": "Provider-neutral agent team MCP plugin. Codex (or any MCP host) orchestrates durable multi-agent workflows over a slice DAG with inter-agent mailboxes, isolated write worktrees, and slice-review-before-integration. Adapters cover Claude Code CLI subscription OAuth, codex-cli, gemini, grok, openai-compatible, ollama-cloud, and ollama-claude-code. Use alongside codex-paired-superpowers (v0.10.1+) which contributes the spec/plan workflow + audit gate; this plugin contributes the execution runtime.",
+  "version": "0.1.5",
   "author": { "name": "mkritter3", "url": "https://github.com/mkritter3" },
   "homepage": "https://github.com/mkritter3/codex-plugin-claude-agent-team",
   "license": "MIT",

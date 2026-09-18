@@ -19,8 +19,8 @@ const claudeProvider: AgentProviderDescriptor = {
 };
 
 const ollamaProvider: AgentProviderDescriptor = {
-  id: "ollama-claude-code:kimi-k2.6",
-  displayName: "Kimi K2.6",
+  id: "ollama-claude-code:kimi-k2.7-code",
+  displayName: "Kimi K2.7 Code",
   authMode: "api-key",
   capabilities: ["structuredOutput", "longContext"],
   available: true

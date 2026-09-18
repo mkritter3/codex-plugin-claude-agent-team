@@ -24,10 +24,10 @@ function providerCapabilities(
   if (provider.writeValidated && provider.capabilities.tools) {
     capabilities.push("tools");
   }
-  if (provider.writeValidated && provider.capabilities.sessionResume) {
+  if ((provider.writeValidated || provider.driver === "agy") && provider.capabilities.sessionResume) {
     capabilities.push("sessionResume");
   }
-  if (provider.writeValidated && provider.capabilities.cancellation) {
+  if ((provider.writeValidated || provider.driver === "agy") && provider.capabilities.cancellation) {
     capabilities.push("cancellation");
   }
   if (provider.writeValidated && provider.capabilities.edits) {
@@ -44,15 +44,11 @@ function providerWarnings(provider: GeminiCliProviderConfig): readonly string[] 
   if (provider.executable.trim().length === 0) {
     warnings.push("Gemini CLI provider is missing executable.");
   }
-  if (provider.model === undefined) {
-    warnings.push("Gemini CLI provider is missing model.");
-  }
   if (
     !provider.writeValidated &&
     (provider.capabilities.tools ||
       provider.capabilities.edits ||
-      provider.capabilities.sessionResume ||
-      provider.capabilities.cancellation ||
+      (provider.driver !== "agy" && (provider.capabilities.sessionResume || provider.capabilities.cancellation)) ||
       provider.capabilities.workspaceIsolation)
   ) {
     warnings.push("Gemini CLI provider declares write capabilities without writeValidated.");
@@ -64,7 +60,8 @@ function providerWarnings(provider: GeminiCliProviderConfig): readonly string[] 
 }
 
 export function geminiCliProviderDescriptor(
-  config: AgentTeamConfig
+  config: AgentTeamConfig,
+  options: { readonly executableAvailable?: boolean } = {}
 ): AgentProviderDescriptor {
   const provider =
     config.providers.geminiCli ?? DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli;
@@ -75,16 +72,26 @@ export function geminiCliProviderDescriptor(
     displayName: provider.displayName ?? "Gemini CLI",
     authMode: "oauth",
     capabilities,
-    available: warnings.length === 0,
+    available: (options.executableAvailable ?? true) && warnings.length === 0,
     ...(provider.model === undefined ? {} : { model: provider.model }),
-    ...(warnings.length === 0 ? {} : { warnings })
+    ...(warnings.length === 0 && options.executableAvailable !== false
+      ? {}
+      : {
+          warnings: [
+            ...warnings,
+            ...(options.executableAvailable === false
+              ? [`Gemini CLI executable ${provider.executable} was not found on PATH.`]
+              : [])
+          ]
+        })
   };
 }
 
 export function geminiCliProvider(
-  config: AgentTeamConfig
+  config: AgentTeamConfig,
+  options: { readonly executableAvailable?: boolean } = {}
 ): AgentProviderDescriptor | undefined {
   const provider =
     config.providers.geminiCli ?? DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli;
-  return provider.enabled ? geminiCliProviderDescriptor(config) : undefined;
+  return provider.enabled ? geminiCliProviderDescriptor(config, options) : undefined;
 }

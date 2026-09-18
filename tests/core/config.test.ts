@@ -17,13 +17,19 @@ describe("loadAgentTeamConfig", () => {
     );
   });
 
-  it("defaults provider routing policy to no role pins or provider order", async () => {
+  it("defaults provider routing policy to prefer Ollama-native Claude Code", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "agent-team-config-"));
 
     await expect(loadAgentTeamConfig(workspace)).resolves.toMatchObject({
       routing: {
         rolePins: {},
-        providerOrder: []
+        providerOrder: [
+          "family:ollama-claude-code",
+          "claude-code-cli",
+          "family:ollama-cloud",
+          "gemini-cli",
+          "codex-cli"
+        ]
       }
     });
   });
@@ -123,7 +129,7 @@ describe("loadAgentTeamConfig", () => {
       schemaVersion: 1,
       writeMode: { enabled: true, requireIsolatedWorktree: true },
       auth: { allowApiKeyFallback: false },
-      routing: { rolePins: {}, providerOrder: [] },
+      routing: DEFAULT_AGENT_TEAM_CONFIG.routing,
       providers: DEFAULT_AGENT_TEAM_CONFIG.providers,
       seniorReview: DEFAULT_AGENT_TEAM_CONFIG.seniorReview,
       policy: DEFAULT_AGENT_TEAM_CONFIG.policy
@@ -329,7 +335,7 @@ describe("loadAgentTeamConfig", () => {
           openaiCompatible: {
             enabled: true,
             baseUrl: "https://ollama.example/v1",
-            model: "kimi-k2.6",
+            model: "kimi-k2.7-code",
             apiKeyEnv: "OLLAMA_CLOUD_API_KEY",
             displayName: "Ollama Cloud",
             capabilities: {
@@ -347,7 +353,7 @@ describe("loadAgentTeamConfig", () => {
         openaiCompatible: {
           enabled: true,
           baseUrl: "https://ollama.example/v1",
-          model: "kimi-k2.6",
+          model: "kimi-k2.7-code",
           apiKeyEnv: "OLLAMA_CLOUD_API_KEY",
           displayName: "Ollama Cloud",
           capabilities: {
@@ -437,6 +443,39 @@ describe("loadAgentTeamConfig", () => {
     });
   });
 
+  it("defaults direct Ollama Claude Code API mode to the remote Ollama endpoint", async () => {
+    const workspace = await mkdtemp(join(tmpdir(), "agent-team-config-"));
+    await mkdir(join(workspace, ".agent-team"), { recursive: true });
+    await writeFile(
+      join(workspace, ".agent-team", "config.json"),
+      JSON.stringify({
+        providers: {
+          ollamaClaudeCode: {
+            enabled: true,
+            launchMode: "direct-api",
+            profiles: [
+              {
+                id: "glm-5.2",
+                model: "glm-5.2",
+                capabilities: { structuredOutput: true }
+              }
+            ]
+          }
+        }
+      }),
+      "utf8"
+    );
+
+    await expect(loadAgentTeamConfig(workspace)).resolves.toMatchObject({
+      providers: {
+        ollamaClaudeCode: {
+          launchMode: "direct-api",
+          baseUrl: "https://ollama.com"
+        }
+      }
+    });
+  });
+
   it("loads explicit Ollama Cloud profiles without inferring env fallback", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "agent-team-config-"));
     await mkdir(join(workspace, ".agent-team"), { recursive: true });
@@ -448,22 +487,22 @@ describe("loadAgentTeamConfig", () => {
             enabled: true,
             profiles: [
               {
-                id: "kimi-k2.6",
+                id: "kimi-k2.7-code",
                 baseUrl: "https://ollama.example/v1",
-                model: "kimi-k2.6",
+                model: "kimi-k2.7-code",
                 apiKeyEnv: "KIMI_API_KEY",
-                displayName: "Kimi K2.6",
+                displayName: "Kimi K2.7 Code",
                 capabilities: {
                   structuredOutput: true,
                   longContext: true
                 }
               },
               {
-                id: "glm-5.1",
+                id: "glm-5.2",
                 baseUrl: "https://ollama.example/v1",
-                model: "glm-5.1",
+                model: "glm-5.2",
                 apiKeyEnv: "GLM_API_KEY",
-                displayName: "GLM 5.1",
+                displayName: "GLM 5.2",
                 capabilities: {
                   structuredOutput: true
                 }
@@ -481,11 +520,11 @@ describe("loadAgentTeamConfig", () => {
           enabled: true,
           profiles: [
             {
-              id: "kimi-k2.6",
+              id: "kimi-k2.7-code",
               baseUrl: "https://ollama.example/v1",
-              model: "kimi-k2.6",
+              model: "kimi-k2.7-code",
               apiKeyEnv: "KIMI_API_KEY",
-              displayName: "Kimi K2.6",
+              displayName: "Kimi K2.7 Code",
               capabilities: {
                 structuredOutput: true,
                 longContext: true,
@@ -493,11 +532,11 @@ describe("loadAgentTeamConfig", () => {
               }
             },
             {
-              id: "glm-5.1",
+              id: "glm-5.2",
               baseUrl: "https://ollama.example/v1",
-              model: "glm-5.1",
+              model: "glm-5.2",
               apiKeyEnv: "GLM_API_KEY",
-              displayName: "GLM 5.1",
+              displayName: "GLM 5.2",
               capabilities: {
                 structuredOutput: true,
                 longContext: false,
@@ -693,7 +732,7 @@ describe("loadAgentTeamConfig", () => {
               {
                 id: "kimi",
                 baseUrl: "https://ollama.example/v1",
-                model: "kimi-k2.6",
+                model: "kimi-k2.7-code",
                 apiKeyEnv: "KIMI_API_KEY",
                 capabilities: { structuredOutput: true, tools: true }
               }

@@ -23,7 +23,7 @@ describe("provider health store", () => {
   it("persists and reloads provider health records by provider id", async () => {
     const root = await tempRoot();
     await upsertProviderHealthRecord(root, {
-      providerId: "ollama-claude-code:kimi-k2.6",
+      providerId: "ollama-claude-code:kimi-k2.7-code",
       status: "degraded",
       reason: "rate_limited",
       failureCount: 1,
@@ -44,7 +44,7 @@ describe("provider health store", () => {
     await expect(readProviderHealthRecords(root)).resolves.toEqual([
       expect.objectContaining({ providerId: "gemini-cli", status: "healthy" }),
       expect.objectContaining({
-        providerId: "ollama-claude-code:kimi-k2.6",
+        providerId: "ollama-claude-code:kimi-k2.7-code",
         status: "degraded",
         reason: "rate_limited",
         degradedUntil: "2026-05-13T10:30:00.000Z"

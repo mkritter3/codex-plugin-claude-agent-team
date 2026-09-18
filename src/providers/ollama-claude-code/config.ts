@@ -1,6 +1,7 @@
 import type {
   AgentProviderDescriptor,
   AgentTeamConfig,
+  OllamaClaudeCodeLaunchMode,
   OllamaClaudeCodeProfileConfig,
   ProviderCapability
 } from "../../core/types.js";
@@ -34,6 +35,19 @@ export function resolveOllamaClaudeCodeProfile(
   return config.providers.ollamaClaudeCode.profiles.find(
     (profile) => profile.id === profileId
   );
+}
+
+export function ollamaClaudeCodeSettings(
+  config: AgentTeamConfig
+): AgentTeamConfig["providers"]["ollamaClaudeCode"] {
+  return {
+    ...DEFAULT_AGENT_TEAM_CONFIG.providers.ollamaClaudeCode,
+    ...config.providers.ollamaClaudeCode
+  };
+}
+
+function isDirectApiLaunchMode(launchMode: OllamaClaudeCodeLaunchMode): boolean {
+  return launchMode === "direct-api";
 }
 
 function profileCapabilities(
@@ -71,12 +85,19 @@ function profileWarnings(
   config: AgentTeamConfig,
   profile: OllamaClaudeCodeProfileConfig
 ): readonly string[] {
+  const settings = ollamaClaudeCodeSettings(config);
   const warnings: string[] = [];
-  if (config.providers.ollamaClaudeCode.baseUrl === undefined) {
+  if (settings.baseUrl === undefined) {
     warnings.push("Ollama Claude Code provider is missing baseUrl.");
   }
-  if (config.providers.ollamaClaudeCode.apiKeyEnv.trim().length === 0) {
+  if (isDirectApiLaunchMode(settings.launchMode) && settings.apiKeyEnv.trim().length === 0) {
     warnings.push("Ollama Claude Code provider is missing apiKeyEnv.");
+  }
+  if (!isDirectApiLaunchMode(settings.launchMode) && settings.authToken.trim().length === 0) {
+    warnings.push("Ollama Claude Code provider is missing authToken.");
+  }
+  if (settings.launchMode === "ollama-launch" && settings.executable.trim().length === 0) {
+    warnings.push("Ollama Claude Code launch mode is missing executable.");
   }
   if (profile.model === undefined) {
     warnings.push(`Ollama Claude Code profile ${profile.id} is missing model.`);
@@ -99,27 +120,53 @@ function profileWarnings(
 
 export function ollamaClaudeCodeProfileDescriptor(
   config: AgentTeamConfig,
-  profile: OllamaClaudeCodeProfileConfig
+  profile: OllamaClaudeCodeProfileConfig,
+  options: {
+    readonly env?: NodeJS.ProcessEnv;
+    readonly ollamaAvailable?: boolean;
+    readonly claudeAvailable?: boolean;
+  } = {}
 ): AgentProviderDescriptor {
+  const settings = ollamaClaudeCodeSettings(config);
   const capabilities = profileCapabilities(profile);
   const warnings = profileWarnings(config, profile);
+  const env = options.env ?? process.env;
+  const authPresent = (env[settings.apiKeyEnv] ?? "").trim().length > 0;
+  const authWarnings = isDirectApiLaunchMode(settings.launchMode) && !authPresent
+    ? [`Ollama Claude Code profile ${profile.id} auth env ${settings.apiKeyEnv} is missing.`]
+    : [];
+  const launchWarnings =
+    settings.launchMode === "ollama-launch" && options.ollamaAvailable === false
+      ? ["Ollama Claude Code launch mode requires the ollama CLI on PATH."]
+      : [];
+  const claudeWarnings =
+    options.claudeAvailable === false
+      ? ["Ollama Claude Code requires the claude CLI on PATH."]
+      : [];
+  const combinedWarnings = [...warnings, ...authWarnings, ...launchWarnings, ...claudeWarnings];
   return {
     id: ollamaClaudeCodeProviderId(profile.id),
     displayName: profile.displayName ?? `Ollama Claude Code ${profile.model ?? profile.id}`,
-    authMode: "api-key",
+    authMode: isDirectApiLaunchMode(settings.launchMode) ? "api-key" : "ollama-local",
     capabilities,
-    available: warnings.length === 0,
+    available: combinedWarnings.length === 0,
     ...(profile.model === undefined ? {} : { model: profile.model }),
-    ...(warnings.length === 0 ? {} : { warnings })
+    ...(combinedWarnings.length === 0
+      ? {}
+      : { warnings: combinedWarnings })
   };
 }
 
 export function listOllamaClaudeCodeProviders(
-  config: AgentTeamConfig
+  config: AgentTeamConfig,
+  options: {
+    readonly env?: NodeJS.ProcessEnv;
+    readonly ollamaAvailable?: boolean;
+    readonly claudeAvailable?: boolean;
+  } = {}
 ): readonly AgentProviderDescriptor[] {
   const ollamaClaudeCode =
-    config.providers.ollamaClaudeCode ??
-    DEFAULT_AGENT_TEAM_CONFIG.providers.ollamaClaudeCode;
+    ollamaClaudeCodeSettings(config);
   if (!ollamaClaudeCode.enabled) {
     return [];
   }
@@ -131,25 +178,45 @@ export function listOllamaClaudeCodeProviders(
     seen.add(profile.id);
   }
   return ollamaClaudeCode.profiles.map((profile) =>
-    ollamaClaudeCodeProfileDescriptor(config, profile)
+    ollamaClaudeCodeProfileDescriptor(config, profile, options)
   );
 }
 
 export function scopedOllamaClaudeCodeEnv(input: {
   readonly env: NodeJS.ProcessEnv;
+  readonly launchMode: OllamaClaudeCodeLaunchMode;
   readonly baseUrl: string;
+  readonly authToken: string;
   readonly apiKeyEnv: string;
 }): NodeJS.ProcessEnv {
   const token = input.env[input.apiKeyEnv];
+  const {
+    ANTHROPIC_API_KEY: _anthropicApiKey,
+    ANTHROPIC_AUTH_TOKEN: _anthropicAuthToken,
+    ANTHROPIC_BASE_URL: _anthropicBaseUrl,
+    CLAUDE_CODE_OAUTH_TOKEN: _claudeCodeOauthToken,
+    OLLAMA_API_KEY: _ollamaApiKey,
+    ...envWithoutKnownAuth
+  } = input.env;
+  const baseEnv: NodeJS.ProcessEnv = { ...envWithoutKnownAuth };
+  delete baseEnv[input.apiKeyEnv];
+  if (isDirectApiLaunchMode(input.launchMode)) {
+    return {
+      ...baseEnv,
+      ANTHROPIC_BASE_URL: input.baseUrl,
+      ANTHROPIC_API_KEY: "",
+      ...(token === undefined || token.trim().length === 0
+        ? {}
+        : {
+            OLLAMA_API_KEY: token,
+            ANTHROPIC_AUTH_TOKEN: token
+          })
+    };
+  }
   return {
-    ...input.env,
+    ...baseEnv,
     ANTHROPIC_BASE_URL: input.baseUrl,
-    ...(token === undefined || token.trim().length === 0
-      ? {}
-      : {
-          OLLAMA_API_KEY: token,
-          ANTHROPIC_AUTH_TOKEN: token,
-          ANTHROPIC_API_KEY: ""
-        })
+    ANTHROPIC_AUTH_TOKEN: input.authToken,
+    ANTHROPIC_API_KEY: ""
   };
 }

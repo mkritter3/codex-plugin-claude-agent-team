@@ -1,8 +1,39 @@
 # Changelog
 
-All notable changes to this private local plugin are recorded here.
+All notable changes to this local plugin are recorded here.
 
 ## Unreleased
+
+- Made distribution verification work from standalone checkouts while retaining optional strict personal-marketplace validation, refreshed compatible dependency fixes, and excluded local environment files from Git.
+- Added workflow-specific native/provider orchestration policies, explicit sole-reviewer or unanimous-panel authority, artifact-bound votes, and validation against completed external runs.
+- Added native assignment preparation, matching active-session reuse for planning/implementation, per-slice implementation overrides, native completion evidence and independent native review through the existing integration path.
+- Added an optional AGY driver to the Gemini CLI adapter, with plan/accept-edits modes, sandboxing, result validation and conversation resumption. AGY write validation remains opt-in.
+- Added operator guidance for economical model selection, bounded context, session reuse and CLI maintenance. Legacy workflows remain compatible.
+
+
+## 0.1.5
+
+- Added a native distribution verifier and workspace marketplace guard so the Codex plugin install path, bundled MCP config, package files, first-run docs, and `/reload-plugins` recovery instructions are checked in CI.
+- Added a packed cold-install package smoke that extracts the tarball with no `node_modules`, launches through `scripts/start-mcp.sh`, and verifies a real MCP stdio connection.
+- Added first-run lockfile validation to install preflight and changed the handoff wording so native Codex plugin install/reload is the primary path while manual MCP config is fallback-only.
+- Refreshed lockfiles to patched transitive dependency versions and made `package-lock.json` / `npm-shrinkwrap.json` equality part of distribution verification.
+
+## 0.1.4
+
+- Fixed native Codex plugin MCP startup by adding `cwd: "."` and `startup_timeout_sec: 120` to the bundled `agent-team` stdio server config, then teaching install/package smoke checks to reject relative launchers without a plugin-root cwd or first-run startup budget.
+- Added a packed `npm-shrinkwrap.json` so tarball-style clean installs have the lock source required by the first-run `npm ci` launcher.
+- Hardened Ollama provider auth isolation: explicit env objects no longer fall back to ambient process env, Ollama Claude Code harness launches scrub Claude OAuth and ambient Anthropic auth values, native local launch mode strips direct API keys, and duplicated `model:*` selectors fail closed instead of silently choosing the wrong Ollama family.
+- Auto-listed Ollama Claude Code harness profiles (`ollama-claude-code:glm-5.2` and `ollama-claude-code:kimi-k2.7-code`) through Ollama-native Claude Code launch (`ollama launch claude --model ... --yes -- ...`); the default mode uses local Ollama auth, while explicit `direct-api` mode remains the API-key-gated fallback.
+- Marked `ollama-claude-code:glm-5.2` and `ollama-claude-code:kimi-k2.7-code` write-validated after the 2026-06-28 packaged MCP native Ollama write proofs.
+- Kept omitted `direct-api` Ollama Claude Code profiles read-only despite native launch write validation, because the 2026-06-28 proofs cover `ollama-launch` only.
+- Added `claude-code-cli:opus` as a default read-only senior review profile and documented that built-in subagents are only a fallback when the Agent Team MCP transport is unavailable, not a substitute for plugin workflow proof.
+- Changed default provider order to prefer Ollama-native Claude Code for read-oriented routing and exact write-validated Ollama profiles for bounded isolated implementation; unvalidated Ollama profiles still fall through to other write-capable providers.
+- Hardened native launcher startup so packaged installs can run without `npm` when `node_modules/` and `dist/` already exist, and fail clearly when Node.js is below 22.
+- Changed native Ollama doctor checks to warn that local sign-in/cloud model access requires exact live proof instead of treating CLI presence as a completed model-access proof.
+- Changed Codex MCP startup to use `scripts/start-mcp.sh` from `.mcp.json`, so a local plugin install can perform the one-time dependency install/build automatically instead of failing when gitignored `dist/` is absent.
+- Updated install preflight and package smoke checks to treat the first-run launcher as the install contract, while still reporting whether the built runtime cache already exists.
+- Changed the default workspace posture to isolated-write capable, auto-configured Claude/Gemini/Codex CLI workers. Gemini CLI and Codex CLI no longer require manual `enabled` flags or model pins; installed executables are discovered and missing CLIs are reported as unavailable instead of blocking other providers.
+- Auto-listed Ollama Cloud read-only profiles (`glm-5.2` and `kimi-k2.7-code`) against `https://ollama.com/v1`; they become available when `OLLAMA_API_KEY` is present and otherwise remain visible as unavailable without blocking local CLI workers.
 
 ## 0.1.2
 

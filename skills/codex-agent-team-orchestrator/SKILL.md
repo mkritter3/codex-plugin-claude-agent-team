@@ -5,7 +5,7 @@ description: Use when the user asks Codex to delegate work to Agent Team, coordi
 
 # Codex Agent Team Orchestrator
 
-Use this skill to operate Agent Team directly from Codex through MCP tools. Codex remains the senior engineer, orchestrator, reviewer, integrator, and final authority.
+Use this skill to operate Agent Team directly from Codex through MCP tools. The active Codex session coordinates execution and integration. The selected sole reviewer or unanimous panel has decision authority; the coordinator never overrides its verdicts.
 
 ## Product Path
 
@@ -26,16 +26,24 @@ Use this skill when a request benefits from one or more independently addressabl
 
 Keep the user focused on CEO/product-level decisions: user impact, release posture, cost, practical risk, trust, and product tradeoffs. Codex owns routine technical calls.
 
+## Operator Discovery
+
+Before using Agent Team, verify that the current Codex session exposes the public MCP tools. Use `tool_search` for `agent_team_doctor` or another `agent_team_*` tool when the tools are not already visible. If no `agent_team_*` tools are callable, the plugin MCP is not loaded in this session; tell the user to run `/reload-plugins` or restart Codex before claiming direct Agent Team orchestration is available.
+
+When debugging or changing Agent Team itself, read the source repo, not only this skill. The skill path is normally in the installed cache, while the editable source repo is the current workspace or local plugin marketplace checkout. Compare source repo and installed cache when behavior differs, then rebuild/reinstall/reload before trusting the live tool surface.
+
+If a tool call returns `Transport closed`, treat it as a live MCP transport failure. Run the install preflight and stdio smoke from the installed cache or source repo when shell access is available, then reload/restart Codex and rerun `agent_team_doctor`; native subagents are a supported execution route, but they do not replace the durable MCP workflow record. Restore the MCP connection before claiming workflow gates, provider routing, mailbox steering or cleanup are recorded.
+
 ## Direct MCP Orchestration Loop
 
 1. Run `agent_team_doctor` for the target workspace before live dispatch and check policy fields such as `allowedRoles`, `allowedProviderSelectors`, `allowWriteMode`, and `allowedWorktreeRoots`.
-2. Create a durable workflow with `agent_team_create_workflow`.
-3. Record planning consensus with `agent_team_plan_consensus`.
-4. Start ready slices with `agent_team_start_slices`, using bounded concurrency.
+2. Create a durable workflow with `agent_team_create_workflow`, then select planning/review decision makers and an implementation default with `agent_team_configure_orchestration`. Read [native and cross-provider orchestration](references/orchestration.md) for exact schemas and execution boundaries.
+3. Call `agent_team_prepare_assignments` for planning. Reuse a runtime-confirmed matching active model/effort; otherwise use host-native agents or the exact provider. Record their artifact-bound votes with `agent_team_plan_consensus`.
+4. Prepare implementation assignments. Use native host tools for native routes and `agent_team_start_slices` for provider routes, with bounded concurrency. Record native results through `agent_team_record_native_implementation`.
 5. Monitor progress with `agent_team_status_many`, `agent_team_summary`, `agent_team_get_workflow`, or `agent_team_dashboard`.
 6. Steer in-flight agents with `agent_team_message_many` when their transport supports mailbox steering.
 7. Unblock dependency-gated slices with `agent_team_unblock_slice` and concrete dependency evidence.
-8. Review each slice with `agent_team_review_slice`.
+8. Prepare independent review assignments, gather every selected vote on the same revision, then record them with `agent_team_review_slice`.
 9. Read merge order and risk with `agent_team_integration_queue`.
 10. Integrate manually as Codex after reviewing retained isolated worktrees and diffs.
 11. Record integration and final verification with `agent_team_record_integration`.
@@ -48,29 +56,36 @@ Batch calls must preserve ordered per-item results, partial-failure evidence, pe
 
 `agent_team_start_slices` returns per-slice evidence that Codex should retain in the working notes: `runId`, `sidecarPath`, `logPath`, `transcriptPath`, and `mailboxPaths`. Treat those paths as the durable handoff contract for status polling, review, mailbox steering, and cleanup.
 
-After rebuilding or reinstalling the plugin, use `/reload-plugins` or restart Codex, then rerun `agent_team_doctor`. The live server should report `mcp-runtime.details.workflowWriteScopeAllowsEmpty: true`; if it does not, or if Agent Team tools return `Transport closed`, reload/restart before continuing. stale Agent Team MCP server processes can keep serving old schemas even when the repo build is current, so treat `mcp-runtime` as the direct MCP schema proof for the running server.
+After rebuilding or reinstalling the plugin, use `/reload-plugins` or restart Codex, then rerun `agent_team_doctor`. The live server should report `mcp-runtime.details.workflowWriteScopeAllowsEmpty: true`; if it does not, or if Agent Team tools return `Transport closed`, reload/restart before continuing. Because stale Agent Team MCP server processes can keep serving old schemas even when the repo build is current, treat `mcp-runtime` as the direct MCP schema proof for the running server.
 
 ## Planning Rules
 
-Planning is consensus-driven, not yes-man approval. Each role advocates from its specialty. Use 10 rounds by default, up to 15 only when the team is close and one or two issues remain. Escalate unresolved material disagreement after 15 rounds.
+Planning is consensus-driven, not yes-man approval. Each role advocates from its specialty. Stop as soon as the selected authority approves. The limit is 10 rounds by default, up to 15 only when the team is close and one or two issues remain. Never spend rounds merely to reach the limit. Escalate unresolved material disagreement after 15 rounds.
 
-Claude Opus senior review is default-on when available and required by policy. If unavailable, record degraded evidence and notify the user instead of blocking forever.
+For configured workflows, the explicit decision roster replaces legacy Opus defaults. Do not add an extra Opus or Astra seat. If the sole selected reviewer is Astra, Astra decides. If the user chooses a panel, every member must approve; unavailable members do not disappear from the roster.
 
 No provider should make benchmark, model-quality, provider-ranking, or capability claims unless backed by explicit opt-in live proof for that exact claim. Keep no provider ranking as the default posture.
 
 ## Provider Routing
 
-Route by role and capability, not brand preference. Keep Claude Code CLI subscription OAuth as the primary v1 transport when available. Use provider selectors and workspace policy instead of hard-coded credentials.
+Honor explicit native/provider assignments first. Preserve the user-selected coordinator, including Astra for visual work. Native planning reuses the active model only when model and effort match; independent review remains separate. For legacy or unpinned advisory calls, the built-in provider order prefers Ollama-native Claude Code first for read-oriented roles, then Claude Code CLI, Ollama Cloud chat-completions, Gemini CLI, and Codex CLI. Use provider selectors and workspace policy instead of hard-coded credentials.
 
-Useful defaults:
+For Claude Code CLI profiles, omitting `providers.claudeCodeCli.profiles` inherits the built-in Opus profile. Set `profiles: []` intentionally disables that default senior-review profile.
 
-- Opus or an equivalent senior reasoning profile: architecture, planning, high-complexity review, final senior sign-off.
+Legacy provider defaults (the configured decision roster takes precedence):
+
+- Claude Code CLI Opus (`claude-code-cli:opus`): default read-only senior review profile for architecture, planning, high-complexity review, and final senior sign-off when Claude Code CLI is available.
 - Sonnet, Codex, or another write-validated senior implementer: bounded implementation in retained isolated worktrees.
 - Haiku or another fast low-risk profile: search-style reconnaissance, summarization, and documentation lookup.
 - Gemini: UI and UX implementation or review when write validation is enabled.
-- Kimi K2.6, GLM 5.1, and DeepSeek through Ollama Cloud: junior implementation or review when the provider is healthy and write validation is enabled.
+- GLM 5.2 through Ollama-native Claude Code (`ollama-claude-code:glm-5.2`): preferred junior implementation or review when doctor shows local Ollama and Claude Code are ready and the provider is healthy; isolated implementation still requires normal write-mode policy.
+- Kimi K2.7 Code through Ollama-native Claude Code (`ollama-claude-code:kimi-k2.7-code`): research, review, or bounded junior implementation when doctor shows local Ollama and Claude Code are ready and the provider is healthy; isolated implementation still requires normal write-mode policy.
+
+Ollama Claude Code defaults to `launchMode: "ollama-launch"`, which uses the locally authenticated Ollama installation and does not require `OLLAMA_API_KEY` when Ollama is already signed in. Doctor can verify local CLIs and warns that cloud model access is not live-proved until an opt-in model smoke succeeds. `launchMode: "direct-api"` is the explicit fallback for direct remote API access and is the only Ollama Claude Code mode that requires `OLLAMA_API_KEY`.
 
 If a provider becomes unstable, record cooldown or degraded evidence and prefer healthier providers until a later doctor check or live proof restores confidence. Do not silently fall back to API keys unless workspace config explicitly allows it.
+
+For Ollama Claude Code, prefer exact provider ids or `family:ollama-claude-code`. Do not use broad `model:*` selectors for GLM/Kimi when both `ollama-cloud:*` and `ollama-claude-code:*` families are configured; ambiguous selectors fail closed by design.
 
 ## Steering
 
@@ -80,7 +95,7 @@ If a transport cannot receive mid-flight steering, record that limitation and st
 
 ## Integration
 
-Implementation agents write only in retained isolated worktrees. Codex reviews one slice at a time, checks changed files and test evidence, and decides how to integrate. The plugin reports queue order and evidence; it does not automatically merge.
+Implementation agents write only in retained isolated worktrees. The selected authority reviews each slice; Codex checks its approval, changed files, test evidence and current artifact digest, then integrates. The plugin reports queue order and evidence; it does not automatically merge.
 
 Every integrated slice needs durable verification evidence before it can be treated as complete. Test-first and test-hardening slices are first-class work, not optional polish.
 

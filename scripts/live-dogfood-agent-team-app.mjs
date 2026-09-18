@@ -52,13 +52,13 @@ const BASE_PROVIDER_SELECTORS = [
   "claude-code-cli:opus",
   "gemini-cli",
   "codex-cli",
-  "ollama-claude-code:kimi-k2.6"
+  "ollama-claude-code:glm-5.2"
 ];
 
 const KNOWN_LIMITATIONS = [
   "This dogfood run proves the workflow/control-plane can coordinate real provider-backed app slices in a disposable fixture; it does not compare providers or evaluate model quality.",
   "Codex-owned integration copies only whitelisted files from retained worktrees, then records final verification evidence.",
-  "Ollama junior documentation work is included only when Ollama Cloud credentials are configured and --include-optional-ollama is passed.",
+  "Ollama junior documentation work is included only when --include-optional-ollama is passed and the local Ollama Claude Code provider is healthy.",
   "Live provider use is operator-triggered and is not part of CI."
 ];
 
@@ -80,9 +80,8 @@ const SLICE_PROVIDER_PLAN = [
 const OPTIONAL_OLLAMA_PROOF = {
   sliceId: "slice_junior_docs",
   ownerRole: "slice-implementer",
-  providerSelector: "ollama-claude-code:kimi-k2.6",
-  files: ["README.md"],
-  optionalEnv: "OLLAMA_API_KEY"
+  providerSelector: "ollama-claude-code:glm-5.2",
+  files: ["README.md"]
 };
 
 function args() {
@@ -321,15 +320,16 @@ async function writeFixtureConfig(root, allowedWorktreeRoot) {
             ? {
                 ollamaClaudeCode: {
                   enabled: true,
-                  executable: "claude",
-                  baseUrl: "https://ollama.com",
+                  launchMode: "ollama-launch",
+                  baseUrl: "http://localhost:11434",
+                  authToken: "ollama",
+                  executable: "ollama",
                   apiKeyEnv: "OLLAMA_API_KEY",
                   profiles: [
                     {
-                      id: "kimi-k2.6",
-                      baseUrl: "https://ollama.com",
-                      model: "kimi-k2.6",
-                      displayName: "Kimi K2.6 Junior Worker",
+                      id: "glm-5.2",
+                      model: "glm-5.2:cloud",
+                      displayName: "GLM 5.2 Junior Worker",
                       writeValidated: true,
                       capabilities: {
                         structuredOutput: true,
@@ -367,7 +367,7 @@ async function writeFixtureConfig(root, allowedWorktreeRoot) {
             "docs-dx-writer"
           ],
           allowedProviderSelectors: BASE_PROVIDER_SELECTORS.filter(
-            (provider) => provider !== "ollama-claude-code:kimi-k2.6" || includeOllama
+            (provider) => provider !== OPTIONAL_OLLAMA_PROOF.providerSelector || includeOllama
           ),
           allowWriteMode: true,
           allowedWorktreeRoots: [allowedWorktreeRoot],
@@ -516,7 +516,7 @@ function enabledSlicePlans() {
 }
 
 function optionalOllamaEnabled() {
-  return process.env.OLLAMA_API_KEY !== undefined && hasFlag("--include-optional-ollama");
+  return hasFlag("--include-optional-ollama");
 }
 
 async function startSlices(client, fixtureRoot, timeoutMs) {
@@ -780,10 +780,7 @@ async function runOptionalOllamaProof(client, fixtureRoot, timeoutMs) {
     return {
       status: "skipped",
       providerSelector: OPTIONAL_OLLAMA_PROOF.providerSelector,
-      reason:
-        process.env.OLLAMA_API_KEY === undefined
-          ? "Ollama Cloud credentials were not configured."
-          : "--include-optional-ollama was not passed."
+      reason: "--include-optional-ollama was not passed."
     };
   }
 

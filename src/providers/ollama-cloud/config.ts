@@ -70,28 +70,43 @@ function profileWarnings(profile: OllamaCloudProfileConfig): readonly string[] {
 }
 
 export function ollamaCloudProfileDescriptor(
-  profile: OllamaCloudProfileConfig
+  profile: OllamaCloudProfileConfig,
+  options: { readonly env?: NodeJS.ProcessEnv } = {}
 ): AgentProviderDescriptor {
   const capabilities = profileCapabilities(profile);
   const warnings = profileWarnings(profile);
+  const env = options.env ?? process.env;
+  const authPresent =
+    profile.apiKeyEnv === undefined
+      ? false
+      : (env[profile.apiKeyEnv] ?? "").trim().length > 0;
+  const authWarnings =
+    profile.apiKeyEnv === undefined || authPresent
+      ? []
+      : [`Ollama Cloud profile ${profile.id} auth env ${profile.apiKeyEnv} is missing.`];
   return {
     id: ollamaCloudProviderId(profile.id),
     displayName: profile.displayName ?? `Ollama Cloud ${profile.model ?? profile.id}`,
     authMode: "api-key",
     capabilities,
-    available: warnings.length === 0,
+    available: warnings.length === 0 && authWarnings.length === 0,
     ...(profile.model === undefined ? {} : { model: profile.model }),
-    ...(warnings.length === 0 ? {} : { warnings })
+    ...(warnings.length === 0 && authWarnings.length === 0
+      ? {}
+      : { warnings: [...warnings, ...authWarnings] })
   };
 }
 
 export function listOllamaCloudProviders(
-  config: AgentTeamConfig
+  config: AgentTeamConfig,
+  options: { readonly env?: NodeJS.ProcessEnv } = {}
 ): readonly AgentProviderDescriptor[] {
   const ollamaCloud =
     config.providers.ollamaCloud ?? DEFAULT_AGENT_TEAM_CONFIG.providers.ollamaCloud;
   if (!ollamaCloud.enabled) {
     return [];
   }
-  return ollamaCloud.profiles.map(ollamaCloudProfileDescriptor);
+  return ollamaCloud.profiles.map((profile) =>
+    ollamaCloudProfileDescriptor(profile, options)
+  );
 }

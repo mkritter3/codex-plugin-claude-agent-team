@@ -32,7 +32,9 @@ describe("Codex operator skill packaging", () => {
     );
 
     for (const text of [
-      "Codex remains the senior engineer, orchestrator, reviewer, integrator, and final authority",
+      "agent_team_configure_orchestration",
+      "agent_team_prepare_assignments",
+      "agent_team_record_native_implementation",
       "direct MCP orchestration",
       "agent_team_doctor",
       "agent_team_create_workflow",
@@ -71,7 +73,21 @@ describe("Codex operator skill packaging", () => {
       "mcp-runtime",
       "workflowWriteScopeAllowsEmpty",
       "stale Agent Team MCP server processes",
-      "/reload-plugins"
+      "launchMode: \"ollama-launch\"",
+      "does not require `OLLAMA_API_KEY`",
+      "launchMode: \"direct-api\"",
+      "ollama-claude-code:glm-5.2",
+      "ollama-claude-code:kimi-k2.7-code",
+      "/reload-plugins",
+      "tool_search",
+      "Transport closed",
+      "source repo",
+      "installed cache",
+      "native subagents are a supported execution route",
+      "claude-code-cli:opus",
+      "default read-only senior review profile",
+      "omitting `providers.claudeCodeCli.profiles` inherits",
+      "`profiles: []` intentionally disables"
     ]) {
       expect(skill).toContain(text);
     }

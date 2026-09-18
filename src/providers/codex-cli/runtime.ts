@@ -162,13 +162,12 @@ function sandboxFor(input: { readonly executionPolicy?: string }): "read-only" |
 function buildCodexExecArgs(input: {
   readonly prompt: string;
   readonly cwd: string;
-  readonly model: string;
+  readonly model?: string;
   readonly sandbox: "read-only" | "workspace-write";
 }): readonly string[] {
   return [
     "exec",
-    "--model",
-    input.model,
+    ...(input.model === undefined ? [] : ["--model", input.model]),
     "--cd",
     input.cwd,
     "--sandbox",
@@ -198,9 +197,6 @@ function assertStartable(provider: AgentTeamConfig["providers"]["codexCli"], inp
   }
   if (provider.executable.trim().length === 0) {
     throw new Error("Codex CLI provider requires executable.");
-  }
-  if (provider.model === undefined) {
-    throw new Error("Codex CLI provider requires model.");
   }
   if (input.executionPolicy === "isolated-edit") {
     const missing: string[] = [];
@@ -258,16 +254,13 @@ export function createCodexCliRuntime(
       if (provider.executable.trim().length === 0) {
         return fail("Codex CLI provider requires executable.");
       }
-      if (provider.model === undefined) {
-        return fail("Codex CLI provider requires model.");
-      }
 
       const result = await runCommand(
         provider.executable,
         buildCodexExecArgs({
           prompt: input.prompt,
           cwd: input.cwd,
-          model: provider.model,
+          ...(provider.model === undefined ? {} : { model: provider.model }),
           sandbox: sandboxFor(input)
         }),
         {
@@ -301,7 +294,7 @@ export function createCodexCliRuntime(
       const args = buildCodexExecArgs({
         prompt: input.prompt,
         cwd: input.cwd,
-        model: provider.model!,
+        ...(provider.model === undefined ? {} : { model: provider.model }),
         sandbox: sandboxFor(input)
       });
       const logPath = runLogPath(input.workspaceRoot, input.runId);
@@ -444,10 +437,10 @@ export function createCodexCliRuntime(
       const checks: ProviderHealthCheck[] = [
         {
           id: "codex-cli-config",
-          status: provider.enabled && provider.model !== undefined ? "pass" : "fail",
+          status: provider.enabled ? "pass" : "fail",
           message:
-            provider.enabled && provider.model !== undefined
-              ? "Codex CLI provider config is explicit."
+            provider.enabled
+              ? "Codex CLI provider config is enabled."
               : "Codex CLI provider config is incomplete.",
           details: {
             providerId: CODEX_CLI_PROVIDER_ID,

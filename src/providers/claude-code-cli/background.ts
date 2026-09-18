@@ -12,7 +12,7 @@ import type {
 } from "../types.js";
 import { buildClaudeAgentDefinitions } from "./agents.js";
 import { buildClaudeCommand } from "./commands.js";
-import type { ClaudePermissionMode } from "./types.js";
+import type { ClaudeCommandWrapper, ClaudePermissionMode } from "./types.js";
 import { inspectClaudeEnvironment } from "./doctor.js";
 import { claudeRolePolicyFor } from "./role-policy.js";
 import { createClaudeStreamParser } from "./stream-parser.js";
@@ -37,6 +37,7 @@ export interface StartClaudeBackgroundSessionInput {
   readonly sessionId?: string;
   readonly permissionMode?: ClaudePermissionMode;
   readonly timeoutMs?: number;
+  readonly commandWrapper?: ClaudeCommandWrapper;
 }
 
 export interface SpawnOptions {
@@ -117,7 +118,7 @@ export function startClaudeBackgroundSession(
             ? {}
             : { requestedPermissionMode: input.permissionMode })
         });
-  const command = buildClaudeCommand({
+  const command = (input.commandWrapper ?? ((built) => built))(buildClaudeCommand({
     prompt: input.prompt,
     promptFromStdin: true,
     cwd: input.cwd,
@@ -135,7 +136,7 @@ export function startClaudeBackgroundSession(
     ...(policy === undefined ? {} : { allowedTools: policy.allowedTools }),
     ...(policy === undefined ? {} : { disallowedTools: policy.disallowedTools }),
     ...(input.sessionId === undefined ? {} : { sessionId: input.sessionId })
-  });
+  }));
   const spawnImpl = deps.spawn ?? defaultSpawn;
   const logPath = runLogPath(input.workspaceRoot, input.runId);
   const rawTranscriptPath = transcriptPath(input.workspaceRoot, input.runId);

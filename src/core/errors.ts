@@ -42,6 +42,19 @@ export class ProviderNotFoundError extends AgentTeamError {
   }
 }
 
+export class ProviderAmbiguousSelectorError extends AgentTeamError {
+  readonly selector: string;
+  readonly providerIds: readonly string[];
+
+  constructor(input: { readonly selector: string; readonly providerIds: readonly string[] }) {
+    super(
+      `Requested provider selector is ambiguous: ${input.selector}; matching providers: ${input.providerIds.join(", ")}`
+    );
+    this.selector = input.selector;
+    this.providerIds = input.providerIds;
+  }
+}
+
 export class PolicyViolationError extends AgentTeamError {
   readonly reason: string;
   readonly details: Record<string, unknown>;

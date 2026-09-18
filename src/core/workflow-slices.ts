@@ -235,6 +235,15 @@ export async function startWorkflowSlices(
   const concurrency = validateConcurrency(input.concurrency);
   const record = await readWorkflowRecord(input.workspaceRoot, input.workflowId);
   const selected = selectSlices(record, input.sliceIds);
+  const providers = new Map<string, string>();
+  if (record.orchestration !== undefined) {
+    for (const slice of selected) {
+      const target = slice.implementationTarget ?? record.orchestration.implementation;
+      if (target.kind === "native") throw new Error(`Slice ${slice.sliceId} selects a native model; use prepare_assignments, host agent tools and record_native_implementation`);
+      if (input.provider !== undefined && input.provider !== target.provider) throw new Error("Implementation provider differs from the selected target; prepare an explicit override first");
+      providers.set(slice.sliceId, target.provider);
+    }
+  }
   const timestamp = (input.now?.() ?? new Date()).toISOString();
   const batchId = `${record.workflowId}_slices`;
 
@@ -247,7 +256,7 @@ export async function startWorkflowSlices(
         task: buildSliceTask(record, slice),
         cwd: input.workspaceRoot,
         correlationId: slice.sliceId,
-        ...(input.provider === undefined ? {} : { provider: input.provider }),
+        ...(providers.get(slice.sliceId) === undefined && input.provider === undefined ? {} : { provider: providers.get(slice.sliceId) ?? input.provider! }),
         ...(input.timeoutMs === undefined ? {} : { timeoutMs: input.timeoutMs })
       }))
     },

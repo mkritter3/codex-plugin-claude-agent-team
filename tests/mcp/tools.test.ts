@@ -36,7 +36,7 @@ describe("MCP tool handlers", () => {
     const result = await handlers.handleToolCall("agent_team_list_providers", {});
 
     expect(result.structuredContent?.providers?.[0]?.id).toBe("claude-code-cli");
-    expect(result.structuredContent?.providers?.[0]?.capabilities).not.toContain("edits");
+    expect(result.structuredContent?.providers?.[0]?.capabilities).toContain("edits");
   });
 
   it("lists write capabilities when isolated write mode is configured", async () => {
@@ -136,6 +136,14 @@ describe("MCP tool handlers", () => {
     });
 
     expect(result.structuredContent?.providers?.[0]?.capabilities).toContain("edits");
+    expect(result.structuredContent?.providers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "claude-code-cli:opus",
+          capabilities: expect.not.arrayContaining(["edits", "workspaceIsolation"])
+        })
+      ])
+    );
   });
 
   it("describes provider inputs as neutral selector strings without provider-specific fields", () => {
@@ -1506,7 +1514,7 @@ describe("MCP tool handlers", () => {
     });
   });
 
-  it("loads default write-disabled config for lifecycle starts when config is missing", async () => {
+  it("loads default write-enabled config for lifecycle starts when config is missing", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "agent-team-mcp-config-"));
     const configs: boolean[] = [];
     const handlers = createToolHandlers({
@@ -1515,7 +1523,21 @@ describe("MCP tool handlers", () => {
         configs.push(config.writeMode.enabled);
         return {
           async startRun() {
-            throw new Error("write mode is disabled");
+            return {
+              runId: "run_default_slice",
+              status: "running",
+              provider: "claude-code-cli",
+              role: "slice-implementer",
+              sidecarPath: `${workspace}/.agent-team/runs/run_default_slice.json`,
+              logPath: `${workspace}/.agent-team/runs/run_default_slice.log`,
+              executionCwd: `${workspace}-worktree`,
+              mailboxPaths: {
+                inbox: "inbox.jsonl",
+                outbox: "outbox.jsonl",
+                control: "control.jsonl",
+                events: "events.jsonl"
+              }
+            };
           },
           async getStatus() {
             throw new Error("should not status");
@@ -1536,13 +1558,16 @@ describe("MCP tool handlers", () => {
       }
     });
 
-    await expect(
-      handlers.handleToolCall("agent_team_start", {
-        role: "slice-implementer",
-        task: "Implement the bounded slice."
-      })
-    ).rejects.toThrow("write mode is disabled");
-    expect(configs).toEqual([false]);
+    const result = await handlers.handleToolCall("agent_team_start", {
+      role: "slice-implementer",
+      task: "Implement the bounded slice."
+    });
+
+    expect(configs).toEqual([true]);
+    expect(result.structuredContent).toMatchObject({
+      runId: "run_default_slice",
+      executionCwd: `${workspace}-worktree`
+    });
   });
 
   it("keeps default lifecycle managers live across repeated tool calls for a workspace", async () => {
@@ -4454,6 +4479,9 @@ describe("MCP tool handlers", () => {
 
   it("registers the expected tool names", () => {
     expect(listToolNames()).toEqual([
+      "agent_team_configure_orchestration",
+      "agent_team_prepare_assignments",
+      "agent_team_record_native_implementation",
       "agent_team_dispatch",
       "agent_team_start",
       "agent_team_start_parallel",

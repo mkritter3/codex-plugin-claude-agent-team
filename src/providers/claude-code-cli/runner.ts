@@ -5,6 +5,7 @@ import { buildClaudeAgentDefinitions } from "./agents.js";
 import { buildClaudeCommand } from "./commands.js";
 import { parseClaudeJsonOutput } from "./output.js";
 import { claudeRolePolicyFor } from "./role-policy.js";
+import type { ClaudeCommandWrapper } from "./types.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -70,6 +71,7 @@ export async function runClaudePrint(input: {
   readonly timeoutMs?: number;
   readonly execFile?: ExecFileLike;
   readonly env?: NodeJS.ProcessEnv;
+  readonly commandWrapper?: ClaudeCommandWrapper;
 }): Promise<ClaudeProcessResult> {
   const policy =
     input.roleId === undefined
@@ -80,7 +82,7 @@ export async function runClaudePrint(input: {
             ? {}
             : { executionPolicy: input.executionPolicy })
         });
-  const command = buildClaudeCommand({
+  const command = (input.commandWrapper ?? ((built) => built))(buildClaudeCommand({
     prompt: input.prompt,
     cwd: input.cwd,
     outputFormat: "json",
@@ -94,7 +96,7 @@ export async function runClaudePrint(input: {
     permissionMode: policy?.permissionMode ?? "default",
     ...(policy === undefined ? {} : { allowedTools: policy.allowedTools }),
     ...(policy === undefined ? {} : { disallowedTools: policy.disallowedTools })
-  });
+  }));
   const execFileImpl = input.execFile ?? defaultExecFile;
 
   try {

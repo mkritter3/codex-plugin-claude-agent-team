@@ -1,4 +1,6 @@
 import { readdir } from "node:fs/promises";
+import { z } from "zod";
+import { authorityEvidenceSchema, modelTargetSchema, nativeImplementationSchema, orchestrationPolicySchema } from "../orchestration/contract.js";
 import { basename, join } from "node:path";
 import { StateCorruptionError } from "../errors.js";
 import { readJsonFile, writeJsonAtomic } from "./atomic-json.js";
@@ -57,6 +59,7 @@ import {
 } from "../workflow-types.js";
 
 const WORKFLOW_RECORD_KEYS = new Set([
+  "orchestration",
   "workflowId",
   "name",
   "createdAt",
@@ -76,6 +79,8 @@ const GOAL_KEYS = new Set(["title", "successCriteria", "constraints", "nonGoals"
 const SENIOR_REVIEW_KEYS = new Set(["opusPlanning", "opusImplementation"]);
 const SENIOR_REVIEW_MODE_KEYS = new Set(["mode"]);
 const SLICE_KEYS = new Set([
+  "implementationTarget",
+  "nativeImplementation",
   "sliceId",
   "title",
   "state",
@@ -120,6 +125,7 @@ const SLICE_UNBLOCK_EVIDENCE_KEYS = new Set([
   "sourceRunId"
 ]);
 const SLICE_IMPLEMENTATION_EVIDENCE_KEYS = new Set([
+  "artifact",
   "recordedAt",
   "summary",
   "changedFiles",
@@ -160,6 +166,8 @@ const CODEX_RATIONALE_KEYS = new Set([
   "relatedSliceIds"
 ]);
 const CONSENSUS_ROUND_KEYS = new Set([
+  "authority",
+  "sliceId",
   "round",
   "phase",
   "startedAt",
@@ -456,7 +464,9 @@ function parseSlice(value: unknown, path: string, index: number): WorkflowSlice 
           BLOCKED_MODE_SET
         );
   return {
+    ...(slice.nativeImplementation === undefined ? {} : { nativeImplementation: parseContract(nativeImplementationSchema, slice.nativeImplementation, path) }),
     sliceId: expectNonEmptyString(slice.sliceId, path, `slices[${index}].sliceId`),
+    ...(slice.implementationTarget === undefined ? {} : { implementationTarget: parseContract(modelTargetSchema, slice.implementationTarget, path) }),
     title: expectNonEmptyString(slice.title, path, `slices[${index}].title`),
     state: expectEnum<WorkflowSliceState>(
       slice.state,
@@ -615,6 +625,7 @@ function parseSliceImplementationEvidence(
     recordedAt: expectNonEmptyString(evidence.recordedAt, path, `${field}.recordedAt`),
     summary: expectNonEmptyString(evidence.summary, path, `${field}.summary`),
     changedFiles: expectStringArray(evidence.changedFiles, path, `${field}.changedFiles`),
+    ...(evidence.artifact === undefined ? {} : { artifact: expectNonEmptyString(evidence.artifact, path, `${field}.artifact`) }),
     testsRun: expectStringArray(evidence.testsRun, path, `${field}.testsRun`),
     evidencePaths: expectStringArray(evidence.evidencePaths, path, `${field}.evidencePaths`),
     ...(sourceRunId === undefined ? {} : { sourceRunId }),
@@ -824,6 +835,8 @@ function parseConsensusRound(
     `consensusRounds[${index}].completedAt`
   );
   return {
+    ...(round.authority === undefined ? {} : { authority: parseContract(authorityEvidenceSchema, round.authority, path) }),
+    ...(round.sliceId === undefined ? {} : { sliceId: expectNonEmptyString(round.sliceId, path, "consensusRound.sliceId") }),
     round: expectPositiveInteger(round.round, path, `consensusRounds[${index}].round`),
     phase: expectEnum<WorkflowConsensusPhase>(
       round.phase,
@@ -1058,6 +1071,12 @@ function parseIntegrationQueueItem(
   };
 }
 
+function parseContract<T>(schema: z.ZodType<T>, value: unknown, path: string): T {
+  const parsed = schema.safeParse(value);
+  if (!parsed.success) throw corruption(path, `Invalid orchestration evidence: ${parsed.error.message}`);
+  return parsed.data;
+}
+
 function parseWorkflowRecord(value: unknown, path: string): WorkflowRecord {
   if (!isObject(value)) {
     throw corruption(path, "record must be an object");
@@ -1096,6 +1115,7 @@ function parseWorkflowRecord(value: unknown, path: string): WorkflowRecord {
 
   return {
     workflowId,
+    ...(value.orchestration === undefined ? {} : { orchestration: parseContract(orchestrationPolicySchema, value.orchestration, path) }),
     ...(name === undefined ? {} : { name }),
     createdAt: expectNonEmptyString(value.createdAt, path, "createdAt"),
     updatedAt: expectNonEmptyString(value.updatedAt, path, "updatedAt"),

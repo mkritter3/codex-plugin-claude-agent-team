@@ -52,8 +52,23 @@ function config(input: {
 }
 
 describe("Gemini CLI provider config", () => {
-  it("is disabled by default and separate from the API-key Gemini adapter", () => {
-    expect(geminiCliProvider(DEFAULT_AGENT_TEAM_CONFIG)).toBeUndefined();
+  it("is auto-enabled by default and separate from the API-key Gemini adapter", () => {
+    expect(
+      geminiCliProvider(DEFAULT_AGENT_TEAM_CONFIG, { executableAvailable: true })
+    ).toMatchObject({
+      id: GEMINI_CLI_PROVIDER_ID,
+      available: true,
+      capabilities: [
+        "structuredOutput",
+        "longContext",
+        "reasoning",
+        "tools",
+        "sessionResume",
+        "cancellation",
+        "edits",
+        "workspaceIsolation"
+      ]
+    });
     expect(DEFAULT_AGENT_TEAM_CONFIG.providers.gemini.enabled).toBe(false);
   });
 
@@ -148,20 +163,19 @@ describe("Gemini CLI provider config", () => {
       available: false,
       warnings: [
         "Gemini CLI provider is missing executable.",
-        "Gemini CLI provider is missing model.",
         "Gemini CLI provider declares no supported capabilities."
       ]
     });
   });
 
-  it("loads Gemini CLI config without inferring GEMINI_API_KEY fallback", async () => {
+  it("loads auto-enabled Gemini CLI config without inferring GEMINI_API_KEY fallback", async () => {
     await expect(loadAgentTeamConfig("/tmp/does-not-exist")).resolves.toMatchObject({
       providers: {
         geminiCli: {
-          enabled: false,
+          enabled: true,
           executable: "gemini",
           projectEnv: "GOOGLE_CLOUD_PROJECT",
-          writeValidated: false
+          writeValidated: true
         }
       }
     });

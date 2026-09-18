@@ -91,7 +91,7 @@ describe("deriveWorkflowGuidance", () => {
       expect.arrayContaining(["claude-code-cli:sonnet", "codex-cli"])
     );
     expect(guidance.delegation[1]?.providerPreferences).toContain(
-      "ollama-claude-code:kimi-k2.6"
+      "ollama-claude-code:glm-5.2"
     );
   });
 

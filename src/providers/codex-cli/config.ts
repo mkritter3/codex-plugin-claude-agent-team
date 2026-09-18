@@ -44,9 +44,6 @@ function providerWarnings(provider: CodexCliProviderConfig): readonly string[] {
   if (provider.executable.trim().length === 0) {
     warnings.push("Codex CLI provider is missing executable.");
   }
-  if (provider.model === undefined) {
-    warnings.push("Codex CLI provider is missing model.");
-  }
   if (
     !provider.writeValidated &&
     (provider.capabilities.tools ||
@@ -64,7 +61,8 @@ function providerWarnings(provider: CodexCliProviderConfig): readonly string[] {
 }
 
 export function codexCliProviderDescriptor(
-  config: AgentTeamConfig
+  config: AgentTeamConfig,
+  options: { readonly executableAvailable?: boolean } = {}
 ): AgentProviderDescriptor {
   const provider =
     config.providers.codexCli ?? DEFAULT_AGENT_TEAM_CONFIG.providers.codexCli;
@@ -75,16 +73,26 @@ export function codexCliProviderDescriptor(
     displayName: provider.displayName ?? "Codex CLI",
     authMode: "subscription-oauth",
     capabilities,
-    available: warnings.length === 0,
+    available: (options.executableAvailable ?? true) && warnings.length === 0,
     ...(provider.model === undefined ? {} : { model: provider.model }),
-    ...(warnings.length === 0 ? {} : { warnings })
+    ...(warnings.length === 0 && options.executableAvailable !== false
+      ? {}
+      : {
+          warnings: [
+            ...warnings,
+            ...(options.executableAvailable === false
+              ? [`Codex CLI executable ${provider.executable} was not found on PATH.`]
+              : [])
+          ]
+        })
   };
 }
 
 export function codexCliProvider(
-  config: AgentTeamConfig
+  config: AgentTeamConfig,
+  options: { readonly executableAvailable?: boolean } = {}
 ): AgentProviderDescriptor | undefined {
   const provider =
     config.providers.codexCli ?? DEFAULT_AGENT_TEAM_CONFIG.providers.codexCli;
-  return provider.enabled ? codexCliProviderDescriptor(config) : undefined;
+  return provider.enabled ? codexCliProviderDescriptor(config, options) : undefined;
 }

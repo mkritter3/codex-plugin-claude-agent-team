@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  ProviderAmbiguousSelectorError,
   ProviderCapabilityError,
   ProviderNotFoundError
 } from "../../src/core/errors.js";
@@ -63,11 +64,20 @@ const grokReviewProvider: AgentProviderDescriptor = {
 };
 
 const ollamaArchitectProvider: AgentProviderDescriptor = {
-  id: "ollama-cloud:kimi-k2.6",
-  displayName: "Kimi K2.6",
+  id: "ollama-cloud:kimi-k2.7-code",
+  displayName: "Kimi K2.7 Code",
   authMode: "api-key",
   capabilities: ["structuredOutput", "longContext"],
-  model: "kimi-k2.6",
+  model: "kimi-k2.7-code",
+  available: true
+};
+
+const ollamaClaudeHarnessProvider: AgentProviderDescriptor = {
+  id: "ollama-claude-code:kimi-k2.7-code",
+  displayName: "Kimi K2.7 Code Claude Code",
+  authMode: "api-key",
+  capabilities: ["structuredOutput", "longContext", "tools", "sessionResume", "cancellation"],
+  model: "kimi-k2.7-code",
   available: true
 };
 
@@ -228,6 +238,114 @@ describe("selectProvider", () => {
     );
   });
 
+  it("fails closed when a requested model selector matches multiple available providers", () => {
+    const providers = [ollamaArchitectProvider, ollamaClaudeHarnessProvider];
+    const explanation = explainProviderSelection({
+      roleId: "architect",
+      providers,
+      requestedProviderId: "model:kimi-k2.7-code"
+    });
+
+    expect(explanation).toMatchObject({
+      ok: false,
+      selector: {
+        source: "request",
+        kind: "model",
+        value: "model:kimi-k2.7-code"
+      }
+    });
+    expect(explanation.candidates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          providerId: "ollama-cloud:kimi-k2.7-code",
+          matchedSelector: true,
+          eligible: false,
+          rejectionReason: "ambiguous_model_selector"
+        }),
+        expect.objectContaining({
+          providerId: "ollama-claude-code:kimi-k2.7-code",
+          matchedSelector: true,
+          eligible: false,
+          rejectionReason: "ambiguous_model_selector"
+        })
+      ])
+    );
+    expect(() =>
+      selectProvider({
+        roleId: "architect",
+        providers,
+        requestedProviderId: "model:kimi-k2.7-code"
+      })
+    ).toThrow(ProviderAmbiguousSelectorError);
+  });
+
+  it("fails closed when a requested GLM model selector matches multiple available providers", () => {
+    const providers: readonly AgentProviderDescriptor[] = [
+      {
+        id: "ollama-cloud:glm-5.2",
+        displayName: "GLM 5.2",
+        authMode: "api-key",
+        capabilities: ["structuredOutput", "longContext"],
+        model: "glm-5.2",
+        available: true
+      },
+      {
+        id: "ollama-claude-code:glm-5.2",
+        displayName: "GLM 5.2 Claude Code",
+        authMode: "ollama-local",
+        capabilities: [
+          "structuredOutput",
+          "longContext",
+          "tools",
+          "sessionResume",
+          "cancellation",
+          "edits",
+          "workspaceIsolation"
+        ],
+        model: "glm-5.2",
+        available: true
+      }
+    ];
+
+    const explanation = explainProviderSelection({
+      roleId: "architect",
+      providers,
+      requestedProviderId: "model:glm-5.2"
+    });
+
+    expect(explanation).toMatchObject({
+      ok: false,
+      selector: {
+        source: "request",
+        kind: "model",
+        value: "model:glm-5.2"
+      }
+    });
+    expect(explanation.candidates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          providerId: "ollama-cloud:glm-5.2",
+          matchedSelector: true,
+          eligible: false,
+          rejectionReason: "ambiguous_model_selector"
+        }),
+        expect.objectContaining({
+          providerId: "ollama-claude-code:glm-5.2",
+          matchedSelector: true,
+          eligible: false,
+          rejectionReason: "ambiguous_model_selector"
+        })
+      ])
+    );
+    expect(() =>
+      selectProvider({
+        roleId: "architect",
+        providers,
+        requestedProviderId: "model:glm-5.2"
+      })
+    ).toThrow(ProviderAmbiguousSelectorError);
+  });
+
   it("applies request selector before role pins and role pins before provider order", () => {
     const providers = [readonlyProvider, ollamaArchitectProvider, grokReasoningProvider];
 
@@ -243,7 +361,7 @@ describe("selectProvider", () => {
       })
     ).toMatchObject({
       ok: true,
-      selectedProviderId: "ollama-cloud:kimi-k2.6",
+      selectedProviderId: "ollama-cloud:kimi-k2.7-code",
       selector: { source: "request", value: "family:ollama-cloud" }
     });
 
@@ -301,18 +419,66 @@ describe("selectProvider", () => {
     );
   });
 
-  it("does not advertise implementation capabilities by default", () => {
-    const [provider] = listProviders();
+  it("advertises implementation capabilities by default for isolated workers", () => {
+    const providers = listProviders({
+      cliAvailability: { claude: true, gemini: false, codex: true }
+    });
+    const [provider] = providers;
 
     expect(provider?.capabilities).toContain("sessionResume");
-    expect(provider?.capabilities).not.toContain("edits");
-    expect(provider?.capabilities).not.toContain("workspaceIsolation");
-    expect(() =>
+    expect(provider?.capabilities).toContain("edits");
+    expect(provider?.capabilities).toContain("workspaceIsolation");
+    expect(
       selectProvider({
         roleId: "slice-implementer",
-        providers: listProviders()
-      })
-    ).toThrow(ProviderCapabilityError);
+        providers
+      }).id
+    ).toBe("claude-code-cli");
+  });
+
+  it("defaults read-oriented routing to the preferred Ollama-native Claude Code profile", () => {
+    const providers = listProviders({
+      env: {},
+      cliAvailability: { claude: true, ollama: true, gemini: false, codex: true }
+    });
+
+    expect(
+      selectProvider({
+        roleId: "architect",
+        providers,
+        routingPolicy: DEFAULT_AGENT_TEAM_CONFIG.routing
+      }).id
+    ).toBe("ollama-claude-code:glm-5.2");
+  });
+
+  it("can route isolated implementation to the write-validated GLM Ollama-native profile", () => {
+    const providers = listProviders({
+      env: {},
+      cliAvailability: { claude: true, ollama: true, gemini: false, codex: true }
+    });
+
+    expect(
+      selectProvider({
+        roleId: "slice-implementer",
+        providers,
+        routingPolicy: DEFAULT_AGENT_TEAM_CONFIG.routing
+      }).id
+    ).toBe("ollama-claude-code:glm-5.2");
+  });
+
+  it("can route requested isolated implementation to the write-validated Kimi Ollama-native profile", () => {
+    const providers = listProviders({
+      env: {},
+      cliAvailability: { claude: true, ollama: true, gemini: false, codex: true }
+    });
+
+    expect(
+      selectProvider({
+        roleId: "slice-implementer",
+        providers,
+        requestedProviderId: "ollama-claude-code:kimi-k2.7-code"
+      }).id
+    ).toBe("ollama-claude-code:kimi-k2.7-code");
   });
 
   it("advertises implementation capabilities only when isolated write mode is enabled", () => {
@@ -367,9 +533,20 @@ describe("selectProvider", () => {
     ).toBe("claude-code-cli");
   });
 
-  it("omits the OpenAI-compatible provider unless explicitly configured", () => {
-    expect(listProviders().map((provider) => provider.id)).toEqual([
-      "claude-code-cli"
+  it("exposes auto local and Ollama Cloud providers while omitting generic API providers", () => {
+    expect(
+      listProviders({
+        cliAvailability: { claude: true, gemini: false, codex: true }
+      }).map((provider) => provider.id)
+    ).toEqual([
+      "claude-code-cli",
+      "claude-code-cli:opus",
+      "ollama-cloud:glm-5.2",
+      "ollama-cloud:kimi-k2.7-code",
+      "ollama-claude-code:glm-5.2",
+      "ollama-claude-code:kimi-k2.7-code",
+      "gemini-cli",
+      "codex-cli"
     ]);
   });
 
@@ -465,9 +642,9 @@ describe("selectProvider", () => {
 	            enabled: true,
 	            profiles: [
               {
-                id: "kimi-k2.6",
+                id: "kimi-k2.7-code",
                 baseUrl: "https://ollama.example/v1",
-                model: "kimi-k2.6",
+                model: "kimi-k2.7-code",
                 apiKeyEnv: "KIMI_API_KEY",
                 capabilities: {
                   structuredOutput: true,
@@ -476,9 +653,9 @@ describe("selectProvider", () => {
                 }
               },
               {
-                id: "glm-5.1",
+                id: "glm-5.2",
                 baseUrl: "https://ollama.example/v1",
-                model: "glm-5.1",
+                model: "glm-5.2",
                 apiKeyEnv: "GLM_API_KEY",
                 capabilities: {
                   structuredOutput: true,
@@ -502,54 +679,59 @@ describe("selectProvider", () => {
             }
           }
         }
-      }
+      },
+      env: { KIMI_API_KEY: "token", GLM_API_KEY: "token" }
     });
 
     expect(
       selectProvider({
         roleId: "planner",
         providers,
-        requestedProviderId: "ollama-cloud:glm-5.1"
+        requestedProviderId: "ollama-cloud:glm-5.2"
       }).id
-    ).toBe("ollama-cloud:glm-5.1");
+    ).toBe("ollama-cloud:glm-5.2");
     expect(
       selectProvider({
         roleId: "architect",
         providers,
-        requestedProviderId: "ollama-cloud:kimi-k2.6"
+        requestedProviderId: "ollama-cloud:kimi-k2.7-code"
       }).id
-    ).toBe("ollama-cloud:kimi-k2.6");
+    ).toBe("ollama-cloud:kimi-k2.7-code");
     expect(() =>
       selectProvider({
         roleId: "architect",
         providers,
-        requestedProviderId: "ollama-cloud:glm-5.1"
+        requestedProviderId: "ollama-cloud:glm-5.2"
       })
     ).toThrow(ProviderCapabilityError);
     expect(() =>
       selectProvider({
         roleId: "slice-implementer",
         providers,
-        requestedProviderId: "ollama-cloud:kimi-k2.6"
+        requestedProviderId: "ollama-cloud:kimi-k2.7-code"
       })
     ).toThrow(ProviderCapabilityError);
   });
 
   it("routes requested Ollama Claude Code profiles through lifecycle-safe capabilities", () => {
     const providers = listProviders({
+      env: { OLLAMA_API_KEY: "secret-token" },
       config: {
         ...DEFAULT_AGENT_TEAM_CONFIG,
         providers: {
           ...DEFAULT_AGENT_TEAM_CONFIG.providers,
           ollamaClaudeCode: {
             enabled: true,
+            launchMode: "direct-api",
             baseUrl: "https://ollama.com",
+            authToken: "ollama",
+            executable: "ollama",
             apiKeyEnv: "OLLAMA_API_KEY",
             profiles: [
               {
-                id: "kimi-k2.6",
-                model: "kimi-k2.6",
-                displayName: "Kimi K2.6",
+                id: "kimi-k2.7-code",
+                model: "kimi-k2.7-code",
+                displayName: "Kimi K2.7 Code",
                 writeValidated: false,
                 capabilities: {
                   structuredOutput: true,
@@ -572,14 +754,14 @@ describe("selectProvider", () => {
       selectProvider({
         roleId: "architect",
         providers,
-        requestedProviderId: "ollama-claude-code:kimi-k2.6"
+        requestedProviderId: "ollama-claude-code:kimi-k2.7-code"
       }).id
-    ).toBe("ollama-claude-code:kimi-k2.6");
+    ).toBe("ollama-claude-code:kimi-k2.7-code");
     expect(() =>
       selectProvider({
         roleId: "slice-implementer",
         providers,
-        requestedProviderId: "ollama-claude-code:kimi-k2.6"
+        requestedProviderId: "ollama-claude-code:kimi-k2.7-code"
       })
     ).toThrow(ProviderCapabilityError);
   });
@@ -658,6 +840,29 @@ describe("selectProvider", () => {
         requestedProviderId: "claude-code-cli:haiku"
       })
     ).toThrow(ProviderCapabilityError);
+    expect(() =>
+      selectProvider({
+        roleId: "slice-implementer",
+        providers,
+        requestedProviderId: "claude-code-cli:opus"
+      })
+    ).toThrow(ProviderCapabilityError);
+  });
+
+  it("routes the default Opus profile for explicit senior-review requests", () => {
+    const providers = listProviders({
+      config: DEFAULT_AGENT_TEAM_CONFIG,
+      cliAvailability: { claude: true, ollama: false, gemini: false, codex: false },
+      env: {}
+    });
+
+    expect(
+      selectProvider({
+        roleId: "architect",
+        providers,
+        requestedProviderId: "claude-code-cli:opus"
+      }).id
+    ).toBe("claude-code-cli:opus");
     expect(() =>
       selectProvider({
         roleId: "slice-implementer",
@@ -944,6 +1149,7 @@ describe("selectProvider", () => {
     ).toThrow(ProviderNotFoundError);
 
     const writeValidatedProviders = listProviders({
+      cliAvailability: { claude: true, gemini: true, codex: true },
       config: {
         ...DEFAULT_AGENT_TEAM_CONFIG,
         writeMode: { enabled: true, requireIsolatedWorktree: true },

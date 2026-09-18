@@ -18,6 +18,7 @@ export type ProviderCapability = (typeof PROVIDER_CAPABILITIES)[number];
 export type ProviderAuthMode =
   | "subscription-oauth"
   | "api-key"
+  | "ollama-local"
   | "oauth"
   | "none";
 
@@ -134,9 +135,17 @@ export interface OllamaClaudeCodeProfileConfig {
   readonly capabilities: OllamaClaudeCodeProviderCapabilitiesConfig;
 }
 
+export type OllamaClaudeCodeLaunchMode =
+  | "ollama-launch"
+  | "local-anthropic"
+  | "direct-api";
+
 export interface OllamaClaudeCodeProviderConfig {
   readonly enabled: boolean;
+  readonly launchMode: OllamaClaudeCodeLaunchMode;
   readonly baseUrl?: string;
+  readonly authToken: string;
+  readonly executable: string;
   readonly apiKeyEnv: string;
   readonly profiles: readonly OllamaClaudeCodeProfileConfig[];
 }
@@ -176,6 +185,7 @@ export interface GeminiCliProviderCapabilitiesConfig {
 }
 
 export interface GeminiCliProviderConfig {
+  readonly driver?: "gemini" | "agy";
   readonly enabled: boolean;
   readonly executable: string;
   readonly model?: string;
@@ -304,6 +314,7 @@ export interface ProviderSelectionSelector {
 }
 
 export type ProviderSelectionRejectionReason =
+  | "ambiguous_model_selector"
   | "unavailable"
   | "selector_mismatch"
   | "missing_capabilities"

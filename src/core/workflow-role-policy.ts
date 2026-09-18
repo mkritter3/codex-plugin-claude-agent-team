@@ -33,9 +33,8 @@ export type WorkflowModelFamily =
   | "claude-haiku"
   | "codex-cli"
   | "gemini-cli"
-  | "ollama-kimi-k2.6"
-  | "ollama-glm-5.1"
-  | "ollama-deepseek";
+  | "ollama-glm-5.2"
+  | "ollama-kimi-k2.7-code";
 
 export type WorkflowWorkerAutonomy =
   | "read_only"
@@ -115,9 +114,8 @@ export function recommendRolePolicy(
   if (input.providerClass === "junior-ollama") {
     return recommendation({
       preferredModelFamilies: [
-        "ollama-kimi-k2.6",
-        "ollama-glm-5.1",
-        "ollama-deepseek"
+        "ollama-glm-5.2",
+        "ollama-kimi-k2.7-code"
       ],
       requiredSeniorReview: true,
       seniorSignoffRequired: true,
@@ -126,7 +124,7 @@ export function recommendRolePolicy(
       autonomy: "bounded_junior",
       defaultSurfaces: ["backend", "frontend", "docs"],
       rationale:
-        "Ollama-hosted Kimi, GLM, and DeepSeek workers are junior implementers for bounded isolated slices only."
+        "Ollama-native GLM 5.2 and Kimi K2.7 Code workers are junior implementers for bounded isolated slices only."
     });
   }
 

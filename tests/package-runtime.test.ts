@@ -14,7 +14,15 @@ describe("package runtime contract", () => {
       codexPlugin?: string;
     }>("../package.json");
     const mcpJson = await readJson<{
-      mcpServers?: Record<string, { command?: string; args?: readonly string[] }>;
+      mcpServers?: Record<
+        string,
+        {
+          args?: readonly string[];
+          command?: string;
+          cwd?: string;
+          startup_timeout_sec?: number;
+        }
+      >;
     }>("../.mcp.json");
     const buildConfig = await readJson<{
       compilerOptions?: Record<string, unknown>;
@@ -28,8 +36,10 @@ describe("package runtime contract", () => {
       "node scripts/smoke-mcp-stdio.mjs"
     );
     expect(mcpJson.mcpServers?.["agent-team"]).toEqual({
-      command: "node",
-      args: ["./dist/index.js"]
+      command: "sh",
+      args: ["./scripts/start-mcp.sh"],
+      cwd: ".",
+      startup_timeout_sec: 120
     });
     expect(buildConfig.compilerOptions).toMatchObject({
       rootDir: "src",
@@ -61,11 +71,19 @@ describe("package runtime contract", () => {
       };
     }>("../.codex-plugin/plugin.json");
     const mcpJson = await readJson<{
-      mcpServers?: Record<string, { command?: string; args?: readonly string[] }>;
+      mcpServers?: Record<
+        string,
+        {
+          args?: readonly string[];
+          command?: string;
+          cwd?: string;
+          startup_timeout_sec?: number;
+        }
+      >;
     }>("../.mcp.json");
 
     expect(packageJson.name).toBe(pluginJson.name);
-    expect(packageJson.version).toBe(pluginJson.version);
+    expect(packageJson.version).toBe(pluginJson.version?.replace(/\+codex\.[A-Za-z0-9.-]+$/, ""));
     expect(packageJson.homepage).toBe(pluginJson.homepage);
     expect(packageJson.repository).toEqual({
       type: "git",
@@ -85,9 +103,18 @@ describe("package runtime contract", () => {
     }
     expect(packageJson.bin?.["agent-team-mcp"]).toBe("./dist/index.js");
     expect(mcpJson.mcpServers?.["agent-team"]).toEqual({
-      command: "node",
-      args: ["./dist/index.js"]
+      command: "sh",
+      args: ["./scripts/start-mcp.sh"],
+      cwd: ".",
+      startup_timeout_sec: 120
     });
+  });
+
+  it("keeps MCP server version aligned with package metadata", async () => {
+    const packageJson = await readJson<{ version?: string }>("../package.json");
+    const { AGENT_TEAM_MCP_VERSION } = await import("../src/version.js");
+
+    expect(AGENT_TEAM_MCP_VERSION).toBe(packageJson.version);
   });
 
   it("keeps packaged stdio smoke pointed at the built MCP entrypoint", async () => {
@@ -96,7 +123,13 @@ describe("package runtime contract", () => {
       "utf8"
     );
 
-    expect(smokeScript).toContain('join(repoRoot, "dist", "index.js")');
+    expect(smokeScript).toContain(
+      'import { readNativeMcpServerConfig } from "./lib/native-mcp-config.mjs"'
+    );
+    expect(smokeScript).toContain('mkdtemp(join(tmpdir(), "agent-team-stdio-host-cwd-"))');
+    expect(smokeScript).toContain("nativeServer.startup_timeout_sec === 120");
+    expect(smokeScript).toContain('command: nativeServer.command');
+    expect(smokeScript).toContain('cwd: nativeServer.cwd');
     expect(smokeScript).toContain(
       'assertToolRequires(tools.tools, "agent_team_dispatch", ["role", "task"])'
     );

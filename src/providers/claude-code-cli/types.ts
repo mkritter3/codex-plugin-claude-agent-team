@@ -29,10 +29,12 @@ export interface ClaudeCommandInput {
 }
 
 export interface ClaudeCommand {
-  readonly command: "claude";
+  readonly command: string;
   readonly args: readonly string[];
   readonly cwd: string;
 }
+
+export type ClaudeCommandWrapper = (command: ClaudeCommand) => ClaudeCommand;
 
 export interface ClaudeCompletedOutput {
   readonly sessionId?: string;

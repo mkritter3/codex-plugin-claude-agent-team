@@ -63,6 +63,7 @@ export type WorkflowGuidanceUserEscalation = {
 };
 
 export type WorkflowGuidance = {
+  readonly orchestration?: WorkflowRecord["orchestration"];
   readonly workflowId: string;
   readonly phase: WorkflowGuidancePhase;
   readonly hooks: readonly WorkflowGuidanceHook[];
@@ -86,8 +87,9 @@ export function deriveWorkflowGuidance(record: WorkflowRecord): WorkflowGuidance
   return {
     workflowId: record.workflowId,
     phase,
-    hooks: hooksForPhase(record, phase),
-    delegation: recommendDelegationForWorkflowPhase(phase),
+    hooks: record.orchestration === undefined ? hooksForPhase(record, phase) : orchestrationHooks(record, phase),
+    delegation: record.orchestration === undefined ? recommendDelegationForWorkflowPhase(phase) : [],
+    ...(record.orchestration === undefined ? {} : { orchestration: record.orchestration }),
     userEscalations: userEscalationsForGuidance(record),
     blockedReasons: blockedReasonsForGuidance(record),
     seniorReview: seniorReviewForGuidance(record)
@@ -131,6 +133,10 @@ export function userDecisionCategoryToRationaleCategory(
 }
 
 function deriveWorkflowGuidancePhase(record: WorkflowRecord): WorkflowGuidancePhase {
+  if (record.orchestration !== undefined) {
+    if (record.planningStatus === "escalated" || record.consensusRounds.at(-1)?.consensus === "escalated") return "escalated";
+    if (record.planningStatus !== "approved") return "planning";
+  }
   if (record.userEscalations.some((escalation) => escalation.status === "open")) {
     return "escalated";
   }
@@ -145,7 +151,7 @@ function deriveWorkflowGuidancePhase(record: WorkflowRecord): WorkflowGuidancePh
     return "brainstorming";
   }
   if (
-    record.planningStatus === "approved" &&
+    record.orchestration === undefined && record.planningStatus === "approved" &&
     record.consensusRounds.some((round) => round.phase === "planning" && round.consensus === "approved") &&
     !hasUserPlanApproval(record)
   ) {
@@ -321,6 +327,15 @@ function hooksForPhase(
   }
 }
 
+function orchestrationHooks(record: WorkflowRecord, phase: WorkflowGuidancePhase): readonly WorkflowGuidanceHook[] {
+  const assignmentPhase = phase === "planning" ? "planning" : phase === "reviewing" ? "review" : phase === "approved" || phase === "executing" ? "implementation" : undefined;
+  if (assignmentPhase === undefined) return hooksForPhase(record, phase);
+  const slice = record.slices.find(item => assignmentPhase === "review" ? item.state === "awaiting-review" : ["planned", "ready", "needs-revision"].includes(item.state));
+  return [hook(assignmentPhase === "planning" ? "write_plan" : assignmentPhase === "review" ? "review_slice" : "start_ready_slices", "required",
+    "Use the selected native/provider assignments. Reuse matching active planning; only the selected authority can approve the same artifact.",
+    "agent_team_prepare_assignments", { workflowId: record.workflowId, phase: assignmentPhase, ...(assignmentPhase !== "planning" && slice ? { sliceId: slice.sliceId } : {}) })];
+}
+
 function hook(
   kind: WorkflowHookKind,
   priority: WorkflowGuidanceHook["priority"],
@@ -381,6 +396,7 @@ function blockedReasonsForGuidance(record: WorkflowRecord): WorkflowGuidance["bl
 }
 
 function seniorReviewForGuidance(record: WorkflowRecord): WorkflowGuidance["seniorReview"] {
+  if (record.orchestration !== undefined) return { opusPlanning: "not_requested", opusImplementation: "not_requested" };
   return {
     opusPlanning: seniorReviewPhaseStatus(record, "planning"),
     opusImplementation: seniorReviewPhaseStatus(record, "implementation")

@@ -11,7 +11,7 @@ const providers = (process.env.AGENT_TEAM_LIVE_WORKFLOW_PROVIDERS ?? "")
 
 if (providers.length === 0) {
   console.error(
-    "Set AGENT_TEAM_LIVE_WORKFLOW_PROVIDERS to a comma-separated provider list such as claude-code-cli,codex-cli,gemini-cli,ollama-claude-code:kimi-k2.6."
+    "Set AGENT_TEAM_LIVE_WORKFLOW_PROVIDERS to a comma-separated provider list such as claude-code-cli,codex-cli,gemini-cli,ollama-claude-code:glm-5.2."
   );
   process.exit(2);
 }

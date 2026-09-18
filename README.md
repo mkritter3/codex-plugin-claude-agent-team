@@ -2,7 +2,15 @@
 
 Provider-neutral Agent Team MCP plugin for Codex. The plugin lets Codex start, inspect, message, wind down, and clean up durable external agent runs while Codex remains the orchestrator and final integration authority.
 
-Claude Code CLI subscription OAuth is the primary v1 transport. The core stays provider-neutral so other providers can plug into the same roles, lifecycle, mailbox, verdict, status, cleanup, and evidence contracts. The MCP server is host-agnostic at the protocol boundary; Codex-specific plugin packaging is one host shell, not the provider model.
+Claude Code CLI subscription OAuth remains the mature v1 transport, and the default routing preference now puts Ollama-native Claude Code profiles first for read-oriented planning and review when local Ollama plus Claude Code are ready. The core stays provider-neutral so other providers can plug into the same roles, lifecycle, mailbox, verdict, status, cleanup, and evidence contracts. The MCP server is host-agnostic at the protocol boundary; Codex-specific plugin packaging is one host shell, not the provider model.
+
+## Choose the coordinator and decision makers independently
+
+The active session can stay on Sol, Terra, Luna or Astra. Configure each workflow with `agent_team_configure_orchestration`, then use `agent_team_prepare_assignments` to route native Codex models and external provider profiles together. A runtime-confirmed matching active model/effort handles planning once without spawning a duplicate. Implementation can override its model per slice, including active Astra for visual work. Reviews use an independent execution.
+
+A sole selected reviewer has authority. A panel requires every selected member to approve the same artifact; the coordinator cannot override dissent, missing votes or a round limit. New `authority` evidence is required on existing planning/review tools for configured workflows. Native completion evidence enters the existing review and integration queue through `agent_team_record_native_implementation`. External approvals reference actual completed Agent Team runs; native identities and artifact digests are reported by the host.
+
+See the [orchestration guide](skills/codex-agent-team-orchestrator/references/orchestration.md) for a native Astra/Sol example, mixed panels, exact role and model overrides, caching discipline, and the optional AGY driver for Gemini. The MCP server prepares native assignments; Codex's native agent tools execute them. Existing workflows without an orchestration policy keep their legacy behavior.
 
 ## Safety Model
 
@@ -12,6 +20,8 @@ Claude Code CLI subscription OAuth is the primary v1 transport. The core stays p
 - Codex reviews and integrates implementation diffs.
 - Cleanup is explicit through `agent_team_cleanup`.
 - Live provider usage is an opt-in live smoke and is not part of CI.
+
+The server runs locally over stdio using the host's filesystem permissions and provider authentication. Git worktrees separate changes for review; they are not an operating-system sandbox. Use trusted workspaces and keep provider credentials and `.agent-team/` runtime data out of version control. Native vote identities are attested by the coordinating host, not independently authenticated by this MCP server.
 
 ## Codex-Orchestrated Product Path
 
@@ -29,14 +39,21 @@ The packaged plugin ships `skills/codex-agent-team-orchestrator/SKILL.md` so a l
 - Claude Code CLI installed and authenticated with Claude Code CLI subscription OAuth.
 - A workspace where `.agent-team/` state can be written.
 
+## Native Codex Install
+
+Install `codex-plugin-claude-agent-team` from the `local-plugins` marketplace in Codex's plugin browser. For a personal marketplace, place its manifest at `../.agents/plugins/marketplace.json` relative to this checkout and point its local source at `./codex-plugin-claude-agent-team`.
+
+After install, run `/reload-plugins` or start a fresh Codex session. Then ask Codex to use Agent Team and call `agent_team_doctor` followed by `agent_team_list_providers` in the target workspace. If those tools are missing after reload, the plugin has not been loaded by the host; run `npm run install:check` and `npm run verify:distribution` from this plugin checkout to check package and marketplace metadata.
+
+Do not run `codex mcp add`; the plugin ships its MCP server through `.codex-plugin/plugin.json` and `.mcp.json`. Manual MCP config is diagnostic output for hosts that do not yet support plugins.
+
 ## Local Installation
 
-From this private repository:
+From this repository:
 
 ```bash
-npm ci
-npm run build
 npm run install:check
+npm run verify:distribution
 npm run smoke:mcp-stdio
 npm run smoke:workflow-orchestrator
 npm run smoke:package
@@ -46,16 +63,23 @@ npm run smoke:claude-models -- --dry-run
 npm run smoke:providers-live -- --dry-run --cwd /absolute/path/to/workspace --provider family:gemini
 ```
 
+For a fresh development or CI checkout, run `npm ci` followed by `npm run ci`; no personal marketplace is required. Distribution verification also checks the sibling marketplace when present. To require that local installation check explicitly, run `npm run verify:distribution -- --require-local-marketplace`.
+
+Codex launches the plugin through `scripts/start-mcp.sh`. On first run, that wrapper installs npm dependencies when `node_modules/` is missing and builds `dist/index.js` when the runtime is missing, while keeping MCP stdout clean. Manual `npm ci` and `npm run build` are still useful for development and CI, but they are not required before a local Codex install can start the server.
+
+For native Codex plugin installs, the bundled `.mcp.json` sets `"cwd": "."` on the `agent-team` server. Codex resolves that relative cwd to the installed plugin root, so `./scripts/start-mcp.sh` works from any user workspace instead of depending on the current session directory. The same config sets `"startup_timeout_sec": 120` so a clean install has enough time for the wrapper's one-time dependency install and build.
+
 The built executable is exposed as the `agent-team-mcp` package bin and points to `"./dist/index.js"`.
 
-`npm run install:check` prints a sanitized install handoff report. It validates package metadata, plugin metadata, local MCP config, the built runtime, and packaged install scripts; it does not call providers, read credentials, or start live runs. The report includes an absolute MCP config that can be added to the Codex MCP client configuration:
+`npm run install:check` prints a sanitized install handoff report. It validates package metadata, plugin metadata, local MCP config, the first-run launcher, the first-run lockfile, the runtime build-cache state, and packaged install scripts; it does not call providers, read credentials, or start live runs. The report includes an absolute MCP config only for MCP hosts that do not support Codex plugins:
 
 ```json
 {
   "mcpServers": {
     "agent-team": {
-      "command": "node",
-      "args": ["/absolute/path/to/codex-plugin-claude-agent-team/dist/index.js"]
+      "command": "sh",
+      "args": ["/absolute/path/to/codex-plugin-claude-agent-team/scripts/start-mcp.sh"],
+      "startup_timeout_sec": 120
     }
   }
 }
@@ -69,18 +93,20 @@ The repo ships `.mcp.json` for local use:
 {
   "mcpServers": {
     "agent-team": {
-      "command": "node",
-      "args": ["./dist/index.js"]
+      "command": "sh",
+      "args": ["./scripts/start-mcp.sh"],
+      "cwd": ".",
+      "startup_timeout_sec": 120
     }
   }
 }
 ```
 
-Run `npm run build` before using this packaged runtime entrypoint.
+The launcher performs the first-run build before starting the packaged runtime entrypoint.
 
 ## Workspace Config
 
-The default posture is read-only. Isolated implementation runs require explicit workspace config in `.agent-team/config.json`:
+The default posture is local-first and write-capable through retained isolated worktrees. Missing `.agent-team/config.json` means `writeMode.enabled: true`, `requireIsolatedWorktree: true`, unrestricted roles/providers, and audit enabled. Add config only when you want to restrict routing or override defaults:
 
 ```json
 {
@@ -118,6 +144,8 @@ Provider selection policy is optional and capability-first. Request-level `provi
 ```
 
 Per-request `provider` selectors take precedence over role pins, role pins take precedence over `providerOrder`, and every selection still has to satisfy the role's required capabilities. `providerOrder` is a preference, not a hard pin: if a preferred provider is in an active cooldown window, routing can fall through to the next capable provider while doctor records the degraded evidence. Multi-provider second opinions should be started as multiple explicit runs; routing policy does not synthesize provider rankings or preference judgments.
+
+Without a workspace override, the default provider order is `family:ollama-claude-code`, `claude-code-cli`, `family:ollama-cloud`, `gemini-cli`, then `codex-cli`. The default config includes `claude-code-cli:opus` as a read-only senior review profile when Claude Code CLI is available. GLM 5.2 and Kimi K2.7 Code are default write-validated Ollama-native junior workers after their 2026-06-28 packaged MCP proofs; any future unvalidated Ollama profile still falls through to another write-capable provider by capability rather than preference alone.
 
 Claude Code CLI model profiles let a workspace expose explicit subscription-OAuth aliases while keeping execution on the same Claude Code CLI transport. The common aliases are intentionally unpinned so Claude Code resolves them to its current configured defaults:
 
@@ -160,7 +188,7 @@ Claude Code CLI model profiles let a workspace expose explicit subscription-OAut
 }
 ```
 
-Profile provider ids use `claude-code-cli:<profile-id>`, for example `claude-code-cli:opus`. They use `authMode: "subscription-oauth"` and do not introduce API-key env handling. Write capabilities remain withheld unless an exact profile is explicitly marked `writeValidated: true` and the workspace has isolated write mode enabled.
+Profile provider ids use `claude-code-cli:<profile-id>`, for example `claude-code-cli:opus`. They use `authMode: "subscription-oauth"` and do not introduce API-key env handling. `claude-code-cli:opus` ships as the default read-only senior review profile; omitting `providers.claudeCodeCli.profiles` inherits that built-in profile, while setting `profiles: []` intentionally disables it. Additional Claude aliases such as Sonnet and Haiku can be configured per workspace. Write capabilities remain withheld unless an exact profile is explicitly marked `writeValidated: true` and the workspace has isolated write mode enabled.
 
 For the default Claude team shape, pin planning, architecture, senior review, and other high-complexity read-only roles to Opus. Route search-style reconnaissance, documentation lookup, and low-risk fact-gathering tasks to Haiku. Pin implementation and bounded execution roles to a write-validated Sonnet profile. The model aliases stay deliberately unversioned so Claude Code resolves `opus`, `haiku`, and `sonnet` to the latest subscription-backed aliases available in the installed CLI.
 
@@ -284,7 +312,9 @@ OpenAI-compatible providers are disabled by default and never inferred from envi
 
 The foundation adapter does not support background sessions, live stdin, resume, cancellation, edits, tools, or workspace isolation.
 
-Ollama Cloud profiles are an explicit OpenAI-compatible profile layer. They are also disabled by default and can represent Kimi/GLM-style read-only review models without adding provider-specific MCP tools:
+Ollama Cloud profiles are auto-listed through the OpenAI-compatible runtime. By default, `ollama-cloud:glm-5.2` and `ollama-cloud:kimi-k2.7-code` use `https://ollama.com/v1` with the shared `OLLAMA_API_KEY` environment variable. These `ollama-cloud:*` providers are the chat-completions route, not the Claude Code harness route. When `OLLAMA_API_KEY` is present, those profiles become available automatically; when it is missing, they stay visible as unavailable providers and do not block other installed CLIs.
+
+You can override the default profile list when you need custom endpoints, model ids, or environment variable names:
 
 ```json
 {
@@ -293,11 +323,11 @@ Ollama Cloud profiles are an explicit OpenAI-compatible profile layer. They are 
       "enabled": true,
       "profiles": [
         {
-          "id": "kimi-k2.6",
+          "id": "glm-5.2",
           "baseUrl": "https://ollama.example/v1",
-          "model": "kimi-k2.6",
-          "apiKeyEnv": "KIMI_API_KEY",
-          "displayName": "Kimi K2.6",
+          "model": "glm-5.2",
+          "apiKeyEnv": "GLM_API_KEY",
+          "displayName": "GLM 5.2",
           "capabilities": {
             "structuredOutput": true,
             "longContext": true,
@@ -305,14 +335,14 @@ Ollama Cloud profiles are an explicit OpenAI-compatible profile layer. They are 
           }
         },
         {
-          "id": "glm-5.1",
+          "id": "kimi-k2.7-code",
           "baseUrl": "https://ollama.example/v1",
-          "model": "glm-5.1",
-          "apiKeyEnv": "GLM_API_KEY",
-          "displayName": "GLM 5.1",
+          "model": "kimi-k2.7-code",
+          "apiKeyEnv": "KIMI_API_KEY",
+          "displayName": "Kimi K2.7 Code",
           "capabilities": {
             "structuredOutput": true,
-            "longContext": false,
+            "longContext": true,
             "reasoning": false
           }
         }
@@ -322,55 +352,49 @@ Ollama Cloud profiles are an explicit OpenAI-compatible profile layer. They are 
 }
 ```
 
-Profile provider ids use `ollama-cloud:<profile-id>`, for example `ollama-cloud:kimi-k2.6`. Profiles support synchronous read-only dispatch only; run live smoke separately before making any real-provider readiness, provider performance, or long-context claims.
+Profile provider ids use `ollama-cloud:<profile-id>`, for example `ollama-cloud:glm-5.2`. Profiles support synchronous read-only dispatch only; run live smoke separately before making any real-provider readiness, provider performance, or long-context claims. Do not use `model:glm-5.2` or `model:kimi-k2.7-code` to choose between Ollama families; when the same model exists in both `ollama-cloud:*` and `ollama-claude-code:*`, the router rejects the ambiguous model selector and requires an exact provider id or family selector.
 
-Ollama Claude Code profiles are an explicit Anthropic-compatible profile layer for routing Claude Code through Ollama-compatible endpoints while keeping the same lifecycle, mailbox, status, wind-down, cancellation, dashboard, summary, and cleanup contracts. They are disabled by default. The supported Cloud path uses Ollama's direct Anthropic-compatible endpoint at `https://ollama.com`, so a local Ollama daemon or Ollama CLI is not required. Configure `providers.ollamaClaudeCode` with one shared API-key environment variable, usually `OLLAMA_API_KEY`, plus non-secret model profiles:
+Ollama Claude Code profiles are the Claude Code harness route for Ollama models while keeping the same lifecycle, mailbox, status, wind-down, cancellation, dashboard, summary, and cleanup contracts. By default, `ollama-claude-code:glm-5.2` and `ollama-claude-code:kimi-k2.7-code` run through Ollama's native Claude Code launcher: `ollama launch claude --model <model> --yes -- <claude args>`. This is the default `launchMode: "ollama-launch"` path, uses the locally authenticated Ollama installation, and does not require `OLLAMA_API_KEY` when `ollama` is already signed in. `agent_team_doctor` verifies the local CLIs and warns that doctor itself is not a live cloud-model proof; rely on explicit opt-in smoke evidence such as the GLM 5.2 and Kimi K2.7 Code proofs recorded below. Override `providers.ollamaClaudeCode` only when you need custom launch mode, endpoints, model ids, or capability declarations:
 
 ```json
 {
   "providers": {
     "ollamaClaudeCode": {
       "enabled": true,
-      "baseUrl": "https://ollama.com",
+      "launchMode": "ollama-launch",
+      "baseUrl": "http://localhost:11434",
+      "authToken": "ollama",
+      "executable": "ollama",
       "apiKeyEnv": "OLLAMA_API_KEY",
       "profiles": [
         {
-          "id": "kimi-k2.6",
-          "model": "kimi-k2.6",
-          "displayName": "Kimi K2.6",
-          "writeValidated": false,
-          "capabilities": {
-            "structuredOutput": true,
-            "longContext": true,
-            "reasoning": true,
-            "tools": true,
-            "sessionResume": true,
-            "cancellation": true
-          }
-        },
-        {
-          "id": "glm-5.1",
-          "model": "glm-5.1",
-          "displayName": "GLM 5.1",
-          "writeValidated": false,
+          "id": "glm-5.2",
+          "model": "glm-5.2:cloud",
+          "displayName": "GLM 5.2",
+          "writeValidated": true,
           "capabilities": {
             "structuredOutput": true,
             "longContext": true,
             "tools": true,
             "sessionResume": true,
-            "cancellation": true
+            "cancellation": true,
+            "edits": true,
+            "workspaceIsolation": true
           }
         },
         {
-          "id": "deepseek-v4-flash",
-          "model": "deepseek-v4-flash",
-          "displayName": "DeepSeek V4 Flash",
-          "writeValidated": false,
+          "id": "kimi-k2.7-code",
+          "model": "kimi-k2.7-code:cloud",
+          "displayName": "Kimi K2.7 Code",
+          "writeValidated": true,
           "capabilities": {
             "structuredOutput": true,
+            "longContext": true,
             "tools": true,
             "sessionResume": true,
-            "cancellation": true
+            "cancellation": true,
+            "edits": true,
+            "workspaceIsolation": true
           }
         }
       ]
@@ -379,7 +403,7 @@ Ollama Claude Code profiles are an explicit Anthropic-compatible profile layer f
 }
 ```
 
-Profile provider ids use `ollama-claude-code:<profile-id>`, for example `ollama-claude-code:kimi-k2.6`. At launch time the adapter builds a scoped provider env for that run only: `ANTHROPIC_BASE_URL` is set to `https://ollama.com`, `ANTHROPIC_AUTH_TOKEN` carries the configured Ollama token, `ANTHROPIC_API_KEY` is intentionally blank for Claude Code compatibility, and `OLLAMA_API_KEY` remains available as the single secret source. This scoped provider env is not applied to the normal `claude-code-cli` provider, so Claude Code CLI subscription OAuth keeps its fail-closed auth posture.
+Profile provider ids use `ollama-claude-code:<profile-id>`, for example `ollama-claude-code:glm-5.2`. At launch time the adapter creates a scoped local Ollama env for that run only: `ANTHROPIC_BASE_URL` points at the local Ollama server, `ANTHROPIC_AUTH_TOKEN` uses the configured non-secret token value, `ANTHROPIC_API_KEY` is intentionally blank for Claude Code compatibility, and normal Claude Code OAuth plus ambient Anthropic auth variables are stripped. In `ollama-launch` mode the actual process is wrapped with `ollama launch claude --model <profile.model> --yes --`, so Ollama handles local/cloud model auth. `launchMode: "local-anthropic"` keeps the same local env but calls `claude --model <profile.model>` directly. `launchMode: "direct-api"` is the explicit legacy fallback for direct remote Anthropic-compatible access and is the only Ollama Claude Code mode that requires `OLLAMA_API_KEY`; omitted direct-api profiles stay read-only until exact direct-api write validation is proven. This scoped provider env is not applied to the normal `claude-code-cli` provider, so Claude Code CLI subscription OAuth keeps its fail-closed auth posture. Use `ollama-claude-code:*`, not `ollama-cloud:*` or `model:*`, when the goal is to route through the Claude Code harness.
 
 Write-capable capabilities such as edits and workspace isolation are withheld unless a profile explicitly sets `writeValidated: true` and declares those capabilities. Treat that as an operator proof gate, not a model-quality claim. Run opt-in live validation before using any Ollama Claude Code profile for implementation work, and keep no provider ranking or comparative readiness claim in reports.
 
@@ -434,7 +458,7 @@ Gemini is a separate explicit adapter because its REST payloads are not OpenAI-c
 
 Gemini does not support background sessions, live stdin, resume, cancellation, edits, tools, streaming, Live API, file upload, multimodal inputs, or workspace isolation in this plugin version. Run live smoke separately before making real-provider readiness, provider performance, or practical long-context claims.
 
-Gemini CLI is a separate auth-backed provider for local Google sign-in/OAuth usage. It is disabled by default and intentionally distinct from the API-key `gemini` adapter:
+Gemini CLI is a separate auth-backed provider for local Google sign-in/OAuth usage. It is auto-configured by default and intentionally distinct from the API-key `gemini` adapter. If `gemini` is not on `PATH`, `agent_team_list_providers` and `agent_team_doctor` report it as unavailable instead of requiring manual activation. `model` is optional; omit it to let the installed Gemini CLI use its own default:
 
 ```json
 {
@@ -442,29 +466,25 @@ Gemini CLI is a separate auth-backed provider for local Google sign-in/OAuth usa
     "geminiCli": {
       "enabled": true,
       "executable": "gemini",
-      "model": "gemini-3-pro-preview",
       "displayName": "Gemini CLI",
       "projectEnv": "GOOGLE_CLOUD_PROJECT",
-      "writeValidated": false,
+      "writeValidated": true,
       "capabilities": {
         "structuredOutput": true,
         "longContext": true,
         "reasoning": true,
-        "tools": false,
-        "sessionResume": false,
-        "cancellation": false,
-        "edits": false,
-        "workspaceIsolation": false
+        "tools": true,
+        "sessionResume": true,
+        "cancellation": true,
+        "edits": true,
+        "workspaceIsolation": true
       }
     }
-  },
-  "policy": {
-    "allowedProviderSelectors": ["gemini-cli", "family:gemini-cli"]
   }
 }
 ```
 
-`gemini-cli` uses `authMode: "oauth"` and does not require or infer `GEMINI_API_KEY`. Install and sign in to Gemini CLI first, then run `agent_team_doctor`; some Google Workspace or Code Assist setups may also require the configured project env. The adapter supports read-only dispatch by default. It advertises autonomous worker capabilities only when `writeValidated: true` and `tools`, `sessionResume`, `cancellation`, `edits`, and `workspaceIsolation` are explicitly enabled after a live isolated-write proof.
+`gemini-cli` uses `authMode: "oauth"` and does not require or infer `GEMINI_API_KEY`. Install and sign in to Gemini CLI first, then run `agent_team_doctor`; some Google Workspace or Code Assist setups may also require the configured project env. Gemini CLI implementation runs use retained isolated worktrees and `--approval-mode auto_edit`; read-only runs use `--approval-mode plan`. The plugin never uses Gemini CLI `--yolo`.
 
 For UI/UX and frontend work, prefer explicit role pins rather than hidden router behavior:
 
@@ -480,9 +500,9 @@ For UI/UX and frontend work, prefer explicit role pins rather than hidden router
 }
 ```
 
-Gemini CLI implementation runs use retained isolated worktrees and `--approval-mode auto_edit`; read-only runs use `--approval-mode plan`. The plugin never uses Gemini CLI `--yolo`. If Gemini returns rate limits, timeouts, or provider-unavailable errors, provider health cooldowns cause normal default/family routing to avoid it temporarily while exact `gemini-cli` requests remain explicit probes.
+If Gemini returns rate limits, timeouts, or provider-unavailable errors, provider health cooldowns cause normal default/family routing to avoid it temporarily while exact `gemini-cli` requests remain explicit probes.
 
-Codex CLI is an explicit subscription-backed provider for local Codex login usage. It is disabled by default and separate from Codex as the host/orchestrator: host Codex remains the senior engineer and integration authority, while `codex-cli` can be routed as a normal agent-team worker.
+Codex CLI is a subscription-backed provider for local Codex login usage. It is auto-configured by default when `codex` is on `PATH` and remains separate from Codex as the host/orchestrator: host Codex remains the senior engineer and integration authority, while `codex-cli` can be routed as a normal agent-team worker. `model` is optional; omit it to use the installed Codex CLI default.
 
 ```json
 {
@@ -490,7 +510,6 @@ Codex CLI is an explicit subscription-backed provider for local Codex login usag
     "codexCli": {
       "enabled": true,
       "executable": "codex",
-      "model": "gpt-5.5",
       "displayName": "Codex CLI",
       "writeValidated": true,
       "capabilities": {
@@ -504,21 +523,11 @@ Codex CLI is an explicit subscription-backed provider for local Codex login usag
         "workspaceIsolation": true
       }
     }
-  },
-  "policy": {
-    "allowedRoles": ["planner", "code-reviewer", "slice-implementer", "frontend-engineer", "backend-engineer", "test-hardening-engineer"],
-    "allowedProviderSelectors": ["codex-cli"],
-    "allowWriteMode": true,
-    "allowedWorktreeRoots": ["/absolute/path/to/.agent-team-worktrees"],
-    "liveSmokeEnabled": false,
-    "auditEnabled": true
   }
 }
 ```
 
-Keep `writeValidated: false`, `allowWriteMode: false`, and empty write capabilities until the exact local Codex CLI executable and model have passed an opt-in isolated-write proof in a disposable workspace. After that proof, Codex CLI can be assigned planning, review, implementation, UI, backend, or test-hardening roles through the same provider-neutral routing and slice DAG as Claude, Gemini CLI, Ollama, and other adapters.
-
-Codex CLI read-only dispatch uses `codex exec --sandbox read-only` with the configured model and workspace. Isolated write dispatch uses `--sandbox workspace-write` only after the provider has `writeValidated: true` and explicitly declares tools, edits, session resume, cancellation, and workspace isolation. The adapter never uses `--dangerously-bypass-approvals-and-sandbox`. It reports `authMode: "subscription-oauth"` and removes `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_ORG_ID`, and `OPENAI_PROJECT` from provider launches so local Codex CLI login remains the auth boundary.
+Codex CLI read-only dispatch uses `codex exec --sandbox read-only` with the workspace. Isolated write dispatch uses `--sandbox workspace-write` and retained isolated worktrees. The adapter never uses `--dangerously-bypass-approvals-and-sandbox`. It reports `authMode: "subscription-oauth"` and removes `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_ORG_ID`, and `OPENAI_PROJECT` from provider launches so local Codex CLI login remains the auth boundary.
 
 Latest live Codex CLI read-only provider proof evidence is recorded in `docs/superpowers/reports/2026-05-13-agent-team-live-codex-cli-provider-proof.md`.
 
@@ -668,24 +677,26 @@ The sanitized report includes provider selectors, selected provider ids, auth mo
 
 The Ollama write validation smoke is the proof gate before any `ollama-claude-code:<profile-id>` should be enabled for normal isolated implementation work. It creates a disposable git fixture per selected provider, enables `writeValidated: true` only inside that fixture, starts a `slice-implementer`, verifies the expected file appears only in the isolated worktree, records dashboard and summary evidence, and removes the retained worktree through `agent_team_cleanup`.
 
-Latest live Ollama write proof evidence is recorded in `docs/superpowers/reports/2026-05-13-agent-team-live-ollama-write-proof.md`.
+Native Ollama GLM 5.2 and Kimi K2.7 Code write proof evidence, plus historical pre-native Ollama evidence, is recorded in `docs/superpowers/reports/2026-05-13-agent-team-live-ollama-write-proof.md`.
 
 Inspect the plan without provider use:
 
 ```bash
-npm run smoke:ollama-write -- --dry-run --provider ollama-claude-code:kimi-k2.6
+npm run smoke:ollama-write -- --dry-run --provider ollama-claude-code:glm-5.2
+npm run smoke:ollama-write -- --dry-run --provider ollama-claude-code:kimi-k2.7-code
 ```
 
 Run the confirmed validation after building the packaged runtime:
 
 ```bash
 npm run build
-npm run smoke:ollama-write -- --confirm-live-provider-use --provider ollama-claude-code:kimi-k2.6
+npm run smoke:ollama-write -- --confirm-live-provider-use --provider ollama-claude-code:glm-5.2
+npm run smoke:ollama-write -- --confirm-live-provider-use --provider ollama-claude-code:kimi-k2.7-code
 ```
 
 The report includes provider ids, run ids, terminal status, changed files, isolated worktree evidence, cleanup status, dashboard counts, summary groups, sidecar/log paths, and known limitations. It does not print prompts, task text, provider endpoints, raw provider payloads, provider session ids, process metadata, command details, environment values, mailbox payloads, or secrets. Passing this smoke proves isolated write containment for the selected profile only; it makes no model-quality, ranking, autonomous-implementation, or broad write-readiness claim.
 
-In this repository, `kimi-k2.6`, `glm-5.1`, and `deepseek-v4-flash` have passed this disposable-fixture write validation through the packaged MCP path. Other profiles should keep `writeValidated: false` until they pass the same proof.
+The current default `ollama-claude-code:glm-5.2` and `ollama-claude-code:kimi-k2.7-code` profiles are write-validated by the native proofs recorded in that report. Any additional Ollama Claude Code profile should keep `writeValidated: false` until that exact provider id passes the same disposable-fixture proof through the packaged MCP path.
 
 ## Opt-In Gemini CLI Write Validation Smoke
 
@@ -725,7 +736,7 @@ npm run build
 env -u ANTHROPIC_API_KEY npm run dogfood:live-app -- --confirm-live-provider-use --timeout-ms 300000 --max-wait-ms 360000
 ```
 
-The sanitized report uses the `dogfood_app_workflow_only` claim boundary. It can include Claude Opus required-when-available planning evidence, Gemini UI work, Codex implementation/test work, and optional Ollama Kimi junior documentation work when `OLLAMA_API_KEY` is present and `--include-optional-ollama` is passed. It is not part of CI and does not print private prompts, task text, provider endpoints, raw provider payloads, provider session ids, process metadata, command details, environment values, mailbox payloads, or secrets. Passing the dogfood proves the public workflow/control-plane path can coordinate and integrate real provider-backed app slices in a disposable fixture; it does not compare providers, evaluate model quality, or prove broad product readiness.
+The sanitized report uses the `dogfood_app_workflow_only` claim boundary. It can include Claude Opus required-when-available planning evidence, Gemini UI work, Codex implementation/test work, and optional Ollama junior documentation work when an Ollama Claude Code provider is healthy and `--include-optional-ollama` is passed. It is not part of CI and does not print private prompts, task text, provider endpoints, raw provider payloads, provider session ids, process metadata, command details, environment values, mailbox payloads, or secrets. Passing the dogfood proves the public workflow/control-plane path can coordinate and integrate real provider-backed app slices in a disposable fixture; it does not compare providers, evaluate model quality, or prove broad product readiness.
 
 ## Basic Workflow
 
@@ -797,7 +808,7 @@ Hook Hierarchy:
 
 Provider steering is reported truthfully. A run may support `live` steering when an input channel is open, `recorded_for_resume` when mailbox guidance can be used on resume, `follow_up_run` when Codex must launch a corrected follow-up, `cancel_wind_down` when stopping or replacing a worker is the safe path, or `unsupported` when the lifecycle state cannot be steered.
 
-Default role guidance treats Opus as the senior planning, architecture, security, high-complexity review, and sign-off brain. Sonnet and Codex CLI are default autonomous implementation workers in retained isolated worktrees. Haiku is preferred for search and reconnaissance. Gemini CLI is a full autonomous worker when configured, with default preference for UI, UX, frontend, visual, and browser-flow work. Ollama-hosted Kimi K2.6, GLM 5.1, and DeepSeek profiles are junior bounded workers that require isolated worktrees and senior review before integration.
+Default routing prefers Ollama-native GLM 5.2 and Kimi K2.7 Code for read-oriented planning and review when doctor shows the local launch path is ready. `claude-code-cli:opus` is the default read-only senior planning, architecture, security, high-complexity review, and sign-off brain when Claude Code CLI is available. GLM 5.2 and Kimi K2.7 Code are default write-validated Ollama-native junior workers for bounded isolated implementation. Sonnet and Codex CLI remain strong autonomous implementation fallbacks in retained isolated worktrees when configured and healthy. Haiku is preferred for search and reconnaissance when configured. Gemini CLI is a full autonomous worker when configured, with default preference for UI, UX, frontend, visual, and browser-flow work.
 
 ## Delegation Playbook
 
@@ -809,7 +820,7 @@ Default playbook preferences:
 - Senior implementation and execution: `claude-code-cli:sonnet` and `codex-cli`.
 - Search, reconnaissance, lightweight scans, and summaries: `claude-code-cli:haiku`.
 - UI, UX, frontend, visual, product-flow, and browser-oriented work: `gemini-cli` when configured and healthy.
-- Junior contained implementation: `ollama-claude-code:kimi-k2.6`, `ollama-claude-code:glm-5.1`, and `ollama-claude-code:deepseek-v4-flash`.
+- Junior contained implementation: `ollama-claude-code:glm-5.2` and `ollama-claude-code:kimi-k2.7-code`.
 
 Codex remains the final authority. Junior and UI workers can be autonomous, but write-capable work still requires retained isolated worktrees, bounded write scopes, changed-file evidence, tests run, senior review, and Codex-owned integration before cleanup.
 
@@ -861,4 +872,4 @@ Every integrated change should pass:
 npm run ci
 ```
 
-`npm run ci` runs typecheck, tests, build, install handoff preflight, packaged stdio smoke, workflow orchestrator smoke, package dry-run smoke, workflow guidance scan, deterministic workflow fixture validation, and workflow validation scan in that order.
+`npm run ci` runs typecheck, tests, build, install handoff preflight, native distribution verification, packaged stdio smoke, workflow orchestrator smoke, package dry-run smoke, workflow guidance scan, deterministic workflow fixture validation, and workflow validation scan in that order.

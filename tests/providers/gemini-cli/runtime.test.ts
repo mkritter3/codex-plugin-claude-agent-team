@@ -69,13 +69,20 @@ class FakeGeminiProcess extends EventEmitter {
 }
 
 describe("Gemini CLI runtime", () => {
-  it("keeps the provider descriptor disabled by default", () => {
-    expect(geminiCliProvider(DEFAULT_AGENT_TEAM_CONFIG)).toBeUndefined();
+  it("keeps the provider descriptor auto-enabled by default", () => {
+    expect(
+      geminiCliProvider(DEFAULT_AGENT_TEAM_CONFIG, { executableAvailable: true })
+    ).toMatchObject({
+      id: "gemini-cli",
+      authMode: "oauth",
+      available: true,
+      capabilities: expect.arrayContaining(["edits", "workspaceIsolation"])
+    });
     expect(createGeminiCliRuntime().descriptor()).toMatchObject({
       id: "gemini-cli",
       authMode: "oauth",
-      available: false,
-      capabilities: []
+      available: true,
+      capabilities: expect.arrayContaining(["edits", "workspaceIsolation"])
     });
   });
 

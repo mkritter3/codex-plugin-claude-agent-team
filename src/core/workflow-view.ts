@@ -15,6 +15,8 @@ import type {
 } from "./workflow-types.js";
 
 export interface WorkflowSliceView {
+  readonly implementationTarget?: WorkflowSlice["implementationTarget"];
+  readonly nativeImplementation?: WorkflowSlice["nativeImplementation"];
   readonly sliceId: string;
   readonly title: string;
   readonly state: WorkflowSlice["state"];
@@ -49,6 +51,7 @@ export interface WorkflowOpusReviewEvidenceView {
 }
 
 export interface WorkflowView {
+  readonly orchestration?: WorkflowRecord["orchestration"];
   readonly workflowId: string;
   readonly name?: string;
   readonly createdAt: string;
@@ -110,6 +113,7 @@ function implementationEvidenceToView(
     recordedAt: evidence.recordedAt,
     summary: evidence.summary,
     changedFiles: evidence.changedFiles,
+    ...(evidence.artifact === undefined ? {} : { artifact: evidence.artifact }),
     testsRun: evidence.testsRun,
     evidencePaths: evidence.evidencePaths,
     ...(evidence.sourceRunId === undefined ? {} : { sourceRunId: evidence.sourceRunId }),
@@ -184,6 +188,8 @@ function integrationQueueItemToView(
 function sliceToView(slice: WorkflowSlice): WorkflowSliceView {
   return {
     sliceId: slice.sliceId,
+    ...(slice.implementationTarget === undefined ? {} : { implementationTarget: slice.implementationTarget }),
+    ...(slice.nativeImplementation === undefined ? {} : { nativeImplementation: slice.nativeImplementation }),
     title: slice.title,
     state: slice.state,
     ownerRole: slice.ownerRole,
@@ -228,6 +234,7 @@ function sliceToView(slice: WorkflowSlice): WorkflowSliceView {
 export function toWorkflowView(record: WorkflowRecord): WorkflowView {
   return {
     workflowId: record.workflowId,
+    ...(record.orchestration === undefined ? {} : { orchestration: record.orchestration }),
     ...(record.name === undefined ? {} : { name: record.name }),
     createdAt: record.createdAt,
     updatedAt: record.updatedAt,

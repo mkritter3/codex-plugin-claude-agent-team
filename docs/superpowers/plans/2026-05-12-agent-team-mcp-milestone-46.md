@@ -221,7 +221,7 @@ rg "runClaudePrint|startClaudeBackgroundSession|requireProviderRuntime|createDef
 **Live proof:**
 
 ```bash
-env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN npm run smoke:claude-live -- --confirm-live-provider-use --cwd /Users/mkr/Documents/coding-projects/codex-plugin-claude-agent-team
+env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN npm run smoke:claude-live -- --confirm-live-provider-use --cwd /Users/example/Documents/coding-projects/codex-plugin-claude-agent-team
 ```
 
 Pass condition: the report exits `0`, sets `status: "completed"`, records `liveProviderUse: true`, uses provider `claude-code-cli` with `subscription-oauth`, and includes at least one completed run id, sidecar path, and log path.

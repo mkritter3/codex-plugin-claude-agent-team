@@ -1,6 +1,6 @@
 {
   "name": "codex-plugin-claude-agent-team",
-  "version": "0.1.2",
+  "version": "0.1.5",
   "description": "Codex MCP plugin for provider-neutral AI agent teams with Claude Code CLI as the first adapter.",
   "type": "module",
   "private": true,
@@ -14,6 +14,7 @@
   "codexPlugin": ".codex-plugin/plugin.json",
   "files": [
     "dist",
+    "npm-shrinkwrap.json",
     ".codex-plugin",
     ".mcp.json",
     "README.md",
@@ -34,6 +35,7 @@
     "test:watch": "vitest",
     "start": "tsx src/index.ts",
     "install:check": "node scripts/install-check.mjs",
+    "verify:distribution": "node scripts/verify-distribution.mjs",
     "smoke:mcp-stdio": "node scripts/smoke-mcp-stdio.mjs",
     "smoke:workflow-orchestrator": "node scripts/smoke-workflow-orchestrator.mjs",
     "smoke:package": "node scripts/smoke-package.mjs",
@@ -49,7 +51,7 @@
     "validate:workflow-fixtures": "npm run build && node scripts/validate-workflow-fixtures.mjs",
     "validate:workflow-live": "node scripts/live-validate-agent-team-workflow.mjs",
     "scan:workflow-validation": "node scripts/invariant-scan-workflow-validation.mjs",
-    "ci": "npm run typecheck && npm test && npm run build && npm run install:check && npm run smoke:mcp-stdio && npm run smoke:workflow-orchestrator && npm run smoke:package && npm run scan:workflow-guidance && npm run validate:workflow-fixtures && npm run scan:workflow-validation"
+    "ci": "npm run typecheck && npm test && npm run build && npm run install:check && npm run verify:distribution && npm run smoke:mcp-stdio && npm run smoke:workflow-orchestrator && npm run smoke:package && npm run scan:workflow-guidance && npm run validate:workflow-fixtures && npm run scan:workflow-validation"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",

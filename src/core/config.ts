@@ -15,7 +15,7 @@ export const AGENT_TEAM_CONFIG_SCHEMA_VERSION = 1;
 export const DEFAULT_AGENT_TEAM_CONFIG: AgentTeamConfig = {
   schemaVersion: AGENT_TEAM_CONFIG_SCHEMA_VERSION,
   writeMode: {
-    enabled: false,
+    enabled: true,
     requireIsolatedWorktree: true
   },
   auth: {
@@ -23,7 +23,13 @@ export const DEFAULT_AGENT_TEAM_CONFIG: AgentTeamConfig = {
   },
   routing: {
     rolePins: {},
-    providerOrder: []
+    providerOrder: [
+      "family:ollama-claude-code",
+      "claude-code-cli",
+      "family:ollama-cloud",
+      "gemini-cli",
+      "codex-cli"
+    ]
   },
   policy: {
     allowedRoles: [],
@@ -36,7 +42,24 @@ export const DEFAULT_AGENT_TEAM_CONFIG: AgentTeamConfig = {
   seniorReview: DEFAULT_SENIOR_REVIEW_POLICY,
   providers: {
     claudeCodeCli: {
-      profiles: []
+      profiles: [
+        {
+          id: "opus",
+          model: "opus",
+          displayName: "Claude Opus - planning and senior review",
+          writeValidated: false,
+          capabilities: {
+            structuredOutput: true,
+            longContext: true,
+            tools: true,
+            sessionResume: true,
+            cancellation: true,
+            reasoning: true,
+            edits: false,
+            workspaceIsolation: false
+          }
+        }
+      ]
     },
     openaiCompatible: {
       enabled: false,
@@ -47,13 +70,75 @@ export const DEFAULT_AGENT_TEAM_CONFIG: AgentTeamConfig = {
       }
     },
     ollamaCloud: {
-      enabled: false,
-      profiles: []
+      enabled: true,
+      profiles: [
+        {
+          id: "glm-5.2",
+          baseUrl: "https://ollama.com/v1",
+          model: "glm-5.2",
+          apiKeyEnv: "OLLAMA_API_KEY",
+          displayName: "GLM 5.2",
+          capabilities: {
+            structuredOutput: true,
+            longContext: true,
+            reasoning: false
+          }
+        },
+        {
+          id: "kimi-k2.7-code",
+          baseUrl: "https://ollama.com/v1",
+          model: "kimi-k2.7-code",
+          apiKeyEnv: "OLLAMA_API_KEY",
+          displayName: "Kimi K2.7 Code",
+          capabilities: {
+            structuredOutput: true,
+            longContext: true,
+            reasoning: false
+          }
+        }
+      ]
     },
     ollamaClaudeCode: {
-      enabled: false,
+      enabled: true,
+      launchMode: "ollama-launch",
+      baseUrl: "http://localhost:11434",
+      authToken: "ollama",
+      executable: "ollama",
       apiKeyEnv: "OLLAMA_API_KEY",
-      profiles: []
+      profiles: [
+        {
+          id: "glm-5.2",
+          model: "glm-5.2:cloud",
+          displayName: "GLM 5.2",
+          writeValidated: true,
+          capabilities: {
+            structuredOutput: true,
+            longContext: true,
+            tools: true,
+            sessionResume: true,
+            cancellation: true,
+            reasoning: false,
+            edits: true,
+            workspaceIsolation: true
+          }
+        },
+        {
+          id: "kimi-k2.7-code",
+          model: "kimi-k2.7-code:cloud",
+          displayName: "Kimi K2.7 Code",
+          writeValidated: true,
+          capabilities: {
+            structuredOutput: true,
+            longContext: true,
+            tools: true,
+            sessionResume: true,
+            cancellation: true,
+            reasoning: false,
+            edits: true,
+            workspaceIsolation: true
+          }
+        }
+      ]
     },
     grok: {
       enabled: false,
@@ -68,34 +153,34 @@ export const DEFAULT_AGENT_TEAM_CONFIG: AgentTeamConfig = {
       }
     },
     geminiCli: {
-      enabled: false,
+      enabled: true,
       executable: "gemini",
       projectEnv: "GOOGLE_CLOUD_PROJECT",
-      writeValidated: false,
+      writeValidated: true,
       capabilities: {
-        structuredOutput: false,
-        longContext: false,
-        reasoning: false,
-        tools: false,
-        edits: false,
-        sessionResume: false,
-        cancellation: false,
-        workspaceIsolation: false
+        structuredOutput: true,
+        longContext: true,
+        reasoning: true,
+        tools: true,
+        edits: true,
+        sessionResume: true,
+        cancellation: true,
+        workspaceIsolation: true
       }
     },
     codexCli: {
-      enabled: false,
+      enabled: true,
       executable: "codex",
-      writeValidated: false,
+      writeValidated: true,
       capabilities: {
-        structuredOutput: false,
-        longContext: false,
-        reasoning: false,
-        tools: false,
-        edits: false,
-        sessionResume: false,
-        cancellation: false,
-        workspaceIsolation: false
+        structuredOutput: true,
+        longContext: true,
+        reasoning: true,
+        tools: true,
+        edits: true,
+        sessionResume: true,
+        cancellation: true,
+        workspaceIsolation: true
       }
     }
   }
@@ -281,7 +366,10 @@ function parseClaudeCodeCliProviderConfig(
 ): AgentTeamConfig["providers"]["claudeCodeCli"] {
   const claudeCodeCli = objectField(providers, "claudeCodeCli");
   const seenIds = new Set<string>();
-  const profiles = arrayField(claudeCodeCli, "profiles").map((profile, index) => {
+  const rawProfiles = "profiles" in claudeCodeCli
+    ? arrayField(claudeCodeCli, "profiles")
+    : DEFAULT_AGENT_TEAM_CONFIG.providers.claudeCodeCli.profiles;
+  const profiles = rawProfiles.map((profile, index) => {
     const profileObject = typeof profile === "object" && profile !== null
       ? (profile as Record<string, unknown>)
       : {};
@@ -320,7 +408,10 @@ function parseOllamaCloudProviderConfig(
 ): AgentTeamConfig["providers"]["ollamaCloud"] {
   const ollamaCloud = objectField(providers, "ollamaCloud");
   const seenIds = new Set<string>();
-  const profiles = arrayField(ollamaCloud, "profiles").map((profile, index) => {
+  const rawProfiles = "profiles" in ollamaCloud
+    ? arrayField(ollamaCloud, "profiles")
+    : DEFAULT_AGENT_TEAM_CONFIG.providers.ollamaCloud.profiles;
+  const profiles = rawProfiles.map((profile, index) => {
     const profileObject = typeof profile === "object" && profile !== null
       ? (profile as Record<string, unknown>)
       : {};
@@ -367,12 +458,44 @@ function parseOllamaClaudeCodeProviderConfig(
   providers: Record<string, unknown>
 ): AgentTeamConfig["providers"]["ollamaClaudeCode"] {
   const ollamaClaudeCode = objectField(providers, "ollamaClaudeCode");
-  const baseUrl = readString(ollamaClaudeCode.baseUrl);
+  const defaultConfig = DEFAULT_AGENT_TEAM_CONFIG.providers.ollamaClaudeCode;
+  const launchModeValue = readString(ollamaClaudeCode.launchMode) ?? defaultConfig.launchMode;
+  if (
+    launchModeValue !== "ollama-launch" &&
+    launchModeValue !== "local-anthropic" &&
+    launchModeValue !== "direct-api"
+  ) {
+    throw new AgentTeamConfigError(
+      'providers.ollamaClaudeCode.launchMode must be "ollama-launch", "local-anthropic", or "direct-api".'
+    );
+  }
+  const configuredBaseUrl = readString(ollamaClaudeCode.baseUrl);
+  const baseUrl =
+    configuredBaseUrl ??
+    (launchModeValue === "direct-api" ? "https://ollama.com" : defaultConfig.baseUrl);
+  const authToken = readString(ollamaClaudeCode.authToken) ?? defaultConfig.authToken;
+  const executable = readString(ollamaClaudeCode.executable) ?? defaultConfig.executable;
   const apiKeyEnv =
     readString(ollamaClaudeCode.apiKeyEnv) ??
-    DEFAULT_AGENT_TEAM_CONFIG.providers.ollamaClaudeCode.apiKeyEnv;
+    defaultConfig.apiKeyEnv;
   const seenIds = new Set<string>();
-  const profiles = arrayField(ollamaClaudeCode, "profiles").map((profile, index) => {
+  const defaultProfiles =
+    launchModeValue === "direct-api"
+      ? defaultConfig.profiles.map((profile) => ({
+          ...profile,
+          model: profile.id,
+          writeValidated: false,
+          capabilities: {
+            ...profile.capabilities,
+            edits: false,
+            workspaceIsolation: false
+          }
+        }))
+      : defaultConfig.profiles;
+  const rawProfiles = "profiles" in ollamaClaudeCode
+    ? arrayField(ollamaClaudeCode, "profiles")
+    : defaultProfiles;
+  const profiles = rawProfiles.map((profile, index) => {
     const profileObject = typeof profile === "object" && profile !== null
       ? (profile as Record<string, unknown>)
       : {};
@@ -406,9 +529,12 @@ function parseOllamaClaudeCodeProviderConfig(
   return {
     enabled: readBoolean(
       ollamaClaudeCode.enabled,
-      DEFAULT_AGENT_TEAM_CONFIG.providers.ollamaClaudeCode.enabled
+      defaultConfig.enabled
     ),
+    launchMode: launchModeValue,
     ...(baseUrl === undefined ? {} : { baseUrl }),
+    authToken,
+    executable,
     apiKeyEnv,
     profiles
   };
@@ -502,9 +628,12 @@ function parseGeminiCliProviderConfig(
 ): AgentTeamConfig["providers"]["geminiCli"] {
   const geminiCli = objectField(providers, "geminiCli");
   const capabilities = objectField(geminiCli, "capabilities");
+  const driver = readString(geminiCli.driver);
+  const agyWriteEnabled = readBoolean(geminiCli.writeValidated, false);
+  if (driver !== undefined && driver !== "gemini" && driver !== "agy") throw new AgentTeamConfigError("geminiCli.driver must be gemini or agy");
   const executable =
     readString(geminiCli.executable) ??
-    DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.executable;
+    (driver === "agy" ? "agy" : DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.executable);
   const model = readString(geminiCli.model);
   const displayName = readString(geminiCli.displayName);
   const projectEnv =
@@ -512,6 +641,7 @@ function parseGeminiCliProviderConfig(
     DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.projectEnv;
 
   return {
+    ...(driver === undefined ? {} : { driver }),
     enabled: readBoolean(
       geminiCli.enabled,
       DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.enabled
@@ -522,7 +652,7 @@ function parseGeminiCliProviderConfig(
     projectEnv,
     writeValidated: readBoolean(
       geminiCli.writeValidated,
-      DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.writeValidated
+      driver === "agy" ? false : DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.writeValidated
     ),
     capabilities: {
       structuredOutput: readBoolean(
@@ -539,11 +669,11 @@ function parseGeminiCliProviderConfig(
       ),
       tools: readBoolean(
         capabilities.tools,
-        DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.capabilities.tools
+        driver === "agy" && !agyWriteEnabled ? false : DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.capabilities.tools
       ),
       edits: readBoolean(
         capabilities.edits,
-        DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.capabilities.edits
+        driver === "agy" && !agyWriteEnabled ? false : DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.capabilities.edits
       ),
       sessionResume: readBoolean(
         capabilities.sessionResume,
@@ -555,7 +685,7 @@ function parseGeminiCliProviderConfig(
       ),
       workspaceIsolation: readBoolean(
         capabilities.workspaceIsolation,
-        DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.capabilities.workspaceIsolation
+        driver === "agy" && !agyWriteEnabled ? false : DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.capabilities.workspaceIsolation
       )
     }
   };
@@ -637,7 +767,11 @@ function parseRoutingConfig(
     );
   }
 
-  const providerOrder = arrayField(routing, "providerOrder").map((selectorInput, index) =>
+  const providerOrderInput =
+    "providerOrder" in routing
+      ? arrayField(routing, "providerOrder")
+      : DEFAULT_AGENT_TEAM_CONFIG.routing.providerOrder;
+  const providerOrder = providerOrderInput.map((selectorInput, index) =>
     readRoutingSelector(selectorInput, `routing.providerOrder[${index}]`)
   );
 

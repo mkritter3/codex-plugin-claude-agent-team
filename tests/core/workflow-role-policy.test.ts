@@ -100,7 +100,7 @@ describe("recommendRolePolicy", () => {
     expect(policy.requiresIsolatedWorktree).toBe(true);
   });
 
-  it("keeps Ollama Kimi, GLM, and DeepSeek workers junior, bounded, isolated, and reviewed", () => {
+  it("keeps Ollama GLM and Kimi workers junior, bounded, isolated, and reviewed", () => {
     const policy = recommendRolePolicy(
       rolePolicy({
         role: "slice-implementer",
@@ -111,9 +111,8 @@ describe("recommendRolePolicy", () => {
     );
 
     expect(policy.preferredModelFamilies).toEqual([
-      "ollama-kimi-k2.6",
-      "ollama-glm-5.1",
-      "ollama-deepseek"
+      "ollama-glm-5.2",
+      "ollama-kimi-k2.7-code"
     ]);
     expect(policy.autonomy).toBe("bounded_junior");
     expect(policy.requiresIsolatedWorktree).toBe(true);

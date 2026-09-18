@@ -34,6 +34,30 @@ function config(input: {
 }
 
 describe("Claude Code CLI model profile config", () => {
+  it("exposes Opus as a default read-only senior review profile", () => {
+    const providers = listClaudeCodeCliProfileProviders(DEFAULT_AGENT_TEAM_CONFIG);
+
+    expect(providers).toEqual([
+      expect.objectContaining({
+        id: "claude-code-cli:opus",
+        displayName: "Claude Opus - planning and senior review",
+        authMode: "subscription-oauth",
+        model: "opus",
+        capabilities: [
+          "structuredOutput",
+          "longContext",
+          "tools",
+          "sessionResume",
+          "cancellation",
+          "reasoning"
+        ],
+        available: true
+      })
+    ]);
+    expect(providers[0]?.capabilities).not.toContain("edits");
+    expect(providers[0]?.capabilities).not.toContain("workspaceIsolation");
+  });
+
   it("builds subscription OAuth provider descriptors for alias profiles", () => {
     const providers = listClaudeCodeCliProfileProviders(
       config({

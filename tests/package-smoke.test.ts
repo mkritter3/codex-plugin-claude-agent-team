@@ -15,6 +15,7 @@ describe("package smoke gate", () => {
     expect(packageJson.bin?.["agent-team-mcp"]).toBe("./dist/index.js");
     expect(packageJson.files).toEqual([
       "dist",
+      "npm-shrinkwrap.json",
       ".codex-plugin",
       ".mcp.json",
       "README.md",
@@ -29,8 +30,16 @@ describe("package smoke gate", () => {
       "node scripts/smoke-package.mjs"
     );
     expect(smokeScript).toContain('"pack", "--dry-run", "--json"');
+    expect(smokeScript).toContain('"pack", "--json", "--pack-destination"');
+    expect(smokeScript).toContain('"tar", ["-xzf"');
+    expect(smokeScript).toContain("node_modules");
+    expect(smokeScript).toContain("first-run packaged MCP connection");
     expect(smokeScript).toContain('"agent-team-mcp"');
     expect(smokeScript).toContain('"./dist/index.js"');
+    expect(smokeScript).toContain('"npm-shrinkwrap.json"');
+    expect(smokeScript).toContain('"./scripts/start-mcp.sh"');
+    expect(smokeScript).toContain('cwd === "."');
+    expect(smokeScript).toContain("startup_timeout_sec === 120");
     expect(smokeScript).toContain('".mcp.json"');
     expect(smokeScript).toContain('".codex-plugin/plugin.json"');
     expect(smokeScript).toContain('"README.md"');
@@ -39,6 +48,8 @@ describe("package smoke gate", () => {
     expect(smokeScript).toContain('"docs/runbooks/claude-team-session.md"');
     expect(smokeScript).toContain('"skills/codex-agent-team-orchestrator/SKILL.md"');
     expect(smokeScript).toContain('"scripts/install-check.mjs"');
+    expect(smokeScript).toContain('"scripts/verify-distribution.mjs"');
+    expect(smokeScript).toContain('"scripts/start-mcp.sh"');
     expect(smokeScript).toContain('"scripts/lib/install-preflight.mjs"');
     expect(smokeScript).toContain('"scripts/smoke-workflow-orchestrator.mjs"');
     expect(smokeScript).toContain('"scripts/live-smoke-claude-team.mjs"');
@@ -49,5 +60,12 @@ describe("package smoke gate", () => {
     expect(smokeScript).toContain("rmSync");
     expect(smokeScript).not.toContain("tsx");
     expect(smokeScript).not.toContain("src/index.ts");
+
+    const launcher = await readText("../scripts/start-mcp.sh");
+    expect(launcher).toContain("/opt/homebrew/bin:/usr/local/bin");
+    expect(launcher).toContain("command -v node");
+    expect(launcher).toContain("command -v npm");
+    expect(launcher).toContain("node was not found on PATH");
+    expect(launcher).toContain("npm was not found on PATH");
   });
 });

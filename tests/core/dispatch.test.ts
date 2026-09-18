@@ -75,11 +75,11 @@ function ollamaConfig(): AgentTeamConfig {
         enabled: true,
         profiles: [
           {
-            id: "kimi-k2.6",
+            id: "kimi-k2.7-code",
             baseUrl: "https://ollama.example/v1",
-            model: "kimi-k2.6",
+            model: "kimi-k2.7-code",
             apiKeyEnv: "KIMI_API_KEY",
-            displayName: "Kimi K2.6",
+            displayName: "Kimi K2.7 Code",
             capabilities: {
               structuredOutput: true,
               longContext: true,
@@ -160,11 +160,11 @@ function grokAndOllamaConfig(input: {
         enabled: true,
         profiles: [
           {
-            id: "kimi-k2.6",
+            id: "kimi-k2.7-code",
             baseUrl: "https://ollama.example/v1",
-            model: "kimi-k2.6",
+            model: "kimi-k2.7-code",
             apiKeyEnv: "KIMI_API_KEY",
-            displayName: "Kimi K2.6",
+            displayName: "Kimi K2.7 Code",
             capabilities: {
               structuredOutput: true,
               longContext: true,
@@ -255,7 +255,7 @@ describe("dispatchReadOnlyAgent", () => {
     expect(result).toMatchObject({
       runId: "run_policy_role_blocked",
       status: "failed",
-      provider: "claude-code-cli",
+      provider: "ollama-claude-code:glm-5.2",
       role: "planner"
     });
     expect(result.verdict.summary).toContain("role_not_allowed");
@@ -264,7 +264,7 @@ describe("dispatchReadOnlyAgent", () => {
         eventType: "policy_blocked",
         operation: "dispatch",
         role: "planner",
-        provider: "claude-code-cli",
+        provider: "ollama-claude-code:glm-5.2",
         decision: "blocked",
         reason: "role_not_allowed"
       }
@@ -316,7 +316,8 @@ describe("dispatchReadOnlyAgent", () => {
       {
         role: "planner",
         task: "Review plan",
-        cwd: workspace
+        cwd: workspace,
+        provider: "claude-code-cli"
       },
       {
         createRunId: () => "run_policy_allowed",
@@ -529,11 +530,13 @@ describe("dispatchReadOnlyAgent", () => {
         role: "planner",
         task: "Review plan",
         cwd: workspace,
-        provider: "ollama-cloud:kimi-k2.6"
+        provider: "ollama-cloud:kimi-k2.7-code"
       },
       {
         config,
-        providers: listOllamaCloudProviders(config),
+        providers: listOllamaCloudProviders(config, {
+          env: { KIMI_API_KEY: "secret-token" }
+        }),
         runtimes: [runtime],
         createRunId: () => "run_ollama_kimi",
         env: { KIMI_API_KEY: "secret-token" }
@@ -542,11 +545,11 @@ describe("dispatchReadOnlyAgent", () => {
 
     expect(result).toMatchObject({
       status: "completed",
-      provider: "ollama-cloud:kimi-k2.6",
+      provider: "ollama-cloud:kimi-k2.7-code",
       verdict: { status: "SHIP" }
     });
     await expect(readRunSidecar(workspace, "run_ollama_kimi")).resolves.toMatchObject({
-      provider: "ollama-cloud:kimi-k2.6",
+      provider: "ollama-cloud:kimi-k2.7-code",
       providerSessionId: "chatcmpl_kimi_dispatch"
     });
   });
@@ -689,7 +692,9 @@ describe("dispatchReadOnlyAgent", () => {
         config,
         providers: [
           ...listGrokProviders(config),
-          ...listOllamaCloudProviders(config)
+          ...listOllamaCloudProviders(config, {
+            env: { KIMI_API_KEY: "secret-token" }
+          })
         ],
         runtimes: [runtime],
         createRunId: () => "run_kimi_request_override",
@@ -699,11 +704,11 @@ describe("dispatchReadOnlyAgent", () => {
 
     expect(result).toMatchObject({
       status: "completed",
-      provider: "ollama-cloud:kimi-k2.6",
+      provider: "ollama-cloud:kimi-k2.7-code",
       verdict: { status: "SHIP" }
     });
     await expect(readRunSidecar(workspace, "run_kimi_request_override")).resolves.toMatchObject({
-      provider: "ollama-cloud:kimi-k2.6",
+      provider: "ollama-cloud:kimi-k2.7-code",
       providerSessionId: "chatcmpl_kimi_override"
     });
   });
@@ -880,7 +885,8 @@ describe("dispatchReadOnlyAgent", () => {
       {
         role: "code-reviewer",
         task: "Review this diff",
-        cwd: workspace
+        cwd: workspace,
+        provider: "claude-code-cli"
       },
       {
         createRunId: () => "run_test",
@@ -973,7 +979,8 @@ describe("dispatchReadOnlyAgent", () => {
       {
         role: "planner",
         task: "Review plan",
-        cwd: workspace
+        cwd: workspace,
+        provider: "claude-code-cli"
       },
       {
         createRunId: () => "run_auth",
@@ -1013,7 +1020,8 @@ describe("dispatchReadOnlyAgent", () => {
       {
         role: "debugger",
         task: "Explain failure",
-        cwd: workspace
+        cwd: workspace,
+        provider: "claude-code-cli"
       },
       {
         createRunId: () => "run_failed",
@@ -1060,7 +1068,8 @@ describe("dispatchReadOnlyAgent", () => {
       {
         role: "planner",
         task: "Wait for print completion",
-        cwd: workspace
+        cwd: workspace,
+        provider: "claude-code-cli"
       },
       {
         createRunId: () => "run_sync",

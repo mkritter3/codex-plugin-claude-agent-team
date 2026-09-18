@@ -50,8 +50,23 @@ function config(input: {
 }
 
 describe("Codex CLI provider config", () => {
-  it("is disabled by default and does not affect Codex as the orchestrator", () => {
-    expect(codexCliProvider(DEFAULT_AGENT_TEAM_CONFIG)).toBeUndefined();
+  it("is auto-enabled by default without changing Codex host authority", () => {
+    expect(
+      codexCliProvider(DEFAULT_AGENT_TEAM_CONFIG, { executableAvailable: true })
+    ).toMatchObject({
+      id: CODEX_CLI_PROVIDER_ID,
+      available: true,
+      capabilities: [
+        "structuredOutput",
+        "longContext",
+        "reasoning",
+        "tools",
+        "sessionResume",
+        "cancellation",
+        "edits",
+        "workspaceIsolation"
+      ]
+    });
   });
 
   it("builds a subscription OAuth descriptor without API-key env requirements", () => {
@@ -114,13 +129,13 @@ describe("Codex CLI provider config", () => {
     });
   });
 
-  it("loads Codex CLI config without inferring OpenAI API-key fallback", async () => {
+  it("loads auto-enabled Codex CLI config without inferring OpenAI API-key fallback", async () => {
     await expect(loadAgentTeamConfig("/tmp/does-not-exist")).resolves.toMatchObject({
       providers: {
         codexCli: {
-          enabled: false,
+          enabled: true,
           executable: "codex",
-          writeValidated: false
+          writeValidated: true
         }
       }
     });

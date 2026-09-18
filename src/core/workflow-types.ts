@@ -1,3 +1,5 @@
+import type { AuthorityEvidence, ModelTarget, NativeImplementation, OrchestrationPolicy } from "./orchestration/contract.js";
+
 export const SENIOR_REVIEW_MODES = [
   "disabled",
   "optional",
@@ -139,6 +141,8 @@ export interface WorkflowGoalPacket {
 }
 
 export interface WorkflowSlice {
+  readonly implementationTarget?: ModelTarget;
+  readonly nativeImplementation?: NativeImplementation;
   readonly sliceId: string;
   readonly title: string;
   readonly state: WorkflowSliceState;
@@ -196,6 +200,7 @@ export interface WorkflowSliceUnblockEvidence {
 }
 
 export interface WorkflowSliceImplementationEvidence {
+  readonly artifact?: string;
   readonly recordedAt: string;
   readonly summary: string;
   readonly changedFiles: readonly string[];
@@ -241,6 +246,8 @@ export interface WorkflowReviewerVerdict {
 }
 
 export interface WorkflowConsensusRound {
+  readonly authority?: AuthorityEvidence;
+  readonly sliceId?: string;
   readonly round: number;
   readonly phase: WorkflowConsensusPhase;
   readonly startedAt: string;
@@ -297,6 +304,7 @@ export interface WorkflowCodexRationale {
 }
 
 export interface WorkflowRecord {
+  readonly orchestration?: OrchestrationPolicy;
   readonly workflowId: string;
   readonly name?: string;
   readonly createdAt: string;

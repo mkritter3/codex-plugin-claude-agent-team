@@ -17,7 +17,7 @@ describe("Ollama write validation live smoke script", () => {
       [
         "scripts/live-smoke-ollama-write-validation.mjs",
         "--provider",
-        "ollama-claude-code:kimi-k2.6"
+        "ollama-claude-code:glm-5.2"
       ],
       {
         cwd: repoRoot,
@@ -51,9 +51,9 @@ describe("Ollama write validation live smoke script", () => {
         "scripts/live-smoke-ollama-write-validation.mjs",
         "--dry-run",
         "--provider",
-        "ollama-claude-code:kimi-k2.6",
+        "ollama-claude-code:glm-5.2",
         "--provider",
-        "ollama-claude-code:glm-5.1"
+        "ollama-claude-code:kimi-k2.7-code"
       ],
       {
         cwd: repoRoot,
@@ -72,7 +72,7 @@ describe("Ollama write validation live smoke script", () => {
     expect(report).toMatchObject({
       status: "dry_run",
       liveProviderUse: false,
-      providerSelectors: ["ollama-claude-code:kimi-k2.6", "ollama-claude-code:glm-5.1"]
+      providerSelectors: ["ollama-claude-code:glm-5.2", "ollama-claude-code:kimi-k2.7-code"]
     });
     expect(report.toolFlow).toEqual([
       "agent_team_doctor",

@@ -1,4 +1,7 @@
+import { verifyProviderVotes } from "./orchestration/provider-evidence.js";
 import { listRoles } from "./roles.js";
+import { authorityEvidenceSchema, type AuthorityEvidence } from "./orchestration/contract.js";
+import { evaluateAuthority } from "./orchestration/authority.js";
 import { isSafeRunId, isSafeWorkflowId } from "./state/paths.js";
 import {
   readWorkflowRecord,
@@ -44,6 +47,7 @@ export interface CodexReviewDecisionInput {
 }
 
 export interface SliceImplementationEvidenceInput {
+  readonly artifact?: string;
   readonly summary: string;
   readonly changedFiles: readonly string[];
   readonly testsRun: readonly string[];
@@ -68,6 +72,7 @@ export interface ReviewUserEscalationInput {
 }
 
 export interface ReviewWorkflowSliceInput {
+  readonly authority?: AuthorityEvidence;
   readonly workspaceRoot: string;
   readonly workflowId: string;
   readonly sliceId: string;
@@ -136,8 +141,8 @@ function findSlice(record: WorkflowRecord, sliceId: string): WorkflowSlice {
   return slice;
 }
 
-function nextReviewRound(record: WorkflowRecord): number {
-  const reviewRounds = record.consensusRounds.filter((round) => round.phase === "review");
+function nextReviewRound(record: WorkflowRecord, sliceId: string): number {
+  const reviewRounds = record.consensusRounds.filter((round) => round.phase === "review" && (record.orchestration === undefined || round.sliceId === sliceId));
   if (reviewRounds.length === 0) {
     return 1;
   }
@@ -218,6 +223,7 @@ function normalizeImplementationEvidence(
   }
   return {
     recordedAt,
+    ...(evidence.artifact === undefined ? {} : { artifact: requireNonEmptyString(evidence.artifact, "implementationEvidence.artifact") }),
     summary: requireNonEmptyString(evidence.summary, "implementationEvidence.summary"),
     changedFiles: requireStringArray(evidence.changedFiles, "implementationEvidence.changedFiles", {
       allowEmpty: true
@@ -409,7 +415,7 @@ export async function reviewWorkflowSlice(input: ReviewWorkflowSliceInput): Prom
   }
 
   const timestamp = (input.now?.() ?? new Date()).toISOString();
-  const round = nextReviewRound(record);
+  const round = nextReviewRound(record, slice.sliceId);
   validateRoundMode(round, input.roundMode);
   const verdicts = normalizeVerdicts(input.verdicts);
   const decision = normalizeDecision(input.codexDecision);
@@ -430,7 +436,7 @@ export async function reviewWorkflowSlice(input: ReviewWorkflowSliceInput): Prom
     timestamp
   );
   const automaticEscalation =
-    explicitEscalations.length === 0
+    record.orchestration === undefined && explicitEscalations.length === 0
       ? automaticRound15Escalation(record.workflowId, slice.sliceId, round, timestamp, decision)
       : undefined;
   const userEscalations =
@@ -438,17 +444,25 @@ export async function reviewWorkflowSlice(input: ReviewWorkflowSliceInput): Prom
       ? explicitEscalations
       : [...explicitEscalations, automaticEscalation];
 
-  const consensus = evaluateReview({
+  const authority = input.authority === undefined ? undefined : authorityEvidenceSchema.parse(input.authority);
+  if (authority !== undefined && record.orchestration === undefined) throw new Error("Configure orchestration before submitting authority evidence");
+  if (record.orchestration !== undefined && implementationEvidence === undefined) throw new Error("Implementation evidence is required for authority review");
+  if (record.orchestration !== undefined && (!implementationEvidence?.artifact || authority?.artifact !== implementationEvidence.artifact)) throw new Error("Authority artifact must match implementation evidence");
+  if (slice.nativeImplementation !== undefined && authority?.artifact !== slice.nativeImplementation.artifact) throw new Error("Review authority artifact must match the recorded native implementation");
+  await verifyProviderVotes(input.workspaceRoot, authority);
+  const consensus = record.orchestration === undefined ? evaluateReview({
     round,
     decision,
     verdicts,
     ...(seniorEvidence === undefined ? {} : { seniorEvidence }),
     ...(implementationEvidence === undefined ? {} : { implementationEvidence }),
     explicitEscalations: userEscalations
-  });
+  }) : evaluateAuthority(record.orchestration.review, authority, "review", round, slice.nativeImplementation?.execution.id ?? implementationEvidence?.sourceRunId);
   const consensusRound: WorkflowConsensusRound = {
     round,
     phase: "review",
+    sliceId: slice.sliceId,
+    ...(authority === undefined ? {} : { authority }),
     startedAt: timestamp,
     completedAt: timestamp,
     verdicts,
@@ -468,7 +482,7 @@ export async function reviewWorkflowSlice(input: ReviewWorkflowSliceInput): Prom
     }
     return {
       ...candidate,
-      state: sliceStateFor(consensus),
+      state: record.orchestration !== undefined && consensus === "blocked" ? "needs-revision" as const : sliceStateFor(consensus),
       ...(implementationEvidence === undefined ? {} : { implementationEvidence }),
       reviewEvidence: [...(candidate.reviewEvidence ?? []), reviewEvidence]
     };

@@ -87,7 +87,8 @@ export async function dispatchReadOnlyAgent(
     (deps.providers === undefined
       ? await (deps.loadConfig ?? loadAgentTeamConfig)(request.cwd)
       : DEFAULT_AGENT_TEAM_CONFIG);
-  const providers = deps.providers ?? listProviders({ config });
+  const providerEnv = deps.env ?? process.env;
+  const providers = deps.providers ?? listProviders({ config, env: providerEnv });
   const providerHealth = await readProviderHealthRecords(request.cwd);
   const provider = role.defaultReadOnly
     ? selectProvider({
@@ -98,7 +99,7 @@ export async function dispatchReadOnlyAgent(
         now: now(),
         ...(request.provider === undefined ? {} : { requestedProviderId: request.provider })
       })
-    : providers[0] ?? listProviders()[0]!;
+    : providers[0] ?? listProviders({ env: providerEnv })[0]!;
   const appendAudit = deps.appendAudit ?? appendAuditRecord;
 
   const policyDecision = evaluateStartPolicy({
@@ -214,7 +215,7 @@ export async function dispatchReadOnlyAgent(
   const envInspection = runtime.inspectEnvironment({
     providerId: provider.id,
     authMode: provider.authMode,
-    env: deps.env ?? process.env,
+    env: providerEnv,
     config
   });
   if (envInspection.warnings.length > 0) {
@@ -283,7 +284,7 @@ export async function dispatchReadOnlyAgent(
     executionPolicy: role.executionPolicy,
     config,
     ...(request.timeoutMs === undefined ? {} : { timeoutMs: request.timeoutMs }),
-    ...(deps.env === undefined ? {} : { env: deps.env })
+    env: providerEnv
   });
   const logPath = await writeProviderPrintLog(request.cwd, runId, providerResult);
 

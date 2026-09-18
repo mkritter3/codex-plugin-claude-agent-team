@@ -2,11 +2,12 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { TOOL_METADATA_BY_NAME } from "./schemas.js";
 import { createToolHandlers, listToolNames } from "./tools.js";
+import { AGENT_TEAM_MCP_VERSION } from "../version.js";
 
 export function createAgentTeamServer(): McpServer {
   const server = new McpServer({
     name: "agent-team",
-    version: "0.1.1"
+    version: AGENT_TEAM_MCP_VERSION
   });
   const handlers = createToolHandlers();
 

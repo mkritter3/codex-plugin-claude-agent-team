@@ -44,11 +44,11 @@ function ollamaConfig(input: { readonly enabled?: boolean } = {}): AgentTeamConf
         enabled: input.enabled ?? true,
         profiles: [
           {
-            id: "kimi-k2.6",
+            id: "kimi-k2.7-code",
             baseUrl: "https://ollama.example/v1",
-            model: "kimi-k2.6",
+            model: "kimi-k2.7-code",
             apiKeyEnv: "KIMI_API_KEY",
-            displayName: "Kimi K2.6",
+            displayName: "Kimi K2.7 Code",
             capabilities: {
               structuredOutput: true,
               longContext: true,
@@ -226,7 +226,7 @@ describe("OpenAI-compatible runtime", () => {
     });
 
     const result = await runtime.runPrint({
-      providerId: "ollama-cloud:kimi-k2.6",
+      providerId: "ollama-cloud:kimi-k2.7-code",
       prompt: "Review this plan.",
       cwd: "/tmp/project",
       roleId: "planner",
@@ -245,7 +245,7 @@ describe("OpenAI-compatible runtime", () => {
       Authorization: "Bearer secret-token"
     });
     expect(JSON.parse(String(calls[0]?.init.body))).toMatchObject({
-      model: "kimi-k2.6"
+      model: "kimi-k2.7-code"
     });
   });
 
@@ -279,7 +279,7 @@ describe("OpenAI-compatible runtime", () => {
 
     await expect(
       runtime.runPrint({
-        providerId: "ollama-cloud:kimi-k2.6",
+        providerId: "ollama-cloud:kimi-k2.7-code",
         prompt: "Review",
         cwd: "/tmp/project",
         config: ollamaConfig({ enabled: false }),

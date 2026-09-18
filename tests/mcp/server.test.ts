@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  serverOptions: [] as Array<{ readonly name?: string; readonly version?: string }>,
   registeredTools: [] as Array<{
     readonly name: string;
     readonly metadata: {
@@ -16,6 +17,10 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@modelcontextprotocol/sdk/server/mcp.js", () => ({
   McpServer: class {
+    constructor(options: { readonly name?: string; readonly version?: string }) {
+      mocks.serverOptions.push(options);
+    }
+
     registerTool(
       name: string,
       metadata: {
@@ -62,6 +67,7 @@ vi.mock("../../src/mcp/tools.js", () => ({
 
 describe("MCP server", () => {
   beforeEach(() => {
+    mocks.serverOptions.length = 0;
     mocks.registeredTools.length = 0;
     mocks.createToolHandlers.mockReset();
     mocks.handleToolCall.mockReset();
@@ -72,6 +78,18 @@ describe("MCP server", () => {
     });
     mocks.handleToolCall.mockResolvedValue({
       structuredContent: { source: "stateless" }
+    });
+  });
+
+  it("uses package-aligned MCP server identity", async () => {
+    const { createAgentTeamServer } = await import("../../src/mcp/server.js");
+    const { AGENT_TEAM_MCP_VERSION } = await import("../../src/version.js");
+
+    createAgentTeamServer();
+
+    expect(mocks.serverOptions[0]).toEqual({
+      name: "agent-team",
+      version: AGENT_TEAM_MCP_VERSION
     });
   });
 

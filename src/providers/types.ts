@@ -1,4 +1,9 @@
-import type { AgentExecutionPolicy, AgentTeamConfig, RoleId } from "../core/types.js";
+import type {
+  AgentExecutionPolicy,
+  AgentTeamConfig,
+  ProviderAuthMode,
+  RoleId
+} from "../core/types.js";
 
 export interface ProviderSessionActivity {
   readonly type: "tool_start" | "text" | "result" | "error";
@@ -60,7 +65,7 @@ export interface ProviderStartSessionInput {
 
 export interface ProviderEnvironmentInspectionInput {
   readonly providerId?: string;
-  readonly authMode: "subscription-oauth" | "api-key" | "oauth" | "none";
+  readonly authMode: ProviderAuthMode;
   readonly env: NodeJS.ProcessEnv;
   readonly config?: AgentTeamConfig;
 }

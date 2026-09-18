@@ -1,6 +1,6 @@
 # Claude Team Session Runbook
 
-This runbook shows how to operate an Agent Team MCP session from Codex with Claude Code CLI subscription OAuth as the primary v1 transport. It uses only public MCP tools and durable `.agent-team/` evidence. It does not require prior chat history.
+This runbook shows how to operate an Agent Team MCP session from Codex with Claude Code CLI subscription OAuth and Ollama-native Claude Code profiles behind the same provider-neutral lifecycle. It uses only public MCP tools and durable `.agent-team/` evidence. It does not require prior chat history.
 
 ## Safety Model
 
@@ -37,6 +37,8 @@ These commands are CI-safe. They verify package/runtime wiring and fixture behav
 
 `npm run install:check` emits an absolute MCP config and ordered install checks. It does not call providers, read credentials, or start live runs.
 
+For native Codex plugin installs, the package `.mcp.json` must keep `"cwd": "."` and `"startup_timeout_sec": 120` on the `agent-team` stdio server. Codex resolves that cwd to the installed plugin cache root, which lets the relative `./scripts/start-mcp.sh` launcher work from any workspace, and the startup timeout gives a clean install enough time for the wrapper's one-time dependency install and build.
+
 `npm run smoke:workflow-orchestrator` is the fixture-safe packaged MCP proof for the L11 workflow loop. It creates a disposable git workspace, calls public workflow tools through `dist/index.js`, records degraded Opus evidence without blocking, verifies `completionStatus` stays incomplete before final gate evidence, verifies it becomes `complete` after integration evidence, and removes the fixture. It does not call providers, use API keys, or make model-quality/provider capability claims.
 
 Final product-readiness evidence is recorded in `docs/superpowers/reports/2026-05-13-agent-team-workflow-orchestrator-readiness.md`.
@@ -49,8 +51,10 @@ The packaged MCP entrypoint is:
 {
   "mcpServers": {
     "agent-team": {
-      "command": "node",
-      "args": ["./dist/index.js"]
+      "command": "sh",
+      "args": ["./scripts/start-mcp.sh"],
+      "cwd": ".",
+      "startup_timeout_sec": 120
     }
   }
 }
@@ -379,7 +383,7 @@ Doctor also inspects `.agent-team/state-layout.json` when present. Missing marke
 
 ## Ollama Claude Code Profiles
 
-Use `providers.ollamaClaudeCode` when you want Claude Code to route through Ollama's direct Anthropic-compatible Cloud endpoint while preserving the existing Agent Team lifecycle. The user supplies one plugin-level token, usually `OLLAMA_API_KEY`; profile config stays non-secret and names the endpoint, model, display name, and declared capabilities. The Cloud route uses `https://ollama.com` directly and does not require a local Ollama daemon or Ollama CLI.
+Use `ollama-claude-code:*` when you want Claude Code to route through Ollama's native Claude Code launcher while preserving the existing Agent Team lifecycle. The default `providers.ollamaClaudeCode` config lists `ollama-claude-code:glm-5.2` and `ollama-claude-code:kimi-k2.7-code`, launched as `ollama launch claude --model <model> --yes -- <claude args>`. This default path uses the locally authenticated Ollama installation and does not require `OLLAMA_API_KEY` when `ollama` is already signed in. Doctor verifies the local `ollama` and `claude` CLIs and warns that cloud model access still needs opt-in live proof for the exact provider id. Use `ollama-cloud:*` only for the OpenAI-compatible chat-completions route, not for Claude Code harness proof. Do not use `model:glm-5.2` or `model:kimi-k2.7-code` to choose between the two Ollama families; duplicated model selectors fail closed so operators must choose an exact provider id or family selector.
 
 ```json
 {
@@ -387,27 +391,16 @@ Use `providers.ollamaClaudeCode` when you want Claude Code to route through Olla
   "providers": {
     "ollamaClaudeCode": {
       "enabled": true,
-      "baseUrl": "https://ollama.com",
+      "launchMode": "ollama-launch",
+      "baseUrl": "http://localhost:11434",
+      "authToken": "ollama",
+      "executable": "ollama",
       "apiKeyEnv": "OLLAMA_API_KEY",
       "profiles": [
         {
-          "id": "kimi-k2.6",
-          "model": "kimi-k2.6",
-          "displayName": "Kimi K2.6",
-          "writeValidated": false,
-          "capabilities": {
-            "structuredOutput": true,
-            "longContext": true,
-            "reasoning": true,
-            "tools": true,
-            "sessionResume": true,
-            "cancellation": true
-          }
-        },
-        {
-          "id": "glm-5.1",
-          "model": "glm-5.1",
-          "displayName": "GLM 5.1",
+          "id": "glm-5.2",
+          "model": "glm-5.2:cloud",
+          "displayName": "GLM 5.2",
           "writeValidated": false,
           "capabilities": {
             "structuredOutput": true,
@@ -418,12 +411,13 @@ Use `providers.ollamaClaudeCode` when you want Claude Code to route through Olla
           }
         },
         {
-          "id": "deepseek-v4-flash",
-          "model": "deepseek-v4-flash",
-          "displayName": "DeepSeek V4 Flash",
+          "id": "kimi-k2.7-code",
+          "model": "kimi-k2.7-code:cloud",
+          "displayName": "Kimi K2.7 Code",
           "writeValidated": false,
           "capabilities": {
             "structuredOutput": true,
+            "longContext": true,
             "tools": true,
             "sessionResume": true,
             "cancellation": true
@@ -442,11 +436,13 @@ Use `providers.ollamaClaudeCode` when you want Claude Code to route through Olla
 }
 ```
 
-The resulting provider ids are explicit, such as `ollama-claude-code:kimi-k2.6`. At provider launch, the runtime creates a scoped provider env for that run only: `ANTHROPIC_BASE_URL` points at `https://ollama.com`, `ANTHROPIC_AUTH_TOKEN` carries the configured Ollama token, `ANTHROPIC_API_KEY` is intentionally blank for Claude Code compatibility, and `OLLAMA_API_KEY` remains available as the single secret source. The normal `claude-code-cli` provider continues to use Claude Code CLI subscription OAuth and keeps its auth-precedence checks.
+At provider launch, the runtime creates a scoped local Ollama env for that run only: `ANTHROPIC_BASE_URL` points at the local Ollama server, `ANTHROPIC_AUTH_TOKEN` uses the configured non-secret token value, `ANTHROPIC_API_KEY` is intentionally blank for Claude Code compatibility, and `CLAUDE_CODE_OAUTH_TOKEN` plus ambient Anthropic auth values are stripped so the harness run cannot accidentally reuse normal Claude Code subscription auth. In `ollama-launch` mode the actual process is wrapped with `ollama launch claude --model <profile.model> --yes --`, so Ollama handles local/cloud model auth. `launchMode: "local-anthropic"` keeps the same local env but calls `claude --model <profile.model>` directly. `launchMode: "direct-api"` is the explicit legacy fallback for direct remote Anthropic-compatible access and is the only Ollama Claude Code mode that requires `OLLAMA_API_KEY`. The normal `claude-code-cli` provider continues to use Claude Code CLI subscription OAuth and keeps its auth-precedence checks.
 
 Keep `writeValidated` false until a live implementation proof validates edits, isolated worktree containment, mailbox delivery, wind-down, cancellation, cleanup, and source-checkout cleanliness for the exact profile. Enabling write capabilities is an operator proof gate and not a provider ranking, provider comparison, or model-quality claim.
 
 If an Ollama or other provider returns transient failures such as rate limits, `503`, timeouts, or provider-unavailable responses, the plugin records provider health under `.agent-team/providers/health.json`. Default/family routing and `providerOrder` treat that as a cooldown and prefer another capable provider until the cooldown expires. An exact provider request remains an explicit probe, so Codex can still test it deliberately, but it should not repeatedly call a degraded provider during normal orchestration.
+
+The built-in provider order is `family:ollama-claude-code`, `claude-code-cli`, `family:ollama-cloud`, `gemini-cli`, then `codex-cli`. This affects only capable providers: read-oriented roles prefer the Ollama-native GLM/Kimi profiles when healthy, while implementation roles fall through unless those exact profiles have passed write validation.
 
 ## Gemini CLI OAuth Provider
 
@@ -687,24 +683,24 @@ The provider proof uses packaged MCP stdio plus `agent_team_doctor`, `agent_team
 
 Use this proof before enabling write-capable Ollama Claude Code profiles in normal workspaces. It creates a disposable git fixture for each exact `ollama-claude-code:<profile-id>` selector, enables `writeValidated: true` only in that fixture, starts a `slice-implementer`, verifies `OLLAMA_WRITE_PROOF.txt` exists only in the isolated execution worktree, records dashboard and summary evidence, and removes the retained worktree with `agent_team_cleanup`.
 
-Latest live Ollama write proof evidence is recorded in `docs/superpowers/reports/2026-05-13-agent-team-live-ollama-write-proof.md`.
+Historical pre-native Ollama write proof evidence is recorded in `docs/superpowers/reports/2026-05-13-agent-team-live-ollama-write-proof.md`; it does not prove the current `ollama launch claude` defaults.
 
 Inspect without provider use:
 
 ```bash
-npm run smoke:ollama-write -- --dry-run --provider ollama-claude-code:kimi-k2.6
+npm run smoke:ollama-write -- --dry-run --provider ollama-claude-code:glm-5.2
 ```
 
 Run after building:
 
 ```bash
 npm run build
-npm run smoke:ollama-write -- --confirm-live-provider-use --provider ollama-claude-code:kimi-k2.6
+npm run smoke:ollama-write -- --confirm-live-provider-use --provider ollama-claude-code:glm-5.2
 ```
 
 The report includes provider ids, run ids, terminal status, changed files, worktree containment, cleanup status, dashboard counts, summary groups, sidecar/log paths, and known limitations. It does not print prompts, task text, provider endpoints, raw provider payloads, provider session ids, process metadata, command details, environment values, mailbox payloads, or secrets. A passing run proves isolated write containment for the selected provider only; it is not a model-quality, ranking, or broad autonomous-implementation claim.
 
-In this repository, `kimi-k2.6`, `glm-5.1`, and `deepseek-v4-flash` have passed this disposable-fixture write validation through the packaged MCP path. Keep any other Ollama Claude Code profile read-only until it passes the same proof.
+Historical proof evidence for earlier Ollama profiles remains in the report linked above. Current default profiles, including `glm-5.2` and `kimi-k2.7-code`, should stay read-only until each exact provider id passes the same disposable-fixture proof through the packaged MCP path.
 
 ## Opt-In Gemini CLI Write Validation
 

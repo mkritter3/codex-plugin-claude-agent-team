@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { authorityEvidenceSchema } from "../core/orchestration/contract.js";
+import { ORCHESTRATION_TOOLS } from "./orchestration-tools.js";
 import type { ToolName } from "./tools.js";
 
 const role = z
@@ -237,6 +239,7 @@ const userEscalationInputSchema = z.object({
 });
 
 const planConsensusInputSchema = {
+  authority: authorityEvidenceSchema.optional(),
   workflowId,
   cwd,
   roundMode: z.enum(["default", "extended"]).optional(),
@@ -275,6 +278,7 @@ const unblockSliceInputSchema = {
 };
 
 const implementationEvidenceInputSchema = z.object({
+  artifact: z.string().min(1).optional(),
   summary: z.string().min(1),
   changedFiles: z.array(z.string().min(1)),
   testsRun: z.array(z.string().min(1)).min(1),
@@ -285,6 +289,7 @@ const implementationEvidenceInputSchema = z.object({
 });
 
 const reviewSliceInputSchema = {
+  authority: authorityEvidenceSchema.optional(),
   workflowId,
   sliceId: z.string().min(1),
   cwd,
@@ -406,6 +411,7 @@ export interface ToolMetadata {
 }
 
 export const TOOL_METADATA_BY_NAME = {
+  ...ORCHESTRATION_TOOLS,
   agent_team_dispatch: {
     title: "Dispatch Agent",
     description: "Run one read-only role against one bounded assignment.",

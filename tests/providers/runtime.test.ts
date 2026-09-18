@@ -39,22 +39,22 @@ describe("provider runtime registry", () => {
     expect(runtime?.descriptor().available).toBe(false);
   });
 
-  it("resolves the Gemini CLI runtime as OAuth and disabled by default", () => {
+  it("resolves the Gemini CLI runtime as OAuth and auto-enabled by default", () => {
     const runtime = getProviderRuntime("gemini-cli");
 
     expect(runtime?.descriptor().authMode).toBe("oauth");
-    expect(runtime?.descriptor().available).toBe(false);
+    expect(runtime?.descriptor().available).toBe(true);
   });
 
-  it("resolves the Codex CLI runtime as subscription OAuth and disabled by default", () => {
+  it("resolves the Codex CLI runtime as subscription OAuth and auto-enabled by default", () => {
     const runtime = getProviderRuntime("codex-cli");
 
     expect(runtime?.descriptor().authMode).toBe("subscription-oauth");
-    expect(runtime?.descriptor().available).toBe(false);
+    expect(runtime?.descriptor().available).toBe(true);
   });
 
   it("aliases Ollama Cloud profile provider ids to the OpenAI-compatible runtime", () => {
-    const runtime = getProviderRuntime("ollama-cloud:kimi-k2.6");
+    const runtime = getProviderRuntime("ollama-cloud:kimi-k2.7-code");
 
     expect(runtime?.id).toBe("openai-compatible");
   });
@@ -66,7 +66,7 @@ describe("provider runtime registry", () => {
   });
 
   it("aliases Ollama Claude Code profile provider ids to the scoped Claude Code runtime", () => {
-    const runtime = getProviderRuntime("ollama-claude-code:kimi-k2.6");
+    const runtime = getProviderRuntime("ollama-claude-code:kimi-k2.7-code");
 
     expect(runtime?.id).toBe("ollama-claude-code");
   });

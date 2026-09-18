@@ -50,9 +50,8 @@ describe("recommendDelegation", () => {
     const recommendation = recommendDelegation({ workType: "junior-implementation" });
 
     expect(recommendation.providerPreferences).toEqual([
-      "ollama-claude-code:kimi-k2.6",
-      "ollama-claude-code:glm-5.1",
-      "ollama-claude-code:deepseek-v4-flash"
+      "ollama-claude-code:glm-5.2",
+      "ollama-claude-code:kimi-k2.7-code"
     ]);
     expect(recommendation.riskControls).toEqual(
       expect.arrayContaining([

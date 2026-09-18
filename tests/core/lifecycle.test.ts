@@ -348,7 +348,7 @@ describe("AgentLifecycleManager", () => {
     expect(result).toMatchObject({
       runId: "run_life_1",
       status: "running",
-      provider: "claude-code-cli",
+      provider: "ollama-claude-code:glm-5.2",
       role: "planner"
     });
     await expect(readRunSidecar(workspace, "run_life_1")).resolves.toMatchObject({
@@ -1291,6 +1291,10 @@ describe("AgentLifecycleManager", () => {
 
   it("rejects slice implementer runs when write mode is disabled", async () => {
     const manager = new AgentLifecycleManager({
+      config: {
+        ...DEFAULT_AGENT_TEAM_CONFIG,
+        writeMode: { enabled: false, requireIsolatedWorktree: true }
+      },
       createRunId: () => "run_slice_blocked",
       startSession: () => {
         throw new Error("should not start provider");
@@ -1344,7 +1348,7 @@ describe("AgentLifecycleManager", () => {
         eventType: "policy_blocked",
         operation: "start",
         role: "planner",
-        provider: "claude-code-cli",
+        provider: "ollama-claude-code:glm-5.2",
         decision: "blocked",
         reason: "role_not_allowed"
       }
@@ -1471,7 +1475,7 @@ describe("AgentLifecycleManager", () => {
         eventType: "policy_allowed",
         operation: "start",
         role: "planner",
-        provider: "claude-code-cli"
+        provider: "ollama-claude-code:glm-5.2"
       }
     ]);
     expect(JSON.stringify(audit)).not.toMatch(/prompt|providerSessionId|command|payload|secret/i);

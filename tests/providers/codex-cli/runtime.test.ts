@@ -67,13 +67,20 @@ class FakeCodexProcess extends EventEmitter {
 }
 
 describe("Codex CLI runtime", () => {
-  it("keeps the provider descriptor disabled by default", () => {
-    expect(codexCliProvider(DEFAULT_AGENT_TEAM_CONFIG)).toBeUndefined();
+  it("keeps the provider descriptor auto-enabled by default", () => {
+    expect(
+      codexCliProvider(DEFAULT_AGENT_TEAM_CONFIG, { executableAvailable: true })
+    ).toMatchObject({
+      id: "codex-cli",
+      authMode: "subscription-oauth",
+      available: true,
+      capabilities: expect.arrayContaining(["edits", "workspaceIsolation"])
+    });
     expect(createCodexCliRuntime().descriptor()).toMatchObject({
       id: "codex-cli",
       authMode: "subscription-oauth",
-      available: false,
-      capabilities: []
+      available: true,
+      capabilities: expect.arrayContaining(["edits", "workspaceIsolation"])
     });
   });
 

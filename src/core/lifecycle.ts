@@ -175,7 +175,12 @@ export class AgentLifecycleManager {
       throw new Error(`Role ${role.id} cannot start because write mode is disabled.`);
     }
 
-    const providers = this.providers ?? listProviders({ config: this.config });
+    const providers =
+      this.providers ??
+      listProviders({
+        config: this.config,
+        ...(this.env === undefined ? {} : { env: this.env })
+      });
     const provider = selectProvider({
       roleId: request.role,
       providers,
@@ -424,7 +429,12 @@ export class AgentLifecycleManager {
 
     const provider = selectProvider({
       roleId: parent.role,
-      providers: this.providers ?? listProviders({ config: this.config }),
+      providers:
+        this.providers ??
+        listProviders({
+          config: this.config,
+          ...(this.env === undefined ? {} : { env: this.env })
+        }),
       requestedProviderId: request.provider ?? parent.provider,
       extraCapabilities: ["sessionResume"]
     });

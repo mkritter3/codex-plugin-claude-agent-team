@@ -1,6 +1,6 @@
 # The Clawd Code Agent Team Mining Notes
 
-**Source inspected:** `/Users/mkr/Documents/coding-projects/third-party-projects/the-clawd-code/src`
+**Source inspected:** `/Users/example/Documents/coding-projects/third-party-projects/the-clawd-code/src`
 
 **Purpose:** Extract proven agent-team lifecycle patterns that should shape `codex-plugin-claude-agent-team` without transplanting Clawd's runtime-specific contracts.
 

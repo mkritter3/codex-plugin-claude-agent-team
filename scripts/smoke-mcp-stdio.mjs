@@ -1,14 +1,14 @@
 #!/usr/bin/env node
-import { access, mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { readNativeMcpServerConfig } from "./lib/native-mcp-config.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = dirname(scriptDir);
-const runtimePath = join(repoRoot, "dist", "index.js");
 
 function assert(condition, message) {
   if (!condition) {
@@ -119,23 +119,21 @@ async function assertReadOnlyWorkflowCreation(client, workspaceRoot) {
   assert(readBackSlice.writeScope.length === 0, "persisted writeScope changed.");
 }
 
-async function assertRuntimeExists() {
-  try {
-    await access(runtimePath);
-  } catch {
-    throw new Error(
-      `Missing ${runtimePath}. Run npm run build before npm run smoke:mcp-stdio.`
-    );
-  }
-}
-
 async function main() {
-  await assertRuntimeExists();
-
+  const hostCwd = await mkdtemp(join(tmpdir(), "agent-team-stdio-host-cwd-"));
+  const nativeServer = await readNativeMcpServerConfig({
+    pluginRoot: repoRoot,
+    serverName: "agent-team",
+    hostCwd
+  });
+  assert(
+    nativeServer.startup_timeout_sec === 120,
+    "native MCP config must preserve startup_timeout_sec 120."
+  );
   const transport = new StdioClientTransport({
-    command: "node",
-    args: [runtimePath],
-    cwd: repoRoot,
+    command: nativeServer.command,
+    args: nativeServer.args,
+    cwd: nativeServer.cwd,
     stderr: "pipe"
   });
   const stderrChunks = [];
@@ -146,7 +144,7 @@ async function main() {
   const workspaceRoot = await mkdtemp(join(tmpdir(), "agent-team-stdio-smoke-"));
   const client = new Client({
     name: "agent-team-smoke",
-    version: "0.1.1"
+    version: "0.1.5"
   });
 
   try {
@@ -169,6 +167,9 @@ async function main() {
     assertToolRequires(tools.tools, "agent_team_get_team", ["teamId"]);
     assertObjectSchema(tools.tools, "agent_team_list_teams");
     assertToolRequires(tools.tools, "agent_team_create_workflow", ["goal", "slices"]);
+    assertToolRequires(tools.tools, "agent_team_configure_orchestration", ["workflowId", "policy"]);
+    assertToolRequires(tools.tools, "agent_team_prepare_assignments", ["workflowId", "phase"]);
+    assertToolRequires(tools.tools, "agent_team_record_native_implementation", ["workflowId", "sliceId", "evidence"]);
     assertToolRequires(tools.tools, "agent_team_get_workflow", ["workflowId"]);
     assertObjectSchema(tools.tools, "agent_team_list_workflows");
     assertToolRequires(tools.tools, "agent_team_plan_consensus", [
@@ -239,6 +240,22 @@ async function main() {
     });
     assertDoctorRuntimeMetadata(doctor);
     await assertReadOnlyWorkflowCreation(client, workspaceRoot);
+    const target = { kind: "native", model: "gpt-6-astra", reasoningEffort: "xhigh" };
+    const base = { cwd: workspaceRoot, workflowId: "workflow_stdio_readonly" };
+    await callTool(client, "agent_team_configure_orchestration", { ...base, policy: {
+      planning: { members: [{ id: "astra", target }] }, review: { members: [{ id: "astra", target }] },
+      implementation: { kind: "native", model: "gpt-5.6-sol", reasoningEffort: "medium" }
+    } });
+    const routed = await callTool(client, "agent_team_prepare_assignments", { ...base, phase: "planning", coordinator: {
+      source: "runtime", sessionId: "fixture-session", model: "gpt-6-astra", reasoningEffort: "xhigh"
+    } });
+    assert(routed.assignments?.[0]?.route?.kind === "active-session", "Matching native planning was not reused across MCP stdio.");
+    const decided = await callTool(client, "agent_team_plan_consensus", { ...base,
+      codexDecision: { status: "approve", category: "technical", summary: "Fixture authority records the result" },
+      verdicts: [{ reviewerRole: "architect", status: "approve", summary: "Fixture plan evidence" }],
+      authority: { artifact: "fixture:plan-v1", votes: [{ memberId: "astra", status: "approve", artifact: "fixture:plan-v1", summary: "Offline host attestation fixture", execution: { kind: "active-session", id: "fixture-session", target } }] }
+    });
+    assert(decided.workflow?.planningStatus === "approved", "Native authority evidence did not survive MCP validation.");
 
     console.log("MCP stdio smoke passed.");
   } catch (error) {
@@ -248,6 +265,7 @@ async function main() {
   } finally {
     await client.close();
     await rm(workspaceRoot, { recursive: true, force: true });
+    await rm(hostCwd, { recursive: true, force: true });
   }
 }
 

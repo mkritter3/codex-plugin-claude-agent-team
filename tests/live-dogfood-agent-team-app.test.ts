@@ -53,7 +53,7 @@ describe("live dogfood agent team app script", () => {
       "claude-code-cli:opus",
       "gemini-cli",
       "codex-cli",
-      "ollama-claude-code:kimi-k2.6"
+      "ollama-claude-code:glm-5.2"
     ]);
     expect(report.toolFlow).toEqual([
       "agent_team_doctor",
@@ -88,7 +88,7 @@ describe("live dogfood agent team app script", () => {
       {
         sliceId: "slice_junior_docs",
         ownerRole: "slice-implementer",
-        providerSelector: "ollama-claude-code:kimi-k2.6",
+        providerSelector: "ollama-claude-code:glm-5.2",
         enabledBy: "--include-optional-ollama"
       }
     ]);
@@ -134,8 +134,9 @@ describe("live dogfood agent team app script", () => {
       "claude-code-cli:opus",
       "gemini-cli",
       "codex-cli",
-      "ollama-claude-code:kimi-k2.6",
-      'baseUrl: "https://ollama.com"',
+      "ollama-claude-code:glm-5.2",
+      'baseUrl: "http://localhost:11434"',
+      'launchMode: "ollama-launch"',
       "dogfood_app_workflow_only",
       "optionalOllamaEnabled",
       "--include-optional-ollama",

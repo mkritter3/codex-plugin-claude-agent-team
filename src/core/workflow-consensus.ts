@@ -1,4 +1,7 @@
+import { verifyProviderVotes } from "./orchestration/provider-evidence.js";
 import { listRoles } from "./roles.js";
+import { authorityEvidenceSchema, type AuthorityEvidence } from "./orchestration/contract.js";
+import { evaluateAuthority } from "./orchestration/authority.js";
 import { isSafeRunId, isSafeWorkflowId } from "./state/paths.js";
 import {
   readWorkflowRecord,
@@ -55,6 +58,7 @@ export interface PlanConsensusUserEscalationInput {
 }
 
 export interface PlanConsensusInput {
+  readonly authority?: AuthorityEvidence;
   readonly workspaceRoot: string;
   readonly workflowId: string;
   readonly roundMode?: PlanConsensusRoundMode;
@@ -312,7 +316,7 @@ export async function planConsensus(input: PlanConsensusInput): Promise<{
     timestamp
   );
   const automaticEscalation =
-    explicitEscalations.length === 0
+    record.orchestration === undefined && explicitEscalations.length === 0
       ? automaticRound15Escalation(record.workflowId, round, timestamp, decision)
       : undefined;
   const userEscalations =
@@ -320,16 +324,20 @@ export async function planConsensus(input: PlanConsensusInput): Promise<{
       ? explicitEscalations
       : [...explicitEscalations, automaticEscalation];
 
-  const consensus = evaluateConsensus({
+  const authority = input.authority === undefined ? undefined : authorityEvidenceSchema.parse(input.authority);
+  if (authority !== undefined && record.orchestration === undefined) throw new Error("Configure orchestration before submitting authority evidence");
+  await verifyProviderVotes(input.workspaceRoot, authority);
+  const consensus = record.orchestration === undefined ? evaluateConsensus({
     round,
     decision,
     verdicts,
     ...(seniorEvidence === undefined ? {} : { seniorEvidence }),
     explicitEscalations: userEscalations
-  });
+  }) : evaluateAuthority(record.orchestration.planning, authority, "planning", round);
   const consensusRound: WorkflowConsensusRound = {
     round,
     phase: "planning",
+    ...(authority === undefined ? {} : { authority }),
     startedAt: timestamp,
     completedAt: timestamp,
     verdicts,

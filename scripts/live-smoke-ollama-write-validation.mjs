@@ -100,6 +100,10 @@ function profileId(providerSelector) {
   return providerSelector.slice(PROVIDER_PREFIX.length);
 }
 
+function defaultModelForProfile(id) {
+  return id === "glm-5.2" || id === "kimi-k2.7-code" ? `${id}:cloud` : id;
+}
+
 function dryRunReport(providerSelectors) {
   return {
     status: "dry_run",
@@ -170,12 +174,15 @@ async function createWriteValidationFixture(providerSelector) {
         providers: {
           ollamaClaudeCode: {
             enabled: true,
-            baseUrl: "https://ollama.com",
+            launchMode: "ollama-launch",
+            baseUrl: "http://localhost:11434",
+            authToken: "ollama",
+            executable: "ollama",
             apiKeyEnv: "OLLAMA_API_KEY",
             profiles: [
               {
                 id,
-                model: id,
+                model: defaultModelForProfile(id),
                 displayName: `Ollama ${id}`,
                 writeValidated: true,
                 capabilities: {

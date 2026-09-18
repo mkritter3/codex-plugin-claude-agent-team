@@ -135,9 +135,8 @@ export function recommendDelegation(
         workType: "junior-implementation",
         recommendedRoles: ["slice-implementer"],
         providerPreferences: [
-          "ollama-claude-code:kimi-k2.6",
-          "ollama-claude-code:glm-5.1",
-          "ollama-claude-code:deepseek-v4-flash"
+          "ollama-claude-code:glm-5.2",
+          "ollama-claude-code:kimi-k2.7-code"
         ],
         concurrency: { mode: "bounded_parallel", maxRecommended: 2 },
         steeringMode: "follow_up_run",

@@ -1,4 +1,8 @@
-import { ProviderCapabilityError, ProviderNotFoundError } from "./errors.js";
+import {
+  ProviderAmbiguousSelectorError,
+  ProviderCapabilityError,
+  ProviderNotFoundError
+} from "./errors.js";
 import { getRole } from "./roles.js";
 import type {
   AgentProviderDescriptor,
@@ -185,15 +189,34 @@ export function explainProviderSelection(
   const healthByProvider = new Map(
     (request.providerHealth ?? []).map((record) => [record.providerId, record])
   );
+  const ambiguousModelProviderIds =
+    selector?.kind === "model" && selector.source !== "provider-order"
+      ? ordered.providers
+          .filter((provider) => provider.available && matchesSelector(provider, selector))
+          .map((provider) => provider.id)
+      : [];
+  const ambiguousModelSelector = ambiguousModelProviderIds.length > 1;
   const candidates = ordered.providers.map((provider) => {
     const health = healthByProvider.get(provider.id);
-    return candidateFor({
+    const candidate = candidateFor({
       provider,
       required,
       selector,
       ...(health === undefined ? {} : { health }),
       ...(request.now === undefined ? {} : { now: request.now })
     });
+    if (
+      ambiguousModelSelector &&
+      candidate.available &&
+      candidate.matchedSelector
+    ) {
+      return {
+        ...candidate,
+        eligible: false,
+        rejectionReason: "ambiguous_model_selector" as const
+      };
+    }
+    return candidate;
   });
   const selectedCandidate = candidates.find((candidate) => candidate.eligible);
   const selectedProvider =
@@ -224,6 +247,15 @@ export function selectProvider(
   }
 
   const selector = explanation.selector;
+  const ambiguousProviderIds = explanation.candidates
+    .filter((candidate) => candidate.rejectionReason === "ambiguous_model_selector")
+    .map((candidate) => candidate.providerId);
+  if (selector !== undefined && ambiguousProviderIds.length > 0) {
+    throw new ProviderAmbiguousSelectorError({
+      selector: selector.value,
+      providerIds: ambiguousProviderIds
+    });
+  }
   if (selector !== undefined) {
     const selectorMatched = explanation.candidates.some(
       (candidate) => candidate.matchedSelector

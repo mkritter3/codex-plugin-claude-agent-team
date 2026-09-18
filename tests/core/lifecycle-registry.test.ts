@@ -84,11 +84,15 @@ function config(input: {
               ]
 	            : []
 	      },
-	      ollamaClaudeCode: {
-	        enabled: false,
-	        apiKeyEnv: "OLLAMA_API_KEY",
-	        profiles: []
-	      },
+      ollamaClaudeCode: {
+        enabled: false,
+        launchMode: "ollama-launch",
+        baseUrl: "http://localhost:11434",
+        authToken: "ollama",
+        executable: "ollama",
+        apiKeyEnv: "OLLAMA_API_KEY",
+        profiles: []
+      },
 	      gemini: {
 	        enabled: input.geminiEnabled ?? false,
         ...(input.geminiModel === undefined ? {} : { model: input.geminiModel }),

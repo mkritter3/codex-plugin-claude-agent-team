@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { buildAgyArgs, parseAgyResult } from "./agy.js";
 import { spawn as nodeSpawn } from "node:child_process";
 import { createInterface } from "node:readline";
 import type { Readable, Writable } from "node:stream";
@@ -142,9 +143,6 @@ function assertStartable(provider: AgentTeamConfig["providers"]["geminiCli"], in
   if (provider.executable.trim().length === 0) {
     throw new Error("Gemini CLI provider requires executable.");
   }
-  if (provider.model === undefined) {
-    throw new Error("Gemini CLI provider requires model.");
-  }
   if (input.executionPolicy === "isolated-edit") {
     const missing: string[] = [];
     if (!provider.writeValidated) {
@@ -173,15 +171,14 @@ function assertStartable(provider: AgentTeamConfig["providers"]["geminiCli"], in
 
 function buildGeminiSessionArgs(input: {
   readonly prompt: string;
-  readonly model: string;
+  readonly model?: string;
   readonly sessionId: string;
   readonly approvalMode: "auto_edit" | "plan";
 }): readonly string[] {
   return [
     "--prompt",
     input.prompt,
-    "--model",
-    input.model,
+    ...(input.model === undefined ? [] : ["--model", input.model]),
     "--output-format",
     "text",
     "--session-id",
@@ -221,17 +218,12 @@ export function createGeminiCliRuntime(
       if (provider.executable.trim().length === 0) {
         return fail("Gemini CLI provider requires executable.");
       }
-      if (provider.model === undefined) {
-        return fail("Gemini CLI provider requires model.");
-      }
-
       const result = await runCommand(
         provider.executable,
-        [
+        provider.driver === "agy" ? buildAgyArgs({ prompt: input.prompt, ...(provider.model === undefined ? {} : { model: provider.model }), write: false }) : [
           "--prompt",
           input.prompt,
-          "--model",
-          provider.model,
+          ...(provider.model === undefined ? [] : ["--model", provider.model]),
           "--output-format",
           "text"
         ],
@@ -249,9 +241,14 @@ export function createGeminiCliRuntime(
         });
       }
 
+      let responseText = result.stdout.trim();
+      if (provider.driver === "agy") {
+        try { responseText = parseAgyResult(result.stdout).text; }
+        catch (error) { return fail(String(error), { stdout: result.stdout }); }
+      }
       return {
         ok: true,
-        text: result.stdout.trim(),
+        text: responseText,
         stdout: result.stdout,
         stderr: result.stderr,
         exitCode: result.exitCode ?? 0
@@ -263,14 +260,19 @@ export function createGeminiCliRuntime(
         config.providers.geminiCli ?? DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli;
       assertStartable(provider, input);
 
-      const args = buildGeminiSessionArgs({
+      const args = provider.driver === "agy" ? buildAgyArgs({
+        prompt: input.prompt, ...(provider.model === undefined ? {} : { model: provider.model }),
+        ...(input.sessionId === undefined ? {} : { sessionId: input.sessionId }), write: input.executionPolicy === "isolated-edit"
+      }) : buildGeminiSessionArgs({
         prompt: input.prompt,
-        model: provider.model!,
+        ...(provider.model === undefined ? {} : { model: provider.model }),
         sessionId: input.sessionId ?? input.runId,
         approvalMode: approvalModeFor(input)
       });
       const logPath = runLogPath(input.workspaceRoot, input.runId);
       const textChunks: string[] = [];
+      let providerSessionId = provider.driver === "agy" ? input.sessionId : input.sessionId ?? input.runId;
+      let agyText: string | undefined;
       const recentActivities: ProviderSessionActivity[] = [];
       const lastStderr: string[] = [];
       const writes: Array<Promise<void>> = [];
@@ -353,7 +355,18 @@ export function createGeminiCliRuntime(
               resolve("interrupted");
               return;
             }
-            const completed = code === 0;
+            let completed = code === 0;
+            if (provider.driver === "agy" && completed) {
+              try {
+                const result = parseAgyResult(textChunks.join("\n"));
+                agyText = result.text;
+                providerSessionId = result.conversationId ?? providerSessionId;
+              } catch (error) {
+                completed = false;
+                agyText = "";
+                pushBounded(lastStderr, String(error), options.maxStderrLines ?? 10);
+              }
+            }
             activity(completed ? "result" : "error", completed ? "Gemini CLI session completed." : "Gemini CLI session failed.");
             resolve(completed ? "completed" : "failed");
           });
@@ -367,8 +380,8 @@ export function createGeminiCliRuntime(
       });
 
       const snapshot = (): ProviderSessionSnapshot => ({
-        providerSessionId: input.sessionId ?? input.runId,
-        text: textChunks.join("\n").trim(),
+        providerSessionId,
+        text: provider.driver === "agy" ? agyText ?? "" : textChunks.join("\n").trim(),
         warnings: [],
         recentActivities: [...recentActivities],
         currentActivity,
@@ -379,7 +392,7 @@ export function createGeminiCliRuntime(
       });
 
       return {
-        providerSessionId: input.sessionId ?? input.runId,
+        get providerSessionId() { return providerSessionId; },
         done,
         get recentActivities() {
           return snapshot().recentActivities;
@@ -409,10 +422,10 @@ export function createGeminiCliRuntime(
       const checks: ProviderHealthCheck[] = [
         {
           id: "gemini-cli-config",
-          status: provider.enabled && provider.model !== undefined ? "pass" : "fail",
+          status: provider.enabled ? "pass" : "fail",
           message:
-            provider.enabled && provider.model !== undefined
-              ? "Gemini CLI provider config is explicit."
+            provider.enabled
+              ? "Gemini CLI provider config is enabled."
               : "Gemini CLI provider config is incomplete.",
           details: {
             providerId: GEMINI_CLI_PROVIDER_ID,

@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { runDoctor, type DoctorInput } from "../src/doctor.js";
+import { DEFAULT_AGENT_TEAM_CONFIG } from "../src/core/config.js";
 import { stateLayoutPath } from "../src/core/state/paths.js";
 import { upsertProviderHealthRecord } from "../src/core/state/provider-health-store.js";
 import type { AgentProviderRuntime } from "../src/providers/index.js";
@@ -241,9 +242,14 @@ describe("runDoctor", () => {
     });
 
     expect(report.ok).toBe(false);
-    expect(report.checks.find((check) => check.id === "claude-cli")?.status).toBe(
-      "fail"
-    );
+    expect(
+      report.checks.find((check) => check.id === "provider-discovery:claude-code-cli")
+    ).toMatchObject({
+      status: "warn",
+      details: {
+        providerId: "claude-code-cli"
+      }
+    });
   });
 
   it("fails closed when subscription auth may be overridden without explicit API fallback", async () => {
@@ -293,9 +299,9 @@ describe("runDoctor", () => {
     expect(report.checks.find((check) => check.id === "config")).toMatchObject({
       status: "pass",
       details: {
-        writeMode: { enabled: false, requireIsolatedWorktree: true },
+        writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
-        routing: { rolePins: {}, providerOrder: [] },
+        routing: DEFAULT_AGENT_TEAM_CONFIG.routing,
         providers: {
           openaiCompatible: {
             enabled: false,
@@ -308,8 +314,8 @@ describe("runDoctor", () => {
             }
           },
           ollamaCloud: {
-            enabled: false,
-            profileCount: 0
+            enabled: true,
+            profileCount: 2
           },
           grok: {
             enabled: false,
@@ -334,20 +340,77 @@ describe("runDoctor", () => {
     expect(report.checks.find((check) => check.id === "role-routing:planner")).toMatchObject({
       status: "pass",
       details: {
-        provider: "claude-code-cli",
+        provider: "ollama-claude-code:glm-5.2",
         selection: {
           ok: true,
-          selectedProviderId: "claude-code-cli",
+          selectedProviderId: "ollama-claude-code:glm-5.2",
           requiredCapabilities: ["structuredOutput"],
-          candidates: [
+          candidates: expect.arrayContaining([
             expect.objectContaining({
-              providerId: "claude-code-cli",
+              providerId: "ollama-claude-code:glm-5.2",
               eligible: true
             })
-          ]
+          ])
         }
       }
     });
+  });
+
+  it("uses the injected executable lookup for Ollama Claude Code provider discovery", async () => {
+    const workspace = await tempWorkspace();
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: {},
+      findExecutable: async (name) =>
+        name === "claude" || name === "gemini" || name === "codex"
+          ? `/usr/local/bin/${name}`
+          : undefined,
+      getVersion: async (path) => `${path} 1.0.0`,
+      runProviderCommand: async () => ({
+        ok: true,
+        stdout: "authenticated",
+        stderr: "",
+        exitCode: 0
+      })
+    });
+
+    expect(
+      report.checks.find((check) => check.id === "provider-discovery:ollama-claude-code:glm-5.2")
+    ).toMatchObject({
+      status: "warn",
+      details: {
+        warnings: expect.arrayContaining([
+          "Ollama Claude Code launch mode requires the ollama CLI on PATH."
+        ])
+      }
+    });
+  });
+
+  it("warns that native Ollama cloud model access still needs live proof", async () => {
+    const workspace = await tempWorkspace();
+
+    const report = await runDoctor({
+      workspaceRoot: workspace,
+      env: {},
+      ...cliFound()
+    });
+
+    expect(
+      report.checks.find((check) => check.id === "ollama-claude-code:glm-5.2:ollama-local-auth")
+    ).toMatchObject({
+      status: "warn",
+      message:
+        "Ollama Claude Code uses local Ollama authentication, but cloud model access is not live-proved by doctor.",
+      details: {
+        baseUrl: "http://localhost:11434",
+        authTokenPresent: true,
+        liveProofRequired: true
+      }
+    });
+    expect(report.warnings).toContain(
+      "Ollama Claude Code uses local Ollama authentication, but cloud model access is not live-proved by doctor."
+    );
   });
 
   it("reports config schema and missing state layout upgrade posture", async () => {
@@ -452,13 +515,13 @@ describe("runDoctor", () => {
             value: "family:grok",
             kind: "family"
           },
-          candidates: [
+          candidates: expect.arrayContaining([
             expect.objectContaining({
               providerId: "claude-code-cli",
               matchedSelector: false,
               rejectionReason: "selector_mismatch"
             })
-          ]
+          ])
         }
       }
     });
@@ -545,9 +608,9 @@ describe("runDoctor", () => {
           enabled: true,
           profiles: [
             {
-              id: "kimi-k2.6",
+              id: "kimi-k2.7-code",
               baseUrl: "https://ollama.example/v1",
-              model: "kimi-k2.6",
+              model: "kimi-k2.7-code",
               apiKeyEnv: "KIMI_API_KEY",
               capabilities: { structuredOutput: true, longContext: true }
             }
@@ -562,23 +625,19 @@ describe("runDoctor", () => {
       ...cliFound()
     });
 
-    expect(report.ok).toBe(false);
-    expect(report.checks.find((check) => check.id === "ollama-cloud:kimi-k2.6:config")).toMatchObject({
-      status: "pass",
+    expect(
+      report.checks.find((check) => check.id === "provider-discovery:ollama-cloud:kimi-k2.7-code")
+    ).toMatchObject({
+      status: "warn",
+      message: "Ollama Cloud kimi-k2.7-code is configured but not currently available.",
       details: {
-        providerId: "ollama-cloud:kimi-k2.6",
-        hasBaseUrl: true,
-        hasModel: true,
-        hasApiKeyEnv: true
+        providerId: "ollama-cloud:kimi-k2.7-code",
+        warnings: ["Ollama Cloud profile kimi-k2.7-code auth env KIMI_API_KEY is missing."]
       }
     });
-    expect(
-      report.checks.find((check) => check.id === "ollama-cloud:kimi-k2.6:auth-env")
-    ).toMatchObject({
-      status: "fail",
-      message: "Ollama Cloud profile kimi-k2.6 auth env KIMI_API_KEY is missing.",
-      details: { env: "KIMI_API_KEY", present: false }
-    });
+    expect(report.ok).toBe(true);
+    expect(report.checks.some((check) => check.id === "ollama-cloud:kimi-k2.7-code:config")).toBe(false);
+    expect(report.checks.some((check) => check.id === "ollama-cloud:kimi-k2.7-code:auth-env")).toBe(false);
     expect(report.checks.find((check) => check.id === "auth-precedence")).toMatchObject({
       status: "pass"
     });
@@ -592,9 +651,9 @@ describe("runDoctor", () => {
           enabled: true,
           profiles: [
             {
-              id: "glm-5.1",
+              id: "glm-5.2",
               baseUrl: "https://ollama.example/v1",
-              model: "glm-5.1",
+              model: "glm-5.2",
               apiKeyEnv: "GLM_API_KEY",
               capabilities: { structuredOutput: true }
             }
@@ -611,7 +670,7 @@ describe("runDoctor", () => {
 
     expect(report.ok).toBe(true);
     expect(
-      report.checks.find((check) => check.id === "ollama-cloud:glm-5.1:auth-env")
+      report.checks.find((check) => check.id === "ollama-cloud:glm-5.2:auth-env")
     ).toMatchObject({
       status: "pass",
       details: { env: "GLM_API_KEY", present: true }
@@ -621,19 +680,22 @@ describe("runDoctor", () => {
     });
   });
 
-  it("reports explicit Ollama Claude Code config and missing shared auth env", async () => {
+  it("reports explicit Ollama Claude Code direct API config and missing shared auth env", async () => {
     const workspace = await tempWorkspace();
     await writeConfig(workspace, {
       providers: {
         ollamaClaudeCode: {
           enabled: true,
+          launchMode: "direct-api",
           baseUrl: "https://ollama.com",
+          authToken: "ollama",
+          executable: "ollama",
           apiKeyEnv: "OLLAMA_API_KEY",
           profiles: [
             {
-              id: "kimi-k2.6",
-              model: "kimi-k2.6",
-              displayName: "Kimi K2.6",
+              id: "kimi-k2.7-code",
+              model: "kimi-k2.7-code",
+              displayName: "Kimi K2.7 Code",
               capabilities: { structuredOutput: true, longContext: true, reasoning: true }
             }
           ]
@@ -647,7 +709,7 @@ describe("runDoctor", () => {
       ...cliFound()
     });
 
-    expect(report.ok).toBe(false);
+    expect(report.ok).toBe(true);
     expect(report.checks.find((check) => check.id === "config")).toMatchObject({
       details: {
         providers: {
@@ -661,22 +723,18 @@ describe("runDoctor", () => {
       }
     });
     expect(
-      report.checks.find((check) => check.id === "ollama-claude-code:kimi-k2.6:config")
+      report.checks.find(
+        (check) => check.id === "provider-discovery:ollama-claude-code:kimi-k2.7-code"
+      )
     ).toMatchObject({
-      status: "pass",
+      status: "warn",
+      message: "Kimi K2.7 Code is configured but not currently available.",
       details: {
-        providerId: "ollama-claude-code:kimi-k2.6",
-        hasBaseUrl: true,
-        hasModel: true,
-        apiKeyEnv: "OLLAMA_API_KEY"
+        providerId: "ollama-claude-code:kimi-k2.7-code",
+        warnings: expect.arrayContaining([
+          "Ollama Claude Code profile kimi-k2.7-code auth env OLLAMA_API_KEY is missing."
+        ])
       }
-    });
-    expect(
-      report.checks.find((check) => check.id === "ollama-claude-code:kimi-k2.6:auth-env")
-    ).toMatchObject({
-      status: "fail",
-      message: "Ollama Claude Code profile Kimi K2.6 auth env OLLAMA_API_KEY is missing.",
-      details: { env: "OLLAMA_API_KEY", present: false }
     });
     expect(report.checks.find((check) => check.id === "auth-precedence")).toMatchObject({
       status: "pass"
@@ -689,11 +747,14 @@ describe("runDoctor", () => {
       providers: {
         ollamaClaudeCode: {
           enabled: true,
+          launchMode: "direct-api",
           baseUrl: "https://ollama.com",
+          authToken: "ollama",
+          executable: "ollama",
           profiles: [
             {
-              id: "glm-5.1",
-              model: "glm-5.1",
+              id: "glm-5.2",
+              model: "glm-5.2",
               capabilities: { structuredOutput: true }
             }
           ]
@@ -711,7 +772,7 @@ describe("runDoctor", () => {
 
     expect(report.ok).toBe(true);
     expect(
-      report.checks.find((check) => check.id === "ollama-claude-code:glm-5.1:auth-env")
+      report.checks.find((check) => check.id === "ollama-claude-code:glm-5.2:auth-env")
     ).toMatchObject({
       status: "pass",
       details: { env: "OLLAMA_API_KEY", present: true }
@@ -864,7 +925,10 @@ describe("runDoctor", () => {
     const report = await runDoctor({
       workspaceRoot: workspace,
       env: { GOOGLE_CLOUD_PROJECT: "project-id", GEMINI_API_KEY: "ignored-provider-key" },
-      findExecutable: async (name) => (name === "gemini" || name === "claude" ? `/usr/local/bin/${name}` : undefined),
+      findExecutable: async (name) =>
+        name === "gemini" || name === "claude" || name === "codex" || name === "ollama"
+          ? `/usr/local/bin/${name}`
+          : undefined,
       getVersion: async (path) => `${path} 1.0.0`,
       runProviderCommand: async () => ({
         ok: true,
@@ -906,8 +970,8 @@ describe("runDoctor", () => {
           apiKeyEnv: "OLLAMA_API_KEY",
           profiles: [
             {
-              id: "kimi-k2.6",
-              model: "kimi-k2.6",
+              id: "kimi-k2.7-code",
+              model: "kimi-k2.7-code",
               capabilities: { structuredOutput: true, longContext: true }
             }
           ]
@@ -915,7 +979,7 @@ describe("runDoctor", () => {
       }
     });
     await upsertProviderHealthRecord(workspace, {
-      providerId: "ollama-claude-code:kimi-k2.6",
+      providerId: "ollama-claude-code:kimi-k2.7-code",
       status: "degraded",
       reason: "rate_limited",
       failureCount: 2,
@@ -936,7 +1000,7 @@ describe("runDoctor", () => {
       details: {
         degradedProviders: [
           expect.objectContaining({
-            providerId: "ollama-claude-code:kimi-k2.6",
+            providerId: "ollama-claude-code:kimi-k2.7-code",
             reason: "rate_limited",
             failureCount: 2
           })
@@ -949,7 +1013,7 @@ describe("runDoctor", () => {
         selection: {
           candidates: expect.arrayContaining([
             expect.objectContaining({
-              providerId: "ollama-claude-code:kimi-k2.6",
+              providerId: "ollama-claude-code:kimi-k2.7-code",
               rejectionReason: "degraded"
             })
           ])
@@ -1119,6 +1183,9 @@ describe("runDoctor", () => {
 
   it("does not require git worktree support when write mode is disabled", async () => {
     const workspace = await tempWorkspace();
+    await writeConfig(workspace, {
+      writeMode: { enabled: false, requireIsolatedWorktree: true }
+    });
     let called = false;
 
     const report = await runDoctor({
@@ -1138,7 +1205,7 @@ describe("runDoctor", () => {
     });
   });
 
-  it("reports slice implementer routing as a warning until write mode is enabled", async () => {
+  it("reports slice implementer routing as enabled by default", async () => {
     const workspace = await tempWorkspace();
 
     const report = await runDoctor({
@@ -1156,8 +1223,7 @@ describe("runDoctor", () => {
     expect(
       report.checks.find((check) => check.id === "role-routing:slice-implementer")
     ).toMatchObject({
-      status: "warn",
-      message: "slice-implementer is unavailable until isolated write mode is enabled."
+      status: "pass"
     });
   });
 
@@ -1183,7 +1249,7 @@ describe("runDoctor", () => {
     });
   });
 
-  it("passes slice implementer routing when write mode enables edit-capable Claude provider", async () => {
+  it("passes slice implementer routing through the preferred write-validated Ollama profile", async () => {
     const workspace = await tempWorkspace();
     await writeConfig(workspace, {
       writeMode: { enabled: true, requireIsolatedWorktree: true }
@@ -1201,7 +1267,7 @@ describe("runDoctor", () => {
       report.checks.find((check) => check.id === "role-routing:slice-implementer")
     ).toMatchObject({
       status: "pass",
-      details: { provider: "claude-code-cli" }
+      details: { provider: "ollama-claude-code:glm-5.2" }
     });
   });
 });

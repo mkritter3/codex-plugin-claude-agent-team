@@ -1,8 +1,10 @@
 {
   "mcpServers": {
     "agent-team": {
-      "command": "node",
-      "args": ["./dist/index.js"]
+      "command": "sh",
+      "args": ["./scripts/start-mcp.sh"],
+      "cwd": ".",
+      "startup_timeout_sec": 120
     }
   }
 }

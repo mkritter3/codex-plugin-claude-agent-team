@@ -14,6 +14,7 @@ describe("packaging and install docs", () => {
       "npm ci",
       "npm run build",
       "npm run install:check",
+      "npm run verify:distribution",
       "npm run smoke:workflow-orchestrator",
       "npm run validate:workflow-fixtures",
       "npm run validate:workflow-live",
@@ -38,6 +39,7 @@ describe("packaging and install docs", () => {
       "State Layout Version",
       ".agent-team/audit/events.jsonl",
       "agent_team_doctor",
+      "agent_team_list_providers",
       "agent_team_start_parallel",
       "agent_team_create_team",
       "agent_team_get_team",
@@ -55,6 +57,9 @@ describe("packaging and install docs", () => {
       "agent_team_workflow_next",
       "agent_team_record_user_decision",
       "npm run ci",
+      "Native Codex Install",
+      "/reload-plugins",
+      "Do not run `codex mcp add`",
       "Troubleshooting",
       "docs/runbooks/claude-team-session.md",
       "docs/superpowers/reports/2026-05-13-agent-team-workflow-orchestrator-readiness.md",
@@ -70,7 +75,8 @@ describe("packaging and install docs", () => {
       "claude-code-cli:sonnet",
       "claude-code-cli:haiku",
       "gemini-cli",
-      "ollama-claude-code:kimi-k2.6",
+      "ollama-claude-code:glm-5.2",
+      "ollama-claude-code:kimi-k2.7-code",
       "Codex remains the final authority"
     ]) {
       expect(readme).toContain(text);
@@ -103,13 +109,16 @@ describe("packaging and install docs", () => {
 	    expect(readme).toContain("auditEnabled");
 	    expect(readme).toContain("providers.ollamaClaudeCode");
 	    expect(readme).toContain("OLLAMA_API_KEY");
-	    expect(readme).toContain("ollama-claude-code:kimi-k2.6");
+	    expect(readme).toContain("ollama launch claude --model <model> --yes -- <claude args>");
+	    expect(readme).toContain("does not require `OLLAMA_API_KEY` when `ollama` is already signed in");
+	    expect(readme).toContain("the only Ollama Claude Code mode that requires `OLLAMA_API_KEY`");
+	    expect(readme).toContain("ollama-claude-code:glm-5.2");
+	    expect(readme).toContain("ollama-claude-code:kimi-k2.7-code");
 	    expect(readme).toContain("ANTHROPIC_BASE_URL");
-	    expect(readme).toContain("scoped provider env");
+	    expect(readme).toContain("scoped local Ollama env");
 	    expect(readme).toContain("writeValidated");
-	    expect(readme).toContain("Kimi K2.6");
-	    expect(readme).toContain("GLM 5.1");
-	    expect(readme).toContain("DeepSeek");
+	    expect(readme).toContain("Kimi K2.7 Code");
+	    expect(readme).toContain("GLM 5.2");
     expect(readme).toContain("local Codex CLI login remains the auth boundary");
     expect(readme).toContain("OPENAI_API_KEY");
     expect(readme).toContain("OPENAI_BASE_URL");
@@ -143,8 +152,10 @@ describe("packaging and install docs", () => {
 	    expect(changelog).toContain("opt-in Claude live capability matrix");
 	    expect(changelog).toContain("read-only provider proof smoke harness");
 	    expect(changelog).toContain("Ollama Claude Code profiles");
-	    expect(changelog).toContain("single `OLLAMA_API_KEY`");
-	    expect(changelog).toContain("scoped Anthropic-compatible environment");
+	    expect(changelog).toContain("Ollama-native Claude Code launch");
+	    expect(changelog).toContain("glm-5.2");
+	    expect(changelog).toContain("kimi-k2.7-code");
+	    expect(changelog).toContain("direct-api");
 	    expect(changelog).toContain("install handoff preflight");
     expect(changelog).toContain("policy and audit controls");
     expect(changelog).toContain("MCP tool surface changes");

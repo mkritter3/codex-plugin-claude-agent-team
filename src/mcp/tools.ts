@@ -1,4 +1,6 @@
 import { resolve } from "node:path";
+import { authorityEvidenceSchema } from "../core/orchestration/contract.js";
+import { ORCHESTRATION_TOOLS, handleOrchestrationTool, type OrchestrationToolName } from "./orchestration-tools.js";
 import { runDoctor } from "../doctor.js";
 import { cancelAgentRuns } from "../core/cancel-many.js";
 import { loadAgentTeamConfig } from "../core/config.js";
@@ -121,6 +123,9 @@ import { listProviders } from "../providers/index.js";
 import { jsonToolResult, type JsonToolResult } from "../utils/json.js";
 
 export const TOOL_NAMES = [
+  "agent_team_configure_orchestration",
+  "agent_team_prepare_assignments",
+  "agent_team_record_native_implementation",
   "agent_team_dispatch",
   "agent_team_start",
   "agent_team_start_parallel",
@@ -957,6 +962,7 @@ function parsePlanConsensusArgs(
     ...(roundMode === undefined ? {} : { roundMode }),
     codexDecision,
     verdicts,
+    ...(args.authority === undefined ? {} : { authority: authorityEvidenceSchema.parse(args.authority) }),
     ...(seniorReviewerEvidence === undefined ? {} : { seniorReviewerEvidence }),
     ...(userEscalations === undefined ? {} : { userEscalations }),
     ...(deps.now === undefined ? {} : { now: deps.now })
@@ -1157,6 +1163,8 @@ function parseImplementationEvidence(
     return validationError("agent_team_review_slice implementationEvidence must be an object.");
   }
   const evidence = value as Record<string, unknown>;
+  const artifact = readOptionalString(evidence.artifact, "implementationEvidence.artifact");
+  if (artifact !== undefined && typeof artifact !== "string") return artifact;
   const summary = readString(
     evidence.summary,
     "agent_team_review_slice implementationEvidence.summary"
@@ -1212,6 +1220,7 @@ function parseImplementationEvidence(
   }
   return {
     summary,
+    ...(artifact === undefined ? {} : { artifact }),
     changedFiles,
     testsRun,
     evidencePaths,
@@ -1288,6 +1297,7 @@ function parseReviewWorkflowSliceArgs(
     ...(implementationEvidence === undefined ? {} : { implementationEvidence }),
     codexDecision,
     verdicts,
+    ...(args.authority === undefined ? {} : { authority: authorityEvidenceSchema.parse(args.authority) }),
     ...(seniorReviewerEvidence === undefined ? {} : { seniorReviewerEvidence }),
     ...(userEscalations === undefined ? {} : { userEscalations }),
     ...(deps.now === undefined ? {} : { now: deps.now })
@@ -2398,6 +2408,7 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
 
   return {
     async handleToolCall(name, args): Promise<JsonToolResult> {
+      if (Object.hasOwn(ORCHESTRATION_TOOLS, name)) return handleOrchestrationTool(name as OrchestrationToolName, args, cwd(), deps.config);
       if (name === "agent_team_list_roles") {
         return jsonToolResult({ roles: listRoles() });
       }
@@ -2407,7 +2418,9 @@ export function createToolHandlers(deps: ToolDependencies = {}): {
           return validationError("agent_team_list_providers cwd must be a string.");
         }
         const workspaceRoot = args.cwd ?? cwd();
-        return jsonToolResult({ providers: listProviders({ config: await config(workspaceRoot) }) });
+        return jsonToolResult({
+          providers: listProviders({ config: await config(workspaceRoot), env: process.env })
+        });
       }
 
       if (name === "agent_team_doctor") {

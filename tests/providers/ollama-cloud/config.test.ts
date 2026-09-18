@@ -21,11 +21,11 @@ function config(input: {
           input.profiles ??
           [
             {
-              id: "kimi-k2.6",
+              id: "kimi-k2.7-code",
               baseUrl: "https://ollama.example/v1",
-              model: "kimi-k2.6",
+              model: "kimi-k2.7-code",
               apiKeyEnv: "OLLAMA_CLOUD_API_KEY",
-              displayName: "Kimi K2.6",
+              displayName: "Kimi K2.7 Code",
               capabilities: { structuredOutput: true, longContext: true }
             }
           ]
@@ -44,39 +44,40 @@ describe("Ollama Cloud profile config", () => {
       config({
         profiles: [
           {
-            id: "kimi-k2.6",
+            id: "kimi-k2.7-code",
             baseUrl: "https://ollama.example/v1",
-            model: "kimi-k2.6",
+            model: "kimi-k2.7-code",
             apiKeyEnv: "KIMI_API_KEY",
-            displayName: "Kimi K2.6",
+            displayName: "Kimi K2.7 Code",
             capabilities: { structuredOutput: true, longContext: true }
           },
           {
-            id: "glm-5.1",
+            id: "glm-5.2",
             baseUrl: "https://ollama.example/v1",
-            model: "glm-5.1",
+            model: "glm-5.2",
             apiKeyEnv: "GLM_API_KEY",
-            displayName: "GLM 5.1",
+            displayName: "GLM 5.2",
             capabilities: { structuredOutput: true }
           }
         ]
-      })
+      }),
+      { env: { KIMI_API_KEY: "token", GLM_API_KEY: "token" } }
     );
 
     expect(providers).toEqual([
       expect.objectContaining({
-        id: `${OLLAMA_CLOUD_PROVIDER_PREFIX}:kimi-k2.6`,
-        displayName: "Kimi K2.6",
+        id: `${OLLAMA_CLOUD_PROVIDER_PREFIX}:kimi-k2.7-code`,
+        displayName: "Kimi K2.7 Code",
         authMode: "api-key",
-        model: "kimi-k2.6",
+        model: "kimi-k2.7-code",
         capabilities: ["structuredOutput", "longContext"],
         available: true
       }),
       expect.objectContaining({
-        id: `${OLLAMA_CLOUD_PROVIDER_PREFIX}:glm-5.1`,
-        displayName: "GLM 5.1",
+        id: `${OLLAMA_CLOUD_PROVIDER_PREFIX}:glm-5.2`,
+        displayName: "GLM 5.2",
         authMode: "api-key",
-        model: "glm-5.1",
+        model: "glm-5.2",
         capabilities: ["structuredOutput"],
         available: true
       })
@@ -90,7 +91,7 @@ describe("Ollama Cloud profile config", () => {
           {
             id: "missing-auth",
             baseUrl: "https://ollama.example/v1",
-            model: "kimi-k2.6",
+            model: "kimi-k2.7-code",
             capabilities: { structuredOutput: true }
           }
         ]
@@ -104,16 +105,36 @@ describe("Ollama Cloud profile config", () => {
     });
   });
 
+  it("does not fall back to ambient auth when an explicit env is supplied", () => {
+    const previous = process.env.OLLAMA_CLOUD_API_KEY;
+    process.env.OLLAMA_CLOUD_API_KEY = "ambient-token";
+    try {
+      const [provider] = listOllamaCloudProviders(config(), { env: {} });
+
+      expect(provider).toMatchObject({
+        id: `${OLLAMA_CLOUD_PROVIDER_PREFIX}:kimi-k2.7-code`,
+        available: false,
+        warnings: ["Ollama Cloud profile kimi-k2.7-code auth env OLLAMA_CLOUD_API_KEY is missing."]
+      });
+    } finally {
+      if (previous === undefined) {
+        delete process.env.OLLAMA_CLOUD_API_KEY;
+      } else {
+        process.env.OLLAMA_CLOUD_API_KEY = previous;
+      }
+    }
+  });
+
   it("resolves profile ids from dynamic provider ids", () => {
     const profile = resolveOllamaCloudProfile(
       config(),
-      `${OLLAMA_CLOUD_PROVIDER_PREFIX}:kimi-k2.6`
+      `${OLLAMA_CLOUD_PROVIDER_PREFIX}:kimi-k2.7-code`
     );
 
     expect(profile).toMatchObject({
-      id: "kimi-k2.6",
+      id: "kimi-k2.7-code",
       baseUrl: "https://ollama.example/v1",
-      model: "kimi-k2.6",
+      model: "kimi-k2.7-code",
       apiKeyEnv: "OLLAMA_CLOUD_API_KEY"
     });
   });
