@@ -71,7 +71,7 @@ Use the `mcpConfig` field from the install handoff report when the Codex client 
 
 ## Doctor Preflight
 
-Before any live dispatch, call `agent_team_doctor` for the workspace:
+Before any live dispatch, complete the [workspace compatibility preflight](../../skills/codex-agent-team-orchestrator/references/workspace-configuration.md): inspect and persist known config migrations, check draft workflow targets, then call `agent_team_list_providers` and `agent_team_doctor` with the same target workspace:
 
 ```json
 {
@@ -115,7 +115,7 @@ Use this workflow when Codex is coordinating a full engineering effort with plan
 
 The public tool sequence is:
 
-1. Run `agent_team_doctor` for the workspace.
+1. Complete the workspace compatibility preflight, then run `agent_team_list_providers` and `agent_team_doctor` for the workspace.
 2. Create the durable workflow with `agent_team_create_workflow`.
 3. Record planning consensus rounds with `agent_team_plan_consensus`.
 4. Start ready implementation slices with `agent_team_start_slices`.

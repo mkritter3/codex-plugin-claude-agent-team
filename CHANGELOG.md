@@ -4,6 +4,8 @@ All notable changes to this local plugin are recorded here.
 
 ## Unreleased
 
+- Require a workspace compatibility preflight before delegation: persist known config/routing migrations, update eligible draft workflow targets through MCP, preserve permissions and decision evidence, and detect stale running servers after plugin updates.
+
 - Made dispatch, lifecycle, routing, and runtime test fixtures independent of locally installed provider CLIs.
 
 - Refreshed the Codex listing to describe native and cross-provider orchestration, replaced internal workflow jargon with plain-language prompts, and assigned a distinct install version.

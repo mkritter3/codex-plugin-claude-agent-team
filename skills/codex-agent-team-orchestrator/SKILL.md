@@ -34,9 +34,17 @@ When debugging or changing Agent Team itself, read the source repo, not only thi
 
 If a tool call returns `Transport closed`, treat it as a live MCP transport failure. Run the install preflight and stdio smoke from the installed cache or source repo when shell access is available, then reload/restart Codex and rerun `agent_team_doctor`; native subagents are a supported execution route, but they do not replace the durable MCP workflow record. Restore the MCP connection before claiming workflow gates, provider routing, mailbox steering or cleanup are recorded.
 
+## Workspace Compatibility Preflight
+
+Before the first delegation in a workspace, after a plugin update, or when reopening an older workflow, read the target workspace's `.agent-team/config.json` and relevant Agent Team setup guidance. A successful config load or `schemaVersion: 1` does not prove that provider names, executable paths, model pins, or saved workflow targets are current.
+
+Follow [workspace configuration migration](references/workspace-configuration.md). Apply known mechanical migrations to the actual workspace files, preserving user overrides and permissions; compatibility aliases alone leave stale instructions on disk. Check saved draft workflow targets too. Keep a reviewable diff or local backup, and report the changed fields without exposing credentials. Do not replace the whole config with a default template.
+
+Run `agent_team_list_providers` and `agent_team_doctor` with the same explicit workspace `cwd` after edits and before dispatch. Gemini subscription runs must resolve to `agy`; if the live server still advertises `gemini-cli`, reload the plugin or start a new Codex session before continuing. An unavailable pinned model or a change in decision authority requires resolving that choice, not silently substituting a model. Repeat this check when workspace configuration changes, not on every status poll.
+
 ## Direct MCP Orchestration Loop
 
-1. Run `agent_team_doctor` for the target workspace before live dispatch and check policy fields such as `allowedRoles`, `allowedProviderSelectors`, `allowWriteMode`, and `allowedWorktreeRoots`.
+1. Complete the workspace compatibility preflight, persist applicable migrations, then run `agent_team_list_providers` and `agent_team_doctor` for the target workspace before live dispatch. Check policy fields such as `allowedRoles`, `allowedProviderSelectors`, `allowWriteMode`, and `allowedWorktreeRoots`.
 2. Create a durable workflow with `agent_team_create_workflow`, then select planning/review decision makers and an implementation default with `agent_team_configure_orchestration`. Read [native and cross-provider orchestration](references/orchestration.md) for exact schemas and execution boundaries.
 3. Call `agent_team_prepare_assignments` for planning. Reuse a runtime-confirmed matching active model/effort; otherwise use host-native agents or the exact provider. Record their artifact-bound votes with `agent_team_plan_consensus`.
 4. Prepare implementation assignments. Use native host tools for native routes and `agent_team_start_slices` for provider routes, with bounded concurrency. Record native results through `agent_team_record_native_implementation`.

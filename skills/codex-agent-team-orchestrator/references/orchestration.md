@@ -1,5 +1,7 @@
 # Native and cross-provider orchestration
 
+Complete [workspace configuration migration](workspace-configuration.md) before creating or resuming a workflow. Persist stale workspace settings and check saved draft provider targets against the running server.
+
 Create a workflow, then call `agent_team_configure_orchestration` before the first vote. This policy is specific to that workflow. It does not change the active Codex model or account settings.
 
 ## Economical default

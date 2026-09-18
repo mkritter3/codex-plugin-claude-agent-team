@@ -106,6 +106,8 @@ The launcher performs the first-run build before starting the packaged runtime e
 
 ## Workspace Config
 
+Before delegating in an older workspace, the orchestrator checks and updates `.agent-team/config.json`, workspace routing, and draft workflow targets using the [workspace migration guide](skills/codex-agent-team-orchestrator/references/workspace-configuration.md). It preserves model choices and permissions, writes known migrations back to disk, and verifies the target workspace with both provider listing and doctor. Updating the plugin alone does not update workspace files or an already-running MCP server.
+
 The default posture is local-first and write-capable through retained isolated worktrees. Missing `.agent-team/config.json` means `writeMode.enabled: true`, `requireIsolatedWorktree: true`, unrestricted roles/providers, and audit enabled. Add config only when you want to restrict routing or override defaults:
 
 ```json
