@@ -4,6 +4,8 @@ All notable changes to this local plugin are recorded here.
 
 ## Unreleased
 
+- Refreshed the Codex listing to describe native and cross-provider orchestration, replaced internal workflow jargon with plain-language prompts, and assigned a distinct install version.
+
 - Made distribution verification work from standalone checkouts while retaining optional strict personal-marketplace validation, refreshed compatible dependency fixes, and excluded local environment files from Git.
 - Added workflow-specific native/provider orchestration policies, explicit sole-reviewer or unanimous-panel authority, artifact-bound votes, and validation against completed external runs.
 - Added native assignment preparation, matching active-session reuse for planning/implementation, per-slice implementation overrides, native completion evidence and independent native review through the existing integration path.

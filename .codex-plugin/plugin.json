@@ -1,7 +1,7 @@
 {
   "name": "codex-plugin-claude-agent-team",
-  "version": "0.1.5+codex.20260918165700",
-  "description": "Provider-neutral agent team MCP plugin for Codex with Claude Code CLI subscription support.",
+  "version": "0.1.5+codex.20260918180939",
+  "description": "Coordinate native Codex and external AI models for planning, implementation, and independent review.",
   "author": {
     "name": "mkritter3",
     "url": "https://github.com/mkritter3"
@@ -19,8 +19,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "Agent Team",
-    "shortDescription": "Delegate Codex work to provider-routed AI agent teams.",
-    "longDescription": "A Codex MCP plugin that lets Codex orchestrate provider-routed agent teams through durable MCP workflows, starting with Claude Code CLI subscription-backed runs.",
+    "shortDescription": "Plan, build, and review with native and cross-provider AI teams.",
+    "longDescription": "An experimental local plugin for coordinating native Codex models with Claude Code, Gemini (including optional AGY), and Ollama. Choose separate models for planning, implementation, and independent review. Give one reviewer decision authority or require unanimous approval from a selected panel. Reuse a matching active model for planning to avoid duplicate calls.",
     "developerName": "mkritter3",
     "category": "Productivity",
     "capabilities": [
@@ -29,8 +29,8 @@
     "websiteURL": "https://github.com/mkritter3/codex-plugin-claude-agent-team",
     "defaultPrompt": [
       "Use Agent Team to plan, delegate, review, and integrate this feature.",
-      "Start an L11 agent-team workflow with Codex as orchestrator.",
-      "Run doctor, create workflow, plan consensus, then start slices."
+      "Choose economical implementation models and independent reviewers for this task.",
+      "Have a panel of my selected models agree on a plan and review the finished work."
     ],
     "brandColor": "#111827"
   }

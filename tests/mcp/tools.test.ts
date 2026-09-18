@@ -4376,7 +4376,7 @@ describe("MCP tool handlers", () => {
     ) as { interface?: { defaultPrompt?: readonly string[] } };
 
     expect(plugin.interface?.defaultPrompt).toContain(
-      "Start an L11 agent-team workflow with Codex as orchestrator."
+      "Have a panel of my selected models agree on a plan and review the finished work."
     );
     expect(plugin.interface?.defaultPrompt).not.toContain(
       "Start a bounded Claude agent team."

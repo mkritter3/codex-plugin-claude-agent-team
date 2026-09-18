@@ -21,8 +21,8 @@ describe("Codex operator skill packaging", () => {
     );
     expect(pluginJson.interface?.defaultPrompt).toEqual([
       "Use Agent Team to plan, delegate, review, and integrate this feature.",
-      "Start an L11 agent-team workflow with Codex as orchestrator.",
-      "Run doctor, create workflow, plan consensus, then start slices."
+      "Choose economical implementation models and independent reviewers for this task.",
+      "Have a panel of my selected models agree on a plan and review the finished work."
     ]);
   });
 
