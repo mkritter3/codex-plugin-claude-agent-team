@@ -1290,6 +1290,23 @@ describe("AgentLifecycleManager", () => {
     ]);
   });
 
+  it("does not pass retired Gemini CLI session ids to AGY", async () => {
+    await writeRunSidecar(workspace, {
+      runId: "run_legacy_gemini", role: "planner", provider: "gemini-cli",
+      status: "completed", createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:00:00.000Z", capabilitiesUsed: ["sessionResume"],
+      evidencePaths: [], providerSessionId: "old-cli-session"
+    });
+    let started = false;
+    const manager = new AgentLifecycleManager({ startSession: () => {
+      started = true; throw new Error("should not start");
+    } });
+    await expect(manager.replyRun({ cwd: workspace, runId: "run_legacy_gemini", message: "Continue" }))
+      .rejects.toThrow("Start a new AGY run");
+    expect(started).toBe(false);
+    expect(await readMailboxRecords(workspace, "run_legacy_gemini", "inbox")).toEqual([]);
+  });
+
   it("rejects reply runs when no provider session id is available", async () => {
     const parent: RunSidecar = {
       runId: "run_no_session",

@@ -7,7 +7,7 @@ import { listOllamaCloudProviders } from "./ollama-cloud/config.js";
 import { listOllamaClaudeCodeProviders } from "./ollama-claude-code/config.js";
 import { listGrokProviders } from "./grok/config.js";
 import { geminiProvider } from "./gemini/config.js";
-import { geminiCliProvider } from "./gemini-cli/config.js";
+import { agyProvider } from "./agy/config.js";
 import { codexCliProvider } from "./codex-cli/config.js";
 
 const BASE_CLAUDE_CAPABILITIES = [
@@ -45,7 +45,7 @@ export const CLAUDE_CODE_CLI_PROVIDER: AgentProviderDescriptor = claudeCodeCliPr
 
 export interface LocalCliAvailability {
   readonly claude?: boolean;
-  readonly gemini?: boolean;
+  readonly agy?: boolean;
   readonly codex?: boolean;
   readonly ollama?: boolean;
 }
@@ -72,8 +72,8 @@ export function listProviders(
   const env = input.env ?? process.env;
   const availability = {
     claude: input.cliAvailability?.claude ?? executableOnPath("claude"),
-    gemini: input.cliAvailability?.gemini ?? executableOnPath(
-      config.providers.geminiCli.executable
+    agy: input.cliAvailability?.agy ?? executableOnPath(
+      config.providers.agy.executable
     ),
     codex: input.cliAvailability?.codex ?? executableOnPath(
       config.providers.codexCli.executable
@@ -103,9 +103,9 @@ export function listProviders(
   if (gemini !== undefined) {
     providers.push(gemini);
   }
-  const geminiCli = geminiCliProvider(config, { executableAvailable: availability.gemini });
-  if (geminiCli !== undefined) {
-    providers.push(geminiCli);
+  const agy = agyProvider(config, { executableAvailable: availability.agy });
+  if (agy !== undefined) {
+    providers.push(agy);
   }
   const codexCli = codexCliProvider(config, { executableAvailable: availability.codex });
   if (codexCli !== undefined) {

@@ -44,7 +44,7 @@
     "smoke:claude-models": "node scripts/live-smoke-claude-model-profiles.mjs",
     "smoke:providers-live": "node scripts/live-smoke-readonly-providers.mjs",
     "smoke:codex-write": "node scripts/live-smoke-codex-write-validation.mjs",
-    "smoke:gemini-write": "node scripts/live-smoke-gemini-write-validation.mjs",
+    "smoke:agy-write": "node scripts/live-smoke-agy-write-validation.mjs",
     "smoke:ollama-write": "node scripts/live-smoke-ollama-write-validation.mjs",
     "dogfood:live-app": "node scripts/live-dogfood-agent-team-app.mjs",
     "scan:workflow-guidance": "node scripts/invariant-scan-workflow-guidance.mjs",

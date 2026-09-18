@@ -442,29 +442,28 @@ Keep `writeValidated` false until a live implementation proof validates edits, i
 
 If an Ollama or other provider returns transient failures such as rate limits, `503`, timeouts, or provider-unavailable responses, the plugin records provider health under `.agent-team/providers/health.json`. Default/family routing and `providerOrder` treat that as a cooldown and prefer another capable provider until the cooldown expires. An exact provider request remains an explicit probe, so Codex can still test it deliberately, but it should not repeatedly call a degraded provider during normal orchestration.
 
-The built-in provider order is `family:ollama-claude-code`, `claude-code-cli`, `family:ollama-cloud`, `gemini-cli`, then `codex-cli`. This affects only capable providers: read-oriented roles prefer the Ollama-native GLM/Kimi profiles when healthy, while implementation roles fall through unless those exact profiles have passed write validation.
+The built-in provider order is `family:ollama-claude-code`, `claude-code-cli`, `family:ollama-cloud`, `agy`, then `codex-cli`. This affects only capable providers: read-oriented roles prefer the Ollama-native GLM/Kimi profiles when healthy, while implementation roles fall through unless those exact profiles have passed write validation.
 
-## Gemini CLI OAuth Provider
+## AGY OAuth Provider
 
-Use `providers.geminiCli` when you want Gemini through local Gemini CLI Google sign-in/OAuth rather than API-key `generateContent`. This is separate from `providers.gemini`, which remains the explicit API-key adapter.
+Use `providers.agy` when you want Gemini through local AGY Google sign-in/OAuth rather than API-key `generateContent`. This is separate from `providers.gemini`, which remains the explicit API-key adapter.
 
 ```json
 {
   "providers": {
-    "geminiCli": {
+    "agy": {
       "enabled": true,
-      "executable": "gemini",
-      "model": "gemini-3-pro-preview",
-      "displayName": "Gemini CLI",
-      "projectEnv": "GOOGLE_CLOUD_PROJECT",
+      "executable": "agy",
+      "model": "gemini-3.8-flash-high",
+      "displayName": "Gemini via AGY",
       "writeValidated": false,
       "capabilities": {
         "structuredOutput": true,
         "longContext": true,
         "reasoning": true,
         "tools": false,
-        "sessionResume": false,
-        "cancellation": false,
+        "sessionResume": true,
+        "cancellation": true,
         "edits": false,
         "workspaceIsolation": false
       }
@@ -472,7 +471,7 @@ Use `providers.geminiCli` when you want Gemini through local Gemini CLI Google s
   },
   "policy": {
     "allowedRoles": ["planner", "code-reviewer"],
-    "allowedProviderSelectors": ["gemini-cli", "family:gemini-cli"],
+    "allowedProviderSelectors": ["agy", "family:agy"],
     "allowWriteMode": false,
     "allowedWorktreeRoots": [],
     "liveSmokeEnabled": false,
@@ -481,23 +480,25 @@ Use `providers.geminiCli` when you want Gemini through local Gemini CLI Google s
 }
 ```
 
-Install Gemini CLI and complete its Google sign-in/OAuth flow before enabling this provider. `agent_team_doctor` checks the executable and warns when the configured project env is missing, because some Workspace or Code Assist accounts require it. The adapter supports read-only dispatch by default. It advertises autonomous worker capabilities only when `writeValidated: true` and `tools`, `sessionResume`, `cancellation`, `edits`, and `workspaceIsolation` are explicitly enabled after a live isolated-write proof.
+Install AGY and complete its sign-in flow. `agent_team_doctor` checks the executable; AGY owns authentication and project selection. Confirm model IDs with `agy models`. Read-only dispatch and resumable background sessions are available by default. Enable implementation only after a live AGY isolated-write proof, using `writeValidated: true` with tools, edits and workspace isolation enabled.
 
-For UI/UX and frontend work, prefer explicit role pins:
+Saved `providers.geminiCli` settings and `gemini-cli` selectors migrate to `agy`. Old Gemini CLI write validation is reset, and old sessions require a new AGY run. No old CLI execution fallback remains. Canonical `providers.agy` takes precedence.
+
+For UI/UX review, use explicit role pins. Pin `frontend-engineer` only after AGY write validation:
 
 ```json
 {
   "routing": {
     "rolePins": {
-      "ui-ux-designer": "gemini-cli",
-      "ux-product-critic": "gemini-cli",
-      "frontend-engineer": "gemini-cli"
+      "ui-ux-designer": "agy",
+      "ux-product-critic": "agy",
+      "frontend-engineer": "agy"
     }
   }
 }
 ```
 
-Gemini CLI implementation runs use retained isolated worktrees and `--approval-mode auto_edit`; read-only runs use `--approval-mode plan`. The plugin never uses Gemini CLI `--yolo`. If Gemini returns rate limits, timeouts, or provider-unavailable errors, provider health cooldowns cause normal default/family routing to avoid it temporarily while exact `gemini-cli` requests remain explicit probes.
+AGY implementation runs use retained isolated worktrees and `--sandbox --mode accept-edits`; read-only runs use `--sandbox --mode plan`. The adapter parses JSON results, resumes with `--conversation`, and keeps permission checks enabled. Denied actions fail the run. If Gemini returns rate limits, timeouts, or provider-unavailable errors, provider health cooldowns cause normal default/family routing to avoid it temporarily while exact `agy` requests remain explicit probes.
 
 ## Codex CLI Subscription Provider
 
@@ -702,26 +703,26 @@ The report includes provider ids, run ids, terminal status, changed files, workt
 
 Historical proof evidence for earlier Ollama profiles remains in the report linked above. Current default profiles, including `glm-5.2` and `kimi-k2.7-code`, should stay read-only until each exact provider id passes the same disposable-fixture proof through the packaged MCP path.
 
-## Opt-In Gemini CLI Write Validation
+## Opt-In AGY Write Validation
 
-Use this proof before enabling Gemini CLI as a write-capable `frontend-engineer` in normal workspaces. It creates a disposable git fixture with `index.html`, enables `writeValidated: true` only in that fixture, starts a `frontend-engineer`, verifies the UI file changed only in the isolated execution worktree, records dashboard and summary evidence, and removes the retained worktree with `agent_team_cleanup`.
+Use this proof before enabling AGY as a write-capable `frontend-engineer` in normal workspaces. It creates a disposable git fixture with `index.html`, enables `writeValidated: true` only in that fixture, starts a `frontend-engineer`, verifies the UI file changed only in the isolated execution worktree, records dashboard and summary evidence, and removes the retained worktree with `agent_team_cleanup`.
 
-Latest live Gemini CLI write proof evidence is recorded in `docs/superpowers/reports/2026-05-13-agent-team-live-gemini-write-proof.md`.
+The historical `docs/superpowers/reports/2026-05-13-agent-team-live-gemini-write-proof.md` covers the retired transport and does not validate AGY. Run a fresh AGY proof before enabling implementation.
 
 Inspect without provider use:
 
 ```bash
-npm run smoke:gemini-write -- --dry-run --provider gemini-cli
+npm run smoke:agy-write -- --dry-run --provider agy
 ```
 
 Run after building:
 
 ```bash
 npm run build
-env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN -u CLAUDE_CODE_OAUTH_TOKEN GEMINI_CLI_TRUST_WORKSPACE=true npm run smoke:gemini-write -- --confirm-live-provider-use --provider gemini-cli --model gemini-3-flash-preview --timeout-ms 240000
+npm run smoke:agy-write -- --confirm-live-provider-use --provider agy --model gemini-3.8-flash-high --timeout-ms 240000
 ```
 
-The smoke defaults to `gemini-3-flash-preview` because Pro preview capacity can be transiently exhausted; pass `--model gemini-3.1-pro-preview` or another Gemini CLI model only when you intentionally want to validate that exact model. The report includes provider ids, run ids, terminal status, changed files, worktree containment, cleanup status, dashboard counts, summary groups, sidecar/log paths, and known limitations. It does not print prompts, task text, provider endpoints, raw provider payloads, provider session ids, process metadata, command details, environment values, mailbox payloads, or secrets. A passing run proves isolated write containment for `gemini-cli` only; it is not a model-quality, ranking, broad frontend-quality, or mid-flight steering claim.
+The smoke defaults to `gemini-3.8-flash-high`; confirm access with `agy models` or pass `--model` to validate another available model. The report includes provider ids, run ids, terminal status, changed files, worktree containment, cleanup status, dashboard counts, summary groups, sidecar/log paths, and known limitations. It does not print prompts, task text, provider endpoints, raw provider payloads, provider session ids, process metadata, command details, environment values, mailbox payloads, or secrets. A passing run proves isolated write containment for `agy` only; it is not a model-quality, ranking, broad frontend-quality, or mid-flight steering claim.
 
 ## Start A Team
 

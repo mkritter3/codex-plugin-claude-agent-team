@@ -1,6 +1,6 @@
 {
   "name": "codex-plugin-claude-agent-team",
-  "version": "0.1.5+codex.20260918181753",
+  "version": "0.1.5+codex.20260918225315",
   "description": "Coordinate native Codex and external AI models for planning, implementation, and independent review.",
   "author": {
     "name": "mkritter3",
@@ -20,7 +20,7 @@
   "interface": {
     "displayName": "Agent Team",
     "shortDescription": "Plan, build, and review with native and cross-provider AI teams.",
-    "longDescription": "An experimental local plugin for coordinating native Codex models with Claude Code, Gemini (including optional AGY), and Ollama. Choose separate models for planning, implementation, and independent review. Give one reviewer decision authority or require unanimous approval from a selected panel. Reuse a matching active model for planning to avoid duplicate calls.",
+    "longDescription": "An experimental local plugin for coordinating native Codex models with Claude Code, Gemini via Antigravity (AGY), and Ollama. Choose separate models for planning, implementation, and independent review. Give one reviewer decision authority or require unanimous approval from a selected panel. Reuse a matching active model for planning to avoid duplicate calls.",
     "developerName": "mkritter3",
     "category": "Productivity",
     "capabilities": [

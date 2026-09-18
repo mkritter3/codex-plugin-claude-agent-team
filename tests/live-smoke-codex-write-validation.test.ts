@@ -33,7 +33,7 @@ describe("Codex CLI write validation live smoke script", () => {
         "scripts/live-smoke-codex-write-validation.mjs",
         "--dry-run",
         "--provider",
-        "gemini-cli"
+        "agy"
       ],
       {
         cwd: repoRoot,

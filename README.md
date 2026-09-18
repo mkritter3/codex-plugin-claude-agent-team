@@ -10,7 +10,7 @@ The active session can stay on Sol, Terra, Luna or Astra. Configure each workflo
 
 A sole selected reviewer has authority. A panel requires every selected member to approve the same artifact; the coordinator cannot override dissent, missing votes or a round limit. New `authority` evidence is required on existing planning/review tools for configured workflows. Native completion evidence enters the existing review and integration queue through `agent_team_record_native_implementation`. External approvals reference actual completed Agent Team runs; native identities and artifact digests are reported by the host.
 
-See the [orchestration guide](skills/codex-agent-team-orchestrator/references/orchestration.md) for a native Astra/Sol example, mixed panels, exact role and model overrides, caching discipline, and the optional AGY driver for Gemini. The MCP server prepares native assignments; Codex's native agent tools execute them. Existing workflows without an orchestration policy keep their legacy behavior.
+See the [orchestration guide](skills/codex-agent-team-orchestrator/references/orchestration.md) for a native Astra/Sol example, mixed panels, exact role and model overrides, caching discipline, and Gemini through Antigravity (AGY). The MCP server prepares native assignments; Codex's native agent tools execute them. Existing workflows without an orchestration policy keep their legacy behavior.
 
 ## Safety Model
 
@@ -145,7 +145,7 @@ Provider selection policy is optional and capability-first. Request-level `provi
 
 Per-request `provider` selectors take precedence over role pins, role pins take precedence over `providerOrder`, and every selection still has to satisfy the role's required capabilities. `providerOrder` is a preference, not a hard pin: if a preferred provider is in an active cooldown window, routing can fall through to the next capable provider while doctor records the degraded evidence. Multi-provider second opinions should be started as multiple explicit runs; routing policy does not synthesize provider rankings or preference judgments.
 
-Without a workspace override, the default provider order is `family:ollama-claude-code`, `claude-code-cli`, `family:ollama-cloud`, `gemini-cli`, then `codex-cli`. The default config includes `claude-code-cli:opus` as a read-only senior review profile when Claude Code CLI is available. GLM 5.2 and Kimi K2.7 Code are default write-validated Ollama-native junior workers after their 2026-06-28 packaged MCP proofs; any future unvalidated Ollama profile still falls through to another write-capable provider by capability rather than preference alone.
+Without a workspace override, the default provider order is `family:ollama-claude-code`, `claude-code-cli`, `family:ollama-cloud`, `agy`, then `codex-cli`. The default config includes `claude-code-cli:opus` as a read-only senior review profile when Claude Code CLI is available. GLM 5.2 and Kimi K2.7 Code are default write-validated Ollama-native junior workers after their 2026-06-28 packaged MCP proofs; any future unvalidated Ollama profile still falls through to another write-capable provider by capability rather than preference alone.
 
 Claude Code CLI model profiles let a workspace expose explicit subscription-OAuth aliases while keeping execution on the same Claude Code CLI transport. The common aliases are intentionally unpinned so Claude Code resolves them to its current configured defaults:
 
@@ -458,49 +458,41 @@ Gemini is a separate explicit adapter because its REST payloads are not OpenAI-c
 
 Gemini does not support background sessions, live stdin, resume, cancellation, edits, tools, streaming, Live API, file upload, multimodal inputs, or workspace isolation in this plugin version. Run live smoke separately before making real-provider readiness, provider performance, or practical long-context claims.
 
-Gemini CLI is a separate auth-backed provider for local Google sign-in/OAuth usage. It is auto-configured by default and intentionally distinct from the API-key `gemini` adapter. If `gemini` is not on `PATH`, `agent_team_list_providers` and `agent_team_doctor` report it as unavailable instead of requiring manual activation. `model` is optional; omit it to let the installed Gemini CLI use its own default:
+Gemini subscription access uses Antigravity CLI (`agy`). The `agy` provider is auto-configured and reported as unavailable when the executable is missing from `PATH`. It is separate from the disabled-by-default, API-key `gemini` REST adapter. Install AGY, complete its sign-in flow, and check `agent_team_doctor`. Use `agy models` to discover model IDs; omit `model` to use AGY's default, or pin an available model for a decision seat:
 
 ```json
 {
   "providers": {
-    "geminiCli": {
+    "agy": {
       "enabled": true,
-      "executable": "gemini",
-      "displayName": "Gemini CLI",
-      "projectEnv": "GOOGLE_CLOUD_PROJECT",
-      "writeValidated": true,
-      "capabilities": {
-        "structuredOutput": true,
-        "longContext": true,
-        "reasoning": true,
-        "tools": true,
-        "sessionResume": true,
-        "cancellation": true,
-        "edits": true,
-        "workspaceIsolation": true
-      }
+      "executable": "agy",
+      "model": "gemini-3.8-flash-high",
+      "displayName": "Gemini via AGY",
+      "writeValidated": false
     }
   }
 }
 ```
 
-`gemini-cli` uses `authMode: "oauth"` and does not require or infer `GEMINI_API_KEY`. Install and sign in to Gemini CLI first, then run `agent_team_doctor`; some Google Workspace or Code Assist setups may also require the configured project env. Gemini CLI implementation runs use retained isolated worktrees and `--approval-mode auto_edit`; read-only runs use `--approval-mode plan`. The plugin never uses Gemini CLI `--yolo`.
+Read-only runs use `--sandbox --mode plan` and JSON results. AGY owns authentication and project selection. The adapter captures the returned conversation ID and uses `--conversation` for continuation. Implementation uses `--sandbox --mode accept-edits` in a retained isolated worktree, after an AGY live write proof and explicit `writeValidated: true`. Permission checks remain enabled, and denied actions fail the run.
 
-For UI/UX and frontend work, prefer explicit role pins rather than hidden router behavior:
+Saved `providers.geminiCli` settings and `gemini-cli` selectors migrate to `agy`; there is no old CLI execution fallback. Old Gemini CLI write validation is reset, and old sessions require a new AGY run. An explicitly configured legacy AGY driver retains its AGY settings. Canonical `providers.agy` takes precedence. Recreate orchestration policies that name the old provider with an explicit `agy` decision seat; old decision evidence is not silently reassigned.
+
+For UI/UX review, use explicit role pins. Pin `frontend-engineer` only after AGY write validation:
 
 ```json
 {
   "routing": {
     "rolePins": {
-      "ui-ux-designer": "gemini-cli",
-      "ux-product-critic": "gemini-cli",
-      "frontend-engineer": "gemini-cli"
+      "ui-ux-designer": "agy",
+      "ux-product-critic": "agy",
+      "frontend-engineer": "agy"
     }
   }
 }
 ```
 
-If Gemini returns rate limits, timeouts, or provider-unavailable errors, provider health cooldowns cause normal default/family routing to avoid it temporarily while exact `gemini-cli` requests remain explicit probes.
+If Gemini returns rate limits, timeouts, or provider-unavailable errors, provider health cooldowns cause normal default/family routing to avoid it temporarily while exact `agy` requests remain explicit probes.
 
 Codex CLI is a subscription-backed provider for local Codex login usage. It is auto-configured by default when `codex` is on `PATH` and remains separate from Codex as the host/orchestrator: host Codex remains the senior engineer and integration authority, while `codex-cli` can be routed as a normal agent-team worker. `model` is optional; omit it to use the installed Codex CLI default.
 
@@ -698,26 +690,26 @@ The report includes provider ids, run ids, terminal status, changed files, isola
 
 The current default `ollama-claude-code:glm-5.2` and `ollama-claude-code:kimi-k2.7-code` profiles are write-validated by the native proofs recorded in that report. Any additional Ollama Claude Code profile should keep `writeValidated: false` until that exact provider id passes the same disposable-fixture proof through the packaged MCP path.
 
-## Opt-In Gemini CLI Write Validation Smoke
+## Opt-In AGY Write Validation Smoke
 
-Use this proof before enabling Gemini CLI as a write-capable `frontend-engineer` in normal workspaces. It creates a disposable git fixture with `index.html`, enables `writeValidated: true` only inside that fixture, starts a `frontend-engineer`, verifies the UI file changed only in the isolated worktree, records dashboard and summary evidence, and removes the retained worktree through `agent_team_cleanup`.
+Use this proof before enabling AGY as a write-capable `frontend-engineer` in normal workspaces. It creates a disposable git fixture with `index.html`, enables `writeValidated: true` only inside that fixture, starts a `frontend-engineer`, verifies the UI file changed only in the isolated worktree, records dashboard and summary evidence, and removes the retained worktree through `agent_team_cleanup`.
 
-Latest live Gemini CLI write proof evidence is recorded in `docs/superpowers/reports/2026-05-13-agent-team-live-gemini-write-proof.md`.
+The historical `docs/superpowers/reports/2026-05-13-agent-team-live-gemini-write-proof.md` covers the retired transport and does not validate AGY. Run a fresh AGY proof before enabling implementation.
 
 Inspect the plan without provider use:
 
 ```bash
-npm run smoke:gemini-write -- --dry-run --provider gemini-cli
+npm run smoke:agy-write -- --dry-run --provider agy
 ```
 
 Run the confirmed validation after building the packaged runtime:
 
 ```bash
 npm run build
-env -u ANTHROPIC_API_KEY -u ANTHROPIC_AUTH_TOKEN -u CLAUDE_CODE_OAUTH_TOKEN GEMINI_CLI_TRUST_WORKSPACE=true npm run smoke:gemini-write -- --confirm-live-provider-use --provider gemini-cli --model gemini-3-flash-preview --timeout-ms 240000
+npm run smoke:agy-write -- --confirm-live-provider-use --provider agy --model gemini-3.8-flash-high --timeout-ms 240000
 ```
 
-The smoke defaults to `gemini-3-flash-preview` because Pro preview capacity can be transiently exhausted; pass `--model gemini-3.1-pro-preview` or another Gemini CLI model only when you intentionally want to validate that exact model. The report includes provider ids, run ids, terminal status, changed files, isolated worktree evidence, cleanup status, dashboard counts, summary groups, sidecar/log paths, and known limitations. It does not print prompts, task text, provider endpoints, raw provider payloads, provider session ids, process metadata, command details, environment values, mailbox payloads, or secrets. Passing this smoke proves isolated write containment for `gemini-cli` only; it makes no model-quality, ranking, broad frontend-quality, or mid-flight steering claim.
+The smoke defaults to `gemini-3.8-flash-high`; confirm access with `agy models` or pass `--model` to validate another available model. The report includes provider ids, run ids, terminal status, changed files, isolated worktree evidence, cleanup status, dashboard counts, summary groups, sidecar/log paths, and known limitations. It does not print prompts, task text, provider endpoints, raw provider payloads, provider session ids, process metadata, command details, environment values, mailbox payloads, or secrets. Passing this smoke proves isolated write containment for `agy` only; it makes no model-quality, ranking, broad frontend-quality, or mid-flight steering claim.
 
 ## Opt-In Live Dogfood App
 
@@ -808,7 +800,7 @@ Hook Hierarchy:
 
 Provider steering is reported truthfully. A run may support `live` steering when an input channel is open, `recorded_for_resume` when mailbox guidance can be used on resume, `follow_up_run` when Codex must launch a corrected follow-up, `cancel_wind_down` when stopping or replacing a worker is the safe path, or `unsupported` when the lifecycle state cannot be steered.
 
-Default routing prefers Ollama-native GLM 5.2 and Kimi K2.7 Code for read-oriented planning and review when doctor shows the local launch path is ready. `claude-code-cli:opus` is the default read-only senior planning, architecture, security, high-complexity review, and sign-off brain when Claude Code CLI is available. GLM 5.2 and Kimi K2.7 Code are default write-validated Ollama-native junior workers for bounded isolated implementation. Sonnet and Codex CLI remain strong autonomous implementation fallbacks in retained isolated worktrees when configured and healthy. Haiku is preferred for search and reconnaissance when configured. Gemini CLI is a full autonomous worker when configured, with default preference for UI, UX, frontend, visual, and browser-flow work.
+Default routing prefers Ollama-native GLM 5.2 and Kimi K2.7 Code for read-oriented planning and review when doctor shows the local launch path is ready. `claude-code-cli:opus` is the default read-only senior planning, architecture, security, high-complexity review, and sign-off brain when Claude Code CLI is available. GLM 5.2 and Kimi K2.7 Code are default write-validated Ollama-native junior workers for bounded isolated implementation. Sonnet and Codex CLI remain strong autonomous implementation fallbacks in retained isolated worktrees when configured and healthy. Haiku is preferred for search and reconnaissance when configured. AGY is available for UI, UX, frontend, visual, and browser-flow review; implementation requires an AGY live write proof and explicit write validation.
 
 ## Delegation Playbook
 
@@ -819,7 +811,7 @@ Default playbook preferences:
 - Planning, architecture, high-complexity review, security-sensitive decisions, and final senior sign-off: `claude-code-cli:opus`.
 - Senior implementation and execution: `claude-code-cli:sonnet` and `codex-cli`.
 - Search, reconnaissance, lightweight scans, and summaries: `claude-code-cli:haiku`.
-- UI, UX, frontend, visual, product-flow, and browser-oriented work: `gemini-cli` when configured and healthy.
+- UI, UX, frontend, visual, product-flow, and browser-oriented work: `agy` when configured and healthy.
 - Junior contained implementation: `ollama-claude-code:glm-5.2` and `ollama-claude-code:kimi-k2.7-code`.
 
 Codex remains the final authority. Junior and UI workers can be autonomous, but write-capable work still requires retained isolated worktrees, bounded write scopes, changed-file evidence, tests run, senior review, and Codex-owned integration before cleanup.

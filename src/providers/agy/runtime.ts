@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { buildAgyArgs, parseAgyResult } from "./agy.js";
+import { buildAgyArgs, parseAgyResult, isAgyExecutable } from "./agy.js";
 import { spawn as nodeSpawn } from "node:child_process";
 import { createInterface } from "node:readline";
 import type { Readable, Writable } from "node:stream";
@@ -24,12 +24,12 @@ import type {
 import type { AgentProviderRuntime } from "../runtime.js";
 import { DEFAULT_AGENT_TEAM_CONFIG } from "../../core/config.js";
 import {
-  GEMINI_CLI_PROVIDER_ID,
-  geminiCliProvider,
-  geminiCliProviderDescriptor
+  AGY_PROVIDER_ID,
+  agyProvider,
+  agyProviderDescriptor
 } from "./config.js";
 
-export interface GeminiCliRuntimeOptions {
+export interface AgyRuntimeOptions {
   readonly config?: AgentTeamConfig;
   readonly runCommand?: ProviderCommandRunner;
   readonly spawn?: SpawnLike;
@@ -40,7 +40,7 @@ export interface GeminiCliRuntimeOptions {
   readonly maxRotatedLogFiles?: number;
 }
 
-export { geminiCliProvider };
+export { agyProvider };
 
 const execFileAsync = promisify(execFile);
 const DEFAULT_MAX_LOG_BYTES = 1_048_576;
@@ -53,7 +53,7 @@ interface SpawnOptions {
   readonly windowsHide: boolean;
 }
 
-interface SpawnedGeminiProcess {
+interface SpawnedAgyProcess {
   readonly stdout: Readable | null;
   readonly stderr: Readable | null;
   readonly stdin?: Writable | null;
@@ -67,13 +67,13 @@ type SpawnLike = (
   command: string,
   args: readonly string[],
   options: SpawnOptions
-) => SpawnedGeminiProcess;
+) => SpawnedAgyProcess;
 
 const defaultSpawn: SpawnLike = (command, args, options) =>
   nodeSpawn(command, [...args], {
     ...options,
     stdio: [...options.stdio]
-  }) as SpawnedGeminiProcess;
+  }) as SpawnedAgyProcess;
 
 function fail(message: string, details: Partial<ProviderPrintResult> = {}): ProviderPrintResult {
   return {
@@ -118,7 +118,7 @@ const defaultRunCommand: ProviderCommandRunner = async (path, args, options = {}
       stdout: commandError.stdout === undefined ? "" : String(commandError.stdout),
       stderr:
         commandError.stderr === undefined || String(commandError.stderr).trim().length === 0
-          ? String(commandError.message ?? "Gemini CLI command failed.")
+          ? String(commandError.message ?? "AGY command failed.")
           : String(commandError.stderr),
       exitCode: typeof commandError.code === "number" ? commandError.code : 1
     };
@@ -132,16 +132,12 @@ function pushBounded<T>(items: T[], item: T, max: number): void {
   }
 }
 
-function approvalModeFor(input: ProviderStartSessionInput): "auto_edit" | "plan" {
-  return input.executionPolicy === "isolated-edit" ? "auto_edit" : "plan";
-}
-
-function assertStartable(provider: AgentTeamConfig["providers"]["geminiCli"], input: ProviderStartSessionInput): void {
+function assertStartable(provider: AgentTeamConfig["providers"]["agy"], input: ProviderStartSessionInput): void {
   if (!provider.enabled) {
-    throw new Error("Gemini CLI provider is disabled.");
+    throw new Error("AGY provider is disabled.");
   }
-  if (provider.executable.trim().length === 0) {
-    throw new Error("Gemini CLI provider requires executable.");
+  if (!isAgyExecutable(provider.executable)) {
+    throw new Error("AGY provider requires an AGY executable.");
   }
   if (input.executionPolicy === "isolated-edit") {
     const missing: string[] = [];
@@ -164,41 +160,22 @@ function assertStartable(provider: AgentTeamConfig["providers"]["geminiCli"], in
       missing.push("workspaceIsolation");
     }
     if (missing.length > 0) {
-      throw new Error(`Gemini CLI isolated edit requires ${missing.join(", ")}.`);
+      throw new Error(`AGY isolated edit requires ${missing.join(", ")}.`);
     }
   }
 }
 
-function buildGeminiSessionArgs(input: {
-  readonly prompt: string;
-  readonly model?: string;
-  readonly sessionId: string;
-  readonly approvalMode: "auto_edit" | "plan";
-}): readonly string[] {
-  return [
-    "--prompt",
-    input.prompt,
-    ...(input.model === undefined ? [] : ["--model", input.model]),
-    "--output-format",
-    "text",
-    "--session-id",
-    input.sessionId,
-    "--approval-mode",
-    input.approvalMode
-  ];
-}
-
-export function createGeminiCliRuntime(
-  options: GeminiCliRuntimeOptions = {}
+export function createAgyRuntime(
+  options: AgyRuntimeOptions = {}
 ): AgentProviderRuntime {
   const runCommand = options.runCommand ?? defaultRunCommand;
   const spawn = options.spawn ?? defaultSpawn;
   const now = options.now ?? Date.now;
 
   return {
-    id: GEMINI_CLI_PROVIDER_ID,
+    id: AGY_PROVIDER_ID,
     descriptor(config?: AgentTeamConfig): AgentProviderDescriptor {
-      return geminiCliProviderDescriptor(resolveConfig(config, options.config));
+      return agyProviderDescriptor(resolveConfig(config, options.config));
     },
     inspectEnvironment(
       _input: ProviderEnvironmentInspectionInput
@@ -208,25 +185,19 @@ export function createGeminiCliRuntime(
     async runPrint(input: ProviderPrintInput): Promise<ProviderPrintResult> {
       const config = resolveConfig(input.config, options.config);
       const provider =
-        config.providers.geminiCli ?? DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli;
+        config.providers.agy ?? DEFAULT_AGENT_TEAM_CONFIG.providers.agy;
       if (!provider.enabled) {
-        return fail("Gemini CLI provider is disabled.");
+        return fail("AGY provider is disabled.");
       }
       if (!provider.capabilities.structuredOutput) {
-        return fail("Gemini CLI provider requires structuredOutput capability for dispatch.");
+        return fail("AGY provider requires structuredOutput capability for dispatch.");
       }
-      if (provider.executable.trim().length === 0) {
-        return fail("Gemini CLI provider requires executable.");
+      if (!isAgyExecutable(provider.executable)) {
+        return fail("AGY provider requires an AGY executable.");
       }
       const result = await runCommand(
         provider.executable,
-        provider.driver === "agy" ? buildAgyArgs({ prompt: input.prompt, ...(provider.model === undefined ? {} : { model: provider.model }), write: false }) : [
-          "--prompt",
-          input.prompt,
-          ...(provider.model === undefined ? [] : ["--model", provider.model]),
-          "--output-format",
-          "text"
-        ],
+        buildAgyArgs({ prompt: input.prompt, ...(provider.model === undefined ? {} : { model: provider.model }), write: false }),
         {
           cwd: input.cwd,
           ...(input.env === undefined ? {} : { env: input.env }),
@@ -234,44 +205,42 @@ export function createGeminiCliRuntime(
         }
       );
       if (!result.ok) {
-        const stderr = result.stderr.trim() || "Gemini CLI exited without stderr.";
-        return fail(`Gemini CLI request failed: ${stderr}`, {
+        const stderr = result.stderr.trim() || "AGY exited without stderr.";
+        return fail(`AGY request failed: ${stderr}`, {
           stdout: result.stdout,
           exitCode: result.exitCode ?? 1
         });
       }
 
-      let responseText = result.stdout.trim();
-      if (provider.driver === "agy") {
-        try { responseText = parseAgyResult(result.stdout).text; }
-        catch (error) { return fail(String(error), { stdout: result.stdout }); }
+      try {
+        const parsed = parseAgyResult(result.stdout);
+        return {
+          ok: true,
+          text: parsed.text,
+          ...(parsed.conversationId === undefined ? {} : { sessionId: parsed.conversationId }),
+          stdout: result.stdout,
+          stderr: result.stderr,
+          exitCode: result.exitCode ?? 0
+        };
+      } catch (error) {
+        return fail(String(error), { stdout: result.stdout });
       }
-      return {
-        ok: true,
-        text: responseText,
-        stdout: result.stdout,
-        stderr: result.stderr,
-        exitCode: result.exitCode ?? 0
-      };
     },
     startSession(input: ProviderStartSessionInput): ProviderSessionHandle {
       const config = resolveConfig(input.config, options.config);
       const provider =
-        config.providers.geminiCli ?? DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli;
+        config.providers.agy ?? DEFAULT_AGENT_TEAM_CONFIG.providers.agy;
       assertStartable(provider, input);
 
-      const args = provider.driver === "agy" ? buildAgyArgs({
-        prompt: input.prompt, ...(provider.model === undefined ? {} : { model: provider.model }),
-        ...(input.sessionId === undefined ? {} : { sessionId: input.sessionId }), write: input.executionPolicy === "isolated-edit"
-      }) : buildGeminiSessionArgs({
+      const args = buildAgyArgs({
         prompt: input.prompt,
         ...(provider.model === undefined ? {} : { model: provider.model }),
-        sessionId: input.sessionId ?? input.runId,
-        approvalMode: approvalModeFor(input)
+        ...(input.sessionId === undefined ? {} : { sessionId: input.sessionId }),
+        write: input.executionPolicy === "isolated-edit"
       });
       const logPath = runLogPath(input.workspaceRoot, input.runId);
       const textChunks: string[] = [];
-      let providerSessionId = provider.driver === "agy" ? input.sessionId : input.sessionId ?? input.runId;
+      let providerSessionId = input.sessionId;
       let agyText: string | undefined;
       const recentActivities: ProviderSessionActivity[] = [];
       const lastStderr: string[] = [];
@@ -304,7 +273,7 @@ export function createGeminiCliRuntime(
         ...(input.env === undefined ? {} : { env: input.env }),
         windowsHide: true
       });
-      activity("tool_start", "Gemini CLI session started.");
+      activity("tool_start", "AGY session started.");
 
       function clearTimeoutBudget(): void {
         if (timeoutHandle !== undefined) {
@@ -316,7 +285,7 @@ export function createGeminiCliRuntime(
       if (input.timeoutMs !== undefined) {
         timeoutHandle = setTimeout(() => {
           timedOut = true;
-          write(`Gemini CLI session timed out after ${input.timeoutMs}ms.\n`);
+          write(`AGY session timed out after ${input.timeoutMs}ms.\n`);
           child.kill(process.platform === "win32" ? undefined : "SIGTERM");
           child.kill(process.platform === "win32" ? undefined : "SIGKILL");
         }, input.timeoutMs);
@@ -346,17 +315,17 @@ export function createGeminiCliRuntime(
           clearTimeoutBudget();
           void Promise.allSettled(writes).then(() => {
             if (timedOut) {
-              activity("error", "Gemini CLI session expired.");
+              activity("error", "AGY session expired.");
               resolve("expired");
               return;
             }
             if (signal === "SIGTERM" || signal === "SIGINT") {
-              activity("error", "Gemini CLI session was interrupted.");
+              activity("error", "AGY session was interrupted.");
               resolve("interrupted");
               return;
             }
             let completed = code === 0;
-            if (provider.driver === "agy" && completed) {
+            if (completed) {
               try {
                 const result = parseAgyResult(textChunks.join("\n"));
                 agyText = result.text;
@@ -367,7 +336,7 @@ export function createGeminiCliRuntime(
                 pushBounded(lastStderr, String(error), options.maxStderrLines ?? 10);
               }
             }
-            activity(completed ? "result" : "error", completed ? "Gemini CLI session completed." : "Gemini CLI session failed.");
+            activity(completed ? "result" : "error", completed ? "AGY session completed." : "AGY session failed.");
             resolve(completed ? "completed" : "failed");
           });
         });
@@ -381,7 +350,7 @@ export function createGeminiCliRuntime(
 
       const snapshot = (): ProviderSessionSnapshot => ({
         providerSessionId,
-        text: provider.driver === "agy" ? agyText ?? "" : textChunks.join("\n").trim(),
+        text: agyText ?? "",
         warnings: [],
         recentActivities: [...recentActivities],
         currentActivity,
@@ -418,20 +387,19 @@ export function createGeminiCliRuntime(
     async healthCheck(input: ProviderHealthCheckInput): Promise<readonly ProviderHealthCheck[]> {
       const config = resolveConfig(input.config, options.config);
       const provider =
-        config.providers.geminiCli ?? DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli;
+        config.providers.agy ?? DEFAULT_AGENT_TEAM_CONFIG.providers.agy;
       const checks: ProviderHealthCheck[] = [
         {
-          id: "gemini-cli-config",
+          id: "agy-config",
           status: provider.enabled ? "pass" : "fail",
           message:
             provider.enabled
-              ? "Gemini CLI provider config is enabled."
-              : "Gemini CLI provider config is incomplete.",
+              ? "AGY provider config is enabled."
+              : "AGY provider config is incomplete.",
           details: {
-            providerId: GEMINI_CLI_PROVIDER_ID,
+            providerId: AGY_PROVIDER_ID,
             hasModel: provider.model !== undefined,
-            executable: provider.executable,
-            projectEnv: provider.projectEnv
+            executable: provider.executable
           }
         }
       ];
@@ -439,40 +407,27 @@ export function createGeminiCliRuntime(
       checks.push(
         executablePath === undefined
           ? {
-              id: "gemini-cli-executable",
+              id: "agy-executable",
               status: "fail",
-              message: "Gemini CLI executable was not found on PATH.",
+              message: "AGY executable was not found on PATH.",
               details: {
                 executable: provider.executable,
-                fix: "Install Gemini CLI and complete Google sign-in/OAuth before enabling this provider."
+                fix: "Install AGY and complete Google sign-in/OAuth before enabling this provider."
               }
             }
           : {
-              id: "gemini-cli-executable",
+              id: "agy-executable",
               status: "pass",
-              message: "Gemini CLI executable found.",
+              message: "AGY executable found.",
               details: {
                 path: executablePath,
                 version: await input.getVersion(executablePath)
               }
             }
       );
-      const projectValue = input.env[provider.projectEnv]?.trim();
-      checks.push({
-        id: "gemini-cli-project-env",
-        status: projectValue === undefined || projectValue.length === 0 ? "warn" : "pass",
-        message:
-          projectValue === undefined || projectValue.length === 0
-            ? `Gemini CLI project env ${provider.projectEnv} is not set; this can be required for Workspace or Code Assist accounts.`
-            : "Gemini CLI project env is present.",
-        details: {
-          env: provider.projectEnv,
-          present: projectValue !== undefined && projectValue.length > 0
-        }
-      });
       return checks;
     }
   };
 }
 
-export const geminiCliRuntime = createGeminiCliRuntime();
+export const agyRuntime = createAgyRuntime();

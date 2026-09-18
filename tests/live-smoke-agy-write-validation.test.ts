@@ -10,11 +10,11 @@ async function readText(path: string): Promise<string> {
   return readFile(join(repoRoot, path), "utf8");
 }
 
-describe("Gemini CLI write validation live smoke script", () => {
+describe("AGY write validation live smoke script", () => {
   it("fails closed unless live provider use is explicitly confirmed or dry-run is requested", () => {
     const result = spawnSync(
       "node",
-      ["scripts/live-smoke-gemini-write-validation.mjs", "--provider", "gemini-cli"],
+      ["scripts/live-smoke-agy-write-validation.mjs", "--provider", "agy"],
       {
         cwd: repoRoot,
         encoding: "utf8"
@@ -26,11 +26,11 @@ describe("Gemini CLI write validation live smoke script", () => {
     expect(result.stderr).toContain("--dry-run");
   });
 
-  it("requires Gemini CLI provider selectors only", () => {
+  it("requires AGY provider selectors only", () => {
     const result = spawnSync(
       "node",
       [
-        "scripts/live-smoke-gemini-write-validation.mjs",
+        "scripts/live-smoke-agy-write-validation.mjs",
         "--dry-run",
         "--provider",
         "family:gemini"
@@ -42,18 +42,18 @@ describe("Gemini CLI write validation live smoke script", () => {
     );
 
     expect(result.status).toBe(1);
-    expect(result.stderr).toContain("gemini-cli");
-    expect(result.stderr).toContain("family:gemini-cli");
+    expect(result.stderr).toContain("agy");
+    expect(result.stderr).toContain("family:agy");
   });
 
   it("prints a sanitized dry-run write validation plan without connecting to MCP", () => {
     const result = spawnSync(
       "node",
       [
-        "scripts/live-smoke-gemini-write-validation.mjs",
+        "scripts/live-smoke-agy-write-validation.mjs",
         "--dry-run",
         "--provider",
-        "gemini-cli"
+        "agy"
       ],
       {
         cwd: repoRoot,
@@ -73,8 +73,8 @@ describe("Gemini CLI write validation live smoke script", () => {
     expect(report).toMatchObject({
       status: "dry_run",
       liveProviderUse: false,
-      providerSelectors: ["gemini-cli"],
-      model: "gemini-3-flash-preview"
+      providerSelectors: ["agy"],
+      model: "gemini-3.8-flash-high"
     });
     expect(report.toolFlow).toEqual([
       "agent_team_doctor",
@@ -88,7 +88,7 @@ describe("Gemini CLI write validation live smoke script", () => {
     expect(report.plannedProofs).toEqual([
       {
         role: "frontend-engineer",
-        providerSelector: "gemini-cli",
+        providerSelector: "agy",
         expectedFile: "index.html",
         expectedText: "Gemini UI write proof"
       }
@@ -103,28 +103,28 @@ describe("Gemini CLI write validation live smoke script", () => {
       scripts?: Record<string, string>;
     };
 
-    expect(packageJson.scripts?.["smoke:gemini-write"]).toBe(
-      "node scripts/live-smoke-gemini-write-validation.mjs"
+    expect(packageJson.scripts?.["smoke:agy-write"]).toBe(
+      "node scripts/live-smoke-agy-write-validation.mjs"
     );
-    expect(packageJson.scripts?.ci).not.toContain("smoke:gemini-write");
+    expect(packageJson.scripts?.ci).not.toContain("smoke:agy-write");
   });
 
   it("uses packaged MCP tools and fixture-local Gemini write validation", async () => {
-    const script = await readText("scripts/live-smoke-gemini-write-validation.mjs");
+    const script = await readText("scripts/live-smoke-agy-write-validation.mjs");
 
     expect(script).toContain("@modelcontextprotocol/sdk/client/index.js");
     expect(script).toContain("@modelcontextprotocol/sdk/client/stdio.js");
     expect(script).toContain('join(repoRoot, "dist", "index.js")');
     expect(script).toContain("buildToolRequestOptions");
     expect(script).toContain("writeValidated: true");
-    expect(script).toContain("gemini-3-flash-preview");
+    expect(script).toContain("gemini-3.8-flash-high");
     expect(script).toContain('readValue("--model"');
     expect(script).toContain("allowedWorktreeRoots");
     expect(script).toContain("rev-parse");
     expect(script).toContain("frontend-engineer");
     expect(script).toContain("index.html");
     expect(script).toContain("Gemini UI write proof");
-    expect(script).toContain("GEMINI_CLI_TRUST_WORKSPACE");
+    expect(script).not.toContain("AGY_TRUST_WORKSPACE");
     expect(script).toContain("agent_team_cleanup");
     expect(script).toContain("StdioClientTransport");
     expect(script).not.toContain("runClaudePrint");

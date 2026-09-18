@@ -161,7 +161,7 @@ export function recommendDelegation(
       return recommendation({
         workType: "ui-ux",
         recommendedRoles: ["ui-ux-designer", "frontend-engineer", "ux-product-critic"],
-        providerPreferences: ["gemini-cli", "claude-code-cli:sonnet", "codex-cli"],
+        providerPreferences: ["agy", "claude-code-cli:sonnet", "codex-cli"],
         concurrency: { mode: "bounded_parallel", maxRecommended: 2 },
         steeringMode: "recorded_for_resume",
         evidenceRequirements: [

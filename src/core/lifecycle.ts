@@ -405,6 +405,9 @@ export class AgentLifecycleManager {
 
   async replyRun(request: AgentReplyRequest): Promise<AgentReplyResult> {
     const parent = await readRunSidecar(request.cwd, request.runId);
+    if (parent.provider === "gemini-cli") {
+      throw new Error("Legacy Gemini CLI sessions cannot be resumed through AGY. Start a new AGY run.");
+    }
     if (parent.providerSessionId === undefined || parent.providerSessionId.length === 0) {
       throw new Error(`Run ${request.runId} has no provider session id to resume.`);
     }

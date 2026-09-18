@@ -17,7 +17,7 @@ import { isOllamaClaudeCodeProviderId } from "./ollama-claude-code/config.js";
 import { ollamaClaudeCodeRuntime } from "./ollama-claude-code/runtime.js";
 import { isGrokProviderId } from "./grok/config.js";
 import { geminiRuntime } from "./gemini/runtime.js";
-import { geminiCliRuntime } from "./gemini-cli/runtime.js";
+import { agyRuntime } from "./agy/runtime.js";
 import { codexCliRuntime } from "./codex-cli/runtime.js";
 
 export interface AgentProviderRuntime {
@@ -40,7 +40,7 @@ const DEFAULT_PROVIDER_RUNTIMES = [
   openAICompatibleRuntime,
   ollamaClaudeCodeRuntime,
   geminiRuntime,
-  geminiCliRuntime,
+  agyRuntime,
   codexCliRuntime
 ] as const;
 
@@ -54,6 +54,7 @@ export function getProviderRuntime(
   providerId: string,
   options: ProviderRuntimeRegistryOptions = {}
 ): AgentProviderRuntime | undefined {
+  if (providerId === "gemini-cli") return getProviderRuntime("agy", options);
   if (isClaudeCodeCliProfileProviderId(providerId)) {
     return getProviderRuntime("claude-code-cli", options);
   }

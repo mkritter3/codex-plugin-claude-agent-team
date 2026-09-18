@@ -1,5 +1,7 @@
 # Agent Team Live Gemini CLI Write Proof
 
+> Historical transport proof: Gemini CLI execution has been retired from the plugin. This report does not validate AGY; run a fresh AGY write proof before enabling implementation.
+
 **Date:** 2026-05-13
 
 **Scope:** Opt-in live proof for Gemini CLI OAuth as an autonomous `frontend-engineer` implementation worker through the packaged MCP stdio boundary.

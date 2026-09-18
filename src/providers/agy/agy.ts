@@ -1,3 +1,8 @@
+export function isAgyExecutable(executable: string): boolean {
+  const name = executable.trim().split(/[\\/]/).at(-1)?.toLowerCase();
+  return Boolean(name) && !["gemini", "gemini.exe", "gemini.cmd", "gemini.bat"].includes(name!);
+}
+
 export function buildAgyArgs(input: { prompt: string; model?: string; sessionId?: string; write: boolean }): readonly string[] {
   return ["--print", input.prompt, "--output-format", "json",
     ...(input.model === undefined ? [] : ["--model", input.model]),

@@ -18,7 +18,7 @@ Keep the user's chosen coordinator. Use a single Astra planning/review seat unle
 }
 ```
 
-To select a panel, add members to the applicable phase. For example, add `{"id":"opus","target":{"kind":"provider","provider":"claude-code-cli:opus"}}` and a configured Gemini profile `{"id":"gemini","target":{"kind":"provider","provider":"gemini-cli"}}`. Fable, Sonnet, GLM, Kimi and DeepSeek use exact configured profile IDs from `agent_team_list_providers`; never invent model availability. Provider decision seats require a configured model. Configuration resolves and stores that model, and rejects duplicate seats for the same resolved model. Use canonical model IDs; the plugin cannot discover every vendor alias.
+To select a panel, add members to the applicable phase. For example, add `{"id":"opus","target":{"kind":"provider","provider":"claude-code-cli:opus"}}` and a configured Gemini profile `{"id":"gemini","target":{"kind":"provider","provider":"agy"}}`. Fable, Sonnet, GLM, Kimi and DeepSeek use exact configured profile IDs from `agent_team_list_providers`; never invent model availability. Provider decision seats require a configured model. Configuration resolves and stores that model, and rejects duplicate seats for the same resolved model. Use canonical model IDs; the plugin cannot discover every vendor alias.
 
 One selected member has decision authority. Multiple selected members require **all** approvals on the **same immutable artifact**. The coordinator's `codexDecision` records rationale; it cannot override this policy. Missing votes, abstention, error and revise do not approve. A block prevents approval. A round limit never converts dissent into approval. The existing maximum is ten rounds normally, fifteen in explicitly extended mode; finish as soon as the gate passes, and escalate unresolved disagreement without running empty rounds. Membership freezes after voting begins; create a new workflow if the user changes it.
 
@@ -79,12 +79,12 @@ Use `provider-run` plus the actual `run_...` ID, canonical provider ID and resol
 
 Claude Code manages prompt caching. Agent Team already keeps stable role definitions and supports resuming the same provider session; prefer `agent_team_reply` for follow-up in the same role/model and send only changed evidence. Keep instructions and tool definitions stable, and avoid restarting large contexts. Caching reduces repeated input work; it does not eliminate subscription usage. See [Anthropic's cost guidance](https://code.claude.com/docs/en/costs).
 
-AGY is an opt-in driver under the existing Gemini CLI provider. In the target workspace's `.agent-team/config.json`, merge:
+Gemini subscription runs use the `agy` provider through Antigravity CLI. In the target workspace's `.agent-team/config.json`, merge:
 
 ```json
-{"providers":{"geminiCli":{"driver":"agy","executable":"agy","model":"gemini-3.8-flash-high","displayName":"Gemini via AGY","writeValidated":false}}}
+{"providers":{"agy":{"executable":"agy","model":"gemini-3.8-flash-high","displayName":"Gemini via AGY","writeValidated":false}}}
 ```
 
-Verify available IDs with `agy models`. Planning/review uses AGY's plan mode and sandbox; the adapter captures the returned conversation ID for subsequent turns. Implementation uses accept-edits in an isolated worktree after explicit write validation enables the normal tools/edits/isolation capabilities. Do not assert live write validation from mocked tests. The adapter does not disable permission checks; denied actions fail the run and remain visible in its log. Existing `gemini` CLI configuration continues to work without the driver field. Keep CLI updates outside active runs; `claude update` and `agy update` are manual maintenance commands, not per-task model calls.
+Verify available IDs with `agy models`. Planning/review uses AGY's plan mode and sandbox; the adapter captures the returned conversation ID for subsequent turns. Implementation uses accept-edits in an isolated worktree after explicit write validation enables the normal tools/edits/isolation capabilities. Do not assert live write validation from mocked tests. The adapter does not disable permission checks; denied actions fail the run and remain visible in its log. Legacy `providers.geminiCli` configuration and `gemini-cli` selectors migrate to `agy`; old CLI write validation does not transfer, and legacy sessions require a new run. There is no old CLI fallback. Keep CLI updates outside active runs; `claude update` and `agy update` are manual maintenance commands, not per-task model calls.
 
 Existing workflows without `orchestration` retain their legacy behavior. Start a configured workflow for these authority and routing guarantees; do not retroactively rewrite old approvals.

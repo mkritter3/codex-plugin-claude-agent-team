@@ -51,7 +51,7 @@ describe("live dogfood agent team app script", () => {
     });
     expect(report.providerSelectors).toEqual([
       "claude-code-cli:opus",
-      "gemini-cli",
+      "agy",
       "codex-cli",
       "ollama-claude-code:glm-5.2"
     ]);
@@ -76,7 +76,7 @@ describe("live dogfood agent team app script", () => {
       {
         sliceId: "slice_ui",
         ownerRole: "frontend-engineer",
-        providerSelector: "gemini-cli"
+        providerSelector: "agy"
       },
       {
         sliceId: "slice_logic_tests",
@@ -132,7 +132,7 @@ describe("live dogfood agent team app script", () => {
       "allowedWorktreeRoots",
       "writeValidated: true",
       "claude-code-cli:opus",
-      "gemini-cli",
+      "agy",
       "codex-cli",
       "ollama-claude-code:glm-5.2",
       'baseUrl: "http://localhost:11434"',

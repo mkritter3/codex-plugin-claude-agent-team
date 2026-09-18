@@ -1,3 +1,4 @@
+import { isAgyExecutable } from "../providers/agy/agy.js";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { AgentTeamConfigError } from "./errors.js";
@@ -27,7 +28,7 @@ export const DEFAULT_AGENT_TEAM_CONFIG: AgentTeamConfig = {
       "family:ollama-claude-code",
       "claude-code-cli",
       "family:ollama-cloud",
-      "gemini-cli",
+      "agy",
       "codex-cli"
     ]
   },
@@ -152,20 +153,21 @@ export const DEFAULT_AGENT_TEAM_CONFIG: AgentTeamConfig = {
         reasoning: false
       }
     },
-    geminiCli: {
+    agy: {
+      driver: "agy",
       enabled: true,
-      executable: "gemini",
-      projectEnv: "GOOGLE_CLOUD_PROJECT",
-      writeValidated: true,
+      executable: "agy",
+      displayName: "Gemini via AGY",
+      writeValidated: false,
       capabilities: {
         structuredOutput: true,
         longContext: true,
         reasoning: true,
-        tools: true,
-        edits: true,
+        tools: false,
+        edits: false,
         sessionResume: true,
         cancellation: true,
-        workspaceIsolation: true
+        workspaceIsolation: false
       }
     },
     codexCli: {
@@ -623,70 +625,43 @@ function parseGeminiProviderConfig(
   };
 }
 
-function parseGeminiCliProviderConfig(
+function parseAgyProviderConfig(
   providers: Record<string, unknown>
-): AgentTeamConfig["providers"]["geminiCli"] {
-  const geminiCli = objectField(providers, "geminiCli");
-  const capabilities = objectField(geminiCli, "capabilities");
-  const driver = readString(geminiCli.driver);
-  const agyWriteEnabled = readBoolean(geminiCli.writeValidated, false);
-  if (driver !== undefined && driver !== "gemini" && driver !== "agy") throw new AgentTeamConfigError("geminiCli.driver must be gemini or agy");
-  const executable =
-    readString(geminiCli.executable) ??
-    (driver === "agy" ? "agy" : DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.executable);
-  const model = readString(geminiCli.model);
-  const displayName = readString(geminiCli.displayName);
-  const projectEnv =
-    readString(geminiCli.projectEnv) ??
-    DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.projectEnv;
-
+): AgentTeamConfig["providers"]["agy"] {
+  const hasCanonical = providers.agy !== undefined;
+  const settings = objectField(providers, hasCanonical ? "agy" : "geminiCli");
+  const legacyGemini = !hasCanonical && providers.geminiCli !== undefined && settings.driver !== "agy";
+  const driver = readString(settings.driver);
+  if (!legacyGemini && driver !== undefined && driver !== "agy") {
+    throw new AgentTeamConfigError("providers.agy only supports the AGY driver");
+  }
+  const executable = legacyGemini ? "agy" : readString(settings.executable) ?? "agy";
+  if (!isAgyExecutable(executable)) {
+    throw new AgentTeamConfigError("providers.agy.executable must run AGY, not the retired Gemini CLI transport");
+  }
+  const capabilities = objectField(settings, "capabilities");
+  const defaults = DEFAULT_AGENT_TEAM_CONFIG.providers.agy.capabilities;
+  // Validation is specific to the execution harness. Old Gemini proofs cannot
+  // authorize AGY writes; an explicit AGY configuration can retain its proof.
+  const writeValidated = !legacyGemini && readBoolean(settings.writeValidated, false);
+  const model = readString(settings.model);
+  const displayName = legacyGemini ? undefined : readString(settings.displayName);
   return {
-    ...(driver === undefined ? {} : { driver }),
-    enabled: readBoolean(
-      geminiCli.enabled,
-      DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.enabled
-    ),
+    driver: "agy",
+    enabled: readBoolean(settings.enabled, true),
     executable,
     ...(model === undefined ? {} : { model }),
-    ...(displayName === undefined ? {} : { displayName }),
-    projectEnv,
-    writeValidated: readBoolean(
-      geminiCli.writeValidated,
-      driver === "agy" ? false : DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.writeValidated
-    ),
+    displayName: displayName ?? "Gemini via AGY",
+    writeValidated,
     capabilities: {
-      structuredOutput: readBoolean(
-        capabilities.structuredOutput,
-        DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.capabilities.structuredOutput
-      ),
-      longContext: readBoolean(
-        capabilities.longContext,
-        DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.capabilities.longContext
-      ),
-      reasoning: readBoolean(
-        capabilities.reasoning,
-        DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.capabilities.reasoning
-      ),
-      tools: readBoolean(
-        capabilities.tools,
-        driver === "agy" && !agyWriteEnabled ? false : DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.capabilities.tools
-      ),
-      edits: readBoolean(
-        capabilities.edits,
-        driver === "agy" && !agyWriteEnabled ? false : DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.capabilities.edits
-      ),
-      sessionResume: readBoolean(
-        capabilities.sessionResume,
-        DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.capabilities.sessionResume
-      ),
-      cancellation: readBoolean(
-        capabilities.cancellation,
-        DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.capabilities.cancellation
-      ),
-      workspaceIsolation: readBoolean(
-        capabilities.workspaceIsolation,
-        driver === "agy" && !agyWriteEnabled ? false : DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli.capabilities.workspaceIsolation
-      )
+      structuredOutput: readBoolean(capabilities.structuredOutput, defaults.structuredOutput),
+      longContext: readBoolean(capabilities.longContext, defaults.longContext),
+      reasoning: readBoolean(capabilities.reasoning, defaults.reasoning),
+      tools: !legacyGemini && readBoolean(capabilities.tools, writeValidated),
+      edits: !legacyGemini && readBoolean(capabilities.edits, writeValidated),
+      sessionResume: readBoolean(capabilities.sessionResume, defaults.sessionResume),
+      cancellation: readBoolean(capabilities.cancellation, defaults.cancellation),
+      workspaceIsolation: !legacyGemini && readBoolean(capabilities.workspaceIsolation, writeValidated)
     }
   };
 }
@@ -884,7 +859,7 @@ export async function loadAgentTeamConfig(
       ollamaClaudeCode: parseOllamaClaudeCodeProviderConfig(providers),
       grok: parseGrokProviderConfig(providers),
       gemini: parseGeminiProviderConfig(providers),
-      geminiCli: parseGeminiCliProviderConfig(providers),
+      agy: parseAgyProviderConfig(providers),
       codexCli: parseCodexCliProviderConfig(providers)
     },
     seniorReview: parseSeniorReviewPolicyConfig(parsed),

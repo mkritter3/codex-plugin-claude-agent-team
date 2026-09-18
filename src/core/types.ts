@@ -173,7 +173,7 @@ export interface GeminiProviderConfig {
   readonly capabilities: OpenAICompatibleProviderCapabilitiesConfig;
 }
 
-export interface GeminiCliProviderCapabilitiesConfig {
+export interface AgyProviderCapabilitiesConfig {
   readonly structuredOutput: boolean;
   readonly longContext: boolean;
   readonly reasoning: boolean;
@@ -184,15 +184,14 @@ export interface GeminiCliProviderCapabilitiesConfig {
   readonly workspaceIsolation: boolean;
 }
 
-export interface GeminiCliProviderConfig {
-  readonly driver?: "gemini" | "agy";
+export interface AgyProviderConfig {
+  readonly driver?: "agy";
   readonly enabled: boolean;
   readonly executable: string;
   readonly model?: string;
   readonly displayName?: string;
-  readonly projectEnv: string;
   readonly writeValidated: boolean;
-  readonly capabilities: GeminiCliProviderCapabilitiesConfig;
+  readonly capabilities: AgyProviderCapabilitiesConfig;
 }
 
 export interface CodexCliProviderCapabilitiesConfig {
@@ -222,7 +221,7 @@ export interface AgentTeamProviderConfig {
   readonly ollamaClaudeCode: OllamaClaudeCodeProviderConfig;
   readonly grok: GrokProviderConfig;
   readonly gemini: GeminiProviderConfig;
-  readonly geminiCli: GeminiCliProviderConfig;
+  readonly agy: AgyProviderConfig;
   readonly codexCli: CodexCliProviderConfig;
 }
 

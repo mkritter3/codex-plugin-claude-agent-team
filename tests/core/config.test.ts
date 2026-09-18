@@ -27,7 +27,7 @@ describe("loadAgentTeamConfig", () => {
           "family:ollama-claude-code",
           "claude-code-cli",
           "family:ollama-cloud",
-          "gemini-cli",
+          "agy",
           "codex-cli"
         ]
       }
@@ -591,19 +591,18 @@ describe("loadAgentTeamConfig", () => {
     });
   });
 
-  it("loads explicit Gemini CLI autonomous worker config without API-key fallback", async () => {
+  it("loads explicit AGY autonomous worker config without API-key fallback", async () => {
     const workspace = await mkdtemp(join(tmpdir(), "agent-team-config-"));
     await mkdir(join(workspace, ".agent-team"), { recursive: true });
     await writeFile(
       join(workspace, ".agent-team", "config.json"),
       JSON.stringify({
         providers: {
-          geminiCli: {
+          agy: {
             enabled: true,
-            executable: "gemini",
+            executable: "agy",
             model: "gemini-3-pro-preview",
             displayName: "Gemini UI Worker",
-            projectEnv: "GOOGLE_CLOUD_PROJECT",
             writeValidated: true,
             capabilities: {
               structuredOutput: true,
@@ -623,12 +622,11 @@ describe("loadAgentTeamConfig", () => {
 
     await expect(loadAgentTeamConfig(workspace)).resolves.toMatchObject({
       providers: {
-        geminiCli: {
+        agy: {
           enabled: true,
-          executable: "gemini",
+          executable: "agy",
           model: "gemini-3-pro-preview",
           displayName: "Gemini UI Worker",
-          projectEnv: "GOOGLE_CLOUD_PROJECT",
           writeValidated: true,
           capabilities: {
             structuredOutput: true,

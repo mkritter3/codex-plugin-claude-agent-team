@@ -7,7 +7,7 @@ const astra = { kind: "native", model: "gpt-6-astra", reasoningEffort: "xhigh" }
 const members = [
   { id: "astra", target: astra },
   { id: "claude", target: { kind: "provider", provider: "claude-code-cli:fable-5.1" } },
-  { id: "gemini", target: { kind: "provider", provider: "gemini-cli" } }
+  { id: "gemini", target: { kind: "provider", provider: "agy" } }
 ] as const;
 const coordinator = { source: "runtime", sessionId: "session-main", model: "gpt-6-astra", reasoningEffort: "xhigh" } as const;
 const vote = (memberId: string, index: number, status = "approve") => ({

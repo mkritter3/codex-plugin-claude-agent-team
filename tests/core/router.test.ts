@@ -421,7 +421,7 @@ describe("selectProvider", () => {
 
   it("advertises implementation capabilities by default for isolated workers", () => {
     const providers = listProviders({
-      cliAvailability: { claude: true, gemini: false, codex: true }
+      cliAvailability: { claude: true, agy: false, codex: true }
     });
     const [provider] = providers;
 
@@ -439,7 +439,7 @@ describe("selectProvider", () => {
   it("defaults read-oriented routing to the preferred Ollama-native Claude Code profile", () => {
     const providers = listProviders({
       env: {},
-      cliAvailability: { claude: true, ollama: true, gemini: false, codex: true }
+      cliAvailability: { claude: true, ollama: true, agy: false, codex: true }
     });
 
     expect(
@@ -454,7 +454,7 @@ describe("selectProvider", () => {
   it("can route isolated implementation to the write-validated GLM Ollama-native profile", () => {
     const providers = listProviders({
       env: {},
-      cliAvailability: { claude: true, ollama: true, gemini: false, codex: true }
+      cliAvailability: { claude: true, ollama: true, agy: false, codex: true }
     });
 
     expect(
@@ -469,7 +469,7 @@ describe("selectProvider", () => {
   it("can route requested isolated implementation to the write-validated Kimi Ollama-native profile", () => {
     const providers = listProviders({
       env: {},
-      cliAvailability: { claude: true, ollama: true, gemini: false, codex: true }
+      cliAvailability: { claude: true, ollama: true, agy: false, codex: true }
     });
 
     expect(
@@ -483,7 +483,7 @@ describe("selectProvider", () => {
 
   it("advertises implementation capabilities only when isolated write mode is enabled", () => {
     const providers = listProviders({
-      cliAvailability: { claude: true, ollama: true, gemini: false, codex: false },
+      cliAvailability: { claude: true, ollama: true, agy: false, codex: false },
 	      config: {
 	        schemaVersion: DEFAULT_AGENT_TEAM_CONFIG.schemaVersion,
 	        writeMode: { enabled: true, requireIsolatedWorktree: true },
@@ -537,7 +537,7 @@ describe("selectProvider", () => {
   it("exposes auto local and Ollama Cloud providers while omitting generic API providers", () => {
     expect(
       listProviders({
-        cliAvailability: { claude: true, gemini: false, codex: true }
+        cliAvailability: { claude: true, agy: false, codex: true }
       }).map((provider) => provider.id)
     ).toEqual([
       "claude-code-cli",
@@ -546,7 +546,7 @@ describe("selectProvider", () => {
       "ollama-cloud:kimi-k2.7-code",
       "ollama-claude-code:glm-5.2",
       "ollama-claude-code:kimi-k2.7-code",
-      "gemini-cli",
+      "agy",
       "codex-cli"
     ]);
   });
@@ -716,7 +716,7 @@ describe("selectProvider", () => {
 
   it("routes requested Ollama Claude Code profiles through lifecycle-safe capabilities", () => {
     const providers = listProviders({
-      cliAvailability: { claude: true, ollama: true, gemini: false, codex: false },
+      cliAvailability: { claude: true, ollama: true, agy: false, codex: false },
       env: { OLLAMA_API_KEY: "secret-token" },
       config: {
         ...DEFAULT_AGENT_TEAM_CONFIG,
@@ -770,7 +770,7 @@ describe("selectProvider", () => {
 
   it("routes requested Claude Code CLI model profiles through subscription OAuth capabilities", () => {
     const providers = listProviders({
-      cliAvailability: { claude: true, ollama: true, gemini: false, codex: false },
+      cliAvailability: { claude: true, ollama: true, agy: false, codex: false },
       config: {
         ...DEFAULT_AGENT_TEAM_CONFIG,
         providers: {
@@ -855,7 +855,7 @@ describe("selectProvider", () => {
   it("routes the default Opus profile for explicit senior-review requests", () => {
     const providers = listProviders({
       config: DEFAULT_AGENT_TEAM_CONFIG,
-      cliAvailability: { claude: true, ollama: false, gemini: false, codex: false },
+      cliAvailability: { claude: true, ollama: false, agy: false, codex: false },
       env: {}
     });
 
@@ -1115,18 +1115,17 @@ describe("selectProvider", () => {
     ).toThrow(ProviderCapabilityError);
   });
 
-  it("routes frontend implementation to Gemini CLI only after write validation", () => {
+  it("routes frontend implementation to AGY only after write validation", () => {
     const readOnlyProviders = listProviders({
       config: {
         ...DEFAULT_AGENT_TEAM_CONFIG,
         writeMode: { enabled: true, requireIsolatedWorktree: true },
         providers: {
           ...DEFAULT_AGENT_TEAM_CONFIG.providers,
-          geminiCli: {
+          agy: {
             enabled: true,
-            executable: "gemini",
+            executable: "agy",
             model: "gemini-3-pro-preview",
-            projectEnv: "GOOGLE_CLOUD_PROJECT",
             writeValidated: false,
             capabilities: {
               structuredOutput: true,
@@ -1147,22 +1146,21 @@ describe("selectProvider", () => {
       selectProvider({
         roleId: "frontend-engineer",
         providers: readOnlyProviders,
-        requestedProviderId: "gemini-cli"
+        requestedProviderId: "agy"
       })
     ).toThrow(ProviderNotFoundError);
 
     const writeValidatedProviders = listProviders({
-      cliAvailability: { claude: true, gemini: true, codex: true },
+      cliAvailability: { claude: true, agy: true, codex: true },
       config: {
         ...DEFAULT_AGENT_TEAM_CONFIG,
         writeMode: { enabled: true, requireIsolatedWorktree: true },
         providers: {
           ...DEFAULT_AGENT_TEAM_CONFIG.providers,
-          geminiCli: {
+          agy: {
             enabled: true,
-            executable: "gemini",
+            executable: "agy",
             model: "gemini-3-pro-preview",
-            projectEnv: "GOOGLE_CLOUD_PROJECT",
             writeValidated: true,
             capabilities: {
               structuredOutput: true,
@@ -1183,9 +1181,9 @@ describe("selectProvider", () => {
       selectProvider({
         roleId: "frontend-engineer",
         providers: writeValidatedProviders,
-        requestedProviderId: "gemini-cli"
+        requestedProviderId: "agy"
       }).id
-    ).toBe("gemini-cli");
+    ).toBe("agy");
   });
 
   it("routes requested Grok profiles only through declared read-only capabilities", () => {

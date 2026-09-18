@@ -4,16 +4,15 @@ import { PassThrough } from "node:stream";
 import { DEFAULT_AGENT_TEAM_CONFIG } from "../../../src/core/config.js";
 import type { AgentTeamConfig } from "../../../src/core/types.js";
 import {
-  createGeminiCliRuntime,
-  geminiCliProvider
-} from "../../../src/providers/gemini-cli/runtime.js";
+  createAgyRuntime,
+  agyProvider
+} from "../../../src/providers/agy/runtime.js";
 import type { ProviderSessionDoneStatus } from "../../../src/providers/types.js";
 
 function config(input: {
   readonly enabled?: boolean;
   readonly executable?: string;
   readonly model?: string;
-  readonly projectEnv?: string;
   readonly structuredOutput?: boolean;
   readonly tools?: boolean;
   readonly edits?: boolean;
@@ -26,12 +25,11 @@ function config(input: {
     ...DEFAULT_AGENT_TEAM_CONFIG,
     providers: {
       ...DEFAULT_AGENT_TEAM_CONFIG.providers,
-      geminiCli: {
+      agy: {
         enabled: input.enabled ?? true,
-        executable: input.executable ?? "gemini",
+        executable: input.executable ?? "agy",
         model: input.model ?? "gemini-3-pro-preview",
-        displayName: "Gemini CLI",
-        projectEnv: input.projectEnv ?? "GOOGLE_CLOUD_PROJECT",
+        displayName: "AGY",
         writeValidated: input.writeValidated ?? false,
         capabilities: {
           structuredOutput: input.structuredOutput ?? true,
@@ -48,7 +46,7 @@ function config(input: {
   } as AgentTeamConfig;
 }
 
-class FakeGeminiProcess extends EventEmitter {
+class FakeAgyProcess extends EventEmitter {
   readonly stdout = new PassThrough();
   readonly stderr = new PassThrough();
   readonly stdin = new PassThrough();
@@ -68,32 +66,32 @@ class FakeGeminiProcess extends EventEmitter {
   }
 }
 
-describe("Gemini CLI runtime", () => {
+describe("AGY runtime", () => {
   it("keeps the provider descriptor auto-enabled by default", () => {
     expect(
-      geminiCliProvider(DEFAULT_AGENT_TEAM_CONFIG, { executableAvailable: true })
+      agyProvider(DEFAULT_AGENT_TEAM_CONFIG, { executableAvailable: true })
     ).toMatchObject({
-      id: "gemini-cli",
+      id: "agy",
       authMode: "oauth",
       available: true,
-      capabilities: expect.arrayContaining(["edits", "workspaceIsolation"])
+      capabilities: expect.arrayContaining(["sessionResume", "cancellation"])
     });
-    expect(createGeminiCliRuntime().descriptor()).toMatchObject({
-      id: "gemini-cli",
+    expect(createAgyRuntime().descriptor()).toMatchObject({
+      id: "agy",
       authMode: "oauth",
       available: true,
-      capabilities: expect.arrayContaining(["edits", "workspaceIsolation"])
+      capabilities: expect.arrayContaining(["sessionResume", "cancellation"])
     });
   });
 
-  it("runs headless Gemini CLI with configured model and sanitized text output", async () => {
+  it("runs headless AGY with configured model and sanitized text output", async () => {
     const calls: Array<{ command: string; args: readonly string[]; cwd: string }> = [];
-    const runtime = createGeminiCliRuntime({
+    const runtime = createAgyRuntime({
       runCommand: async (command, args, options) => {
         calls.push({ command, args, cwd: options?.cwd ?? "" });
         return {
           ok: true,
-          stdout: " Gemini CLI response text \n",
+          stdout: JSON.stringify({status: "SUCCESS", response: "AGY response text"}),
           stderr: "",
           exitCode: 0
         };
@@ -111,21 +109,17 @@ describe("Gemini CLI runtime", () => {
 
     expect(result).toMatchObject({
       ok: true,
-      text: "Gemini CLI response text",
-      stdout: " Gemini CLI response text \n",
+      text: "AGY response text",
+      stdout: JSON.stringify({status: "SUCCESS", response: "AGY response text"}),
       stderr: "",
       exitCode: 0
     });
     expect(calls).toEqual([
       {
-        command: "gemini",
+        command: "agy",
         args: [
-          "--prompt",
-          "Review this plan.",
-          "--model",
-          "gemini-3-pro-preview",
-          "--output-format",
-          "text"
+          "--print", "Review this plan.", "--output-format", "json",
+          "--model", "gemini-3-pro-preview", "--sandbox", "--mode", "plan"
         ],
         cwd: "/tmp/project"
       }
@@ -134,7 +128,7 @@ describe("Gemini CLI runtime", () => {
 
   it("fails closed before running the CLI when disabled or missing structured output", async () => {
     let called = false;
-    const runtime = createGeminiCliRuntime({
+    const runtime = createAgyRuntime({
       runCommand: async () => {
         called = true;
         return { ok: true, stdout: "nope", stderr: "", exitCode: 0 };
@@ -149,7 +143,7 @@ describe("Gemini CLI runtime", () => {
       })
     ).resolves.toMatchObject({
       ok: false,
-      stderr: "Gemini CLI provider is disabled."
+      stderr: "AGY provider is disabled."
     });
 
     await expect(
@@ -160,14 +154,14 @@ describe("Gemini CLI runtime", () => {
       })
     ).resolves.toMatchObject({
       ok: false,
-      stderr: "Gemini CLI provider requires structuredOutput capability for dispatch."
+      stderr: "AGY provider requires structuredOutput capability for dispatch."
     });
 
     expect(called).toBe(false);
   });
 
   it("reports CLI process failures without exposing provider secrets", async () => {
-    const runtime = createGeminiCliRuntime({
+    const runtime = createAgyRuntime({
       runCommand: async () => ({
         ok: false,
         stdout: "",
@@ -187,15 +181,15 @@ describe("Gemini CLI runtime", () => {
       ok: false,
       text: "",
       stdout: "",
-      stderr: "Gemini CLI request failed: not logged in",
+      stderr: "AGY request failed: not logged in",
       exitCode: 1
     });
   });
 
-  it("starts read-only sessions in Gemini plan approval mode", async () => {
+  it("starts read-only sessions in AGY sandboxed plan mode", async () => {
     const calls: Array<{ command: string; args: readonly string[]; cwd: string }> = [];
-    const child = new FakeGeminiProcess();
-    const runtime = createGeminiCliRuntime({
+    const child = new FakeAgyProcess();
+    const runtime = createAgyRuntime({
       spawn: (command, args, options) => {
         calls.push({ command, args, cwd: options.cwd });
         return child;
@@ -205,30 +199,22 @@ describe("Gemini CLI runtime", () => {
       prompt: "Review",
       cwd: "/tmp/project",
       workspaceRoot: "/tmp/project",
-      runId: "run_gemini_cli_session",
+      runId: "run_agy_session",
       roleId: "planner",
       executionPolicy: "read-only",
       config: config()
     });
 
-    child.stdout.write("<<<VERDICT>>>\nstatus: SHIP\nsummary: ok\n<<<END_VERDICT>>>\n");
+    child.stdout.write(JSON.stringify({ status: "SUCCESS", response: "<<<VERDICT>>>\nstatus: SHIP\nsummary: ok\n<<<END_VERDICT>>>\n", conversation_id: "agy-session" }) + "\n");
     child.close(0);
 
     expect(handle.supportsStdin).toBe(false);
     expect(calls).toEqual([
       {
-        command: "gemini",
+        command: "agy",
         args: [
-          "--prompt",
-          "Review",
-          "--model",
-          "gemini-3-pro-preview",
-          "--output-format",
-          "text",
-          "--session-id",
-          "run_gemini_cli_session",
-          "--approval-mode",
-          "plan"
+          "--print", "Review", "--output-format", "json",
+          "--model", "gemini-3-pro-preview", "--sandbox", "--mode", "plan"
         ],
         cwd: "/tmp/project"
       }
@@ -237,10 +223,10 @@ describe("Gemini CLI runtime", () => {
     expect(handle.snapshot().text).toContain("status: SHIP");
   });
 
-  it("starts isolated edit sessions in Gemini auto-edit approval mode", async () => {
+  it("starts isolated edit sessions in AGY sandboxed accept-edits mode", async () => {
     const calls: Array<{ command: string; args: readonly string[]; cwd: string }> = [];
-    const child = new FakeGeminiProcess();
-    const runtime = createGeminiCliRuntime({
+    const child = new FakeAgyProcess();
+    const runtime = createAgyRuntime({
       spawn: (command, args, options) => {
         calls.push({ command, args, cwd: options.cwd });
         return child;
@@ -265,31 +251,23 @@ describe("Gemini CLI runtime", () => {
       })
     });
 
-    child.stdout.write("done\n");
+    child.stdout.write(JSON.stringify({ status: "SUCCESS", response: "done", conversation_id: "agy-write-session" }) + "\n");
     child.close(0);
 
     expect(calls[0]).toMatchObject({
-      command: "gemini",
+      command: "agy",
       cwd: "/tmp/worktree"
     });
     expect(calls[0]?.args).toEqual([
-      "--prompt",
-      "Implement UI copy.",
-      "--model",
-      "gemini-3-pro-preview",
-      "--output-format",
-      "text",
-      "--session-id",
-      "run_gemini_write",
-      "--approval-mode",
-      "auto_edit"
+      "--print", "Implement UI copy.", "--output-format", "json",
+      "--model", "gemini-3-pro-preview", "--sandbox", "--mode", "accept-edits"
     ]);
     expect(handle.supportsStdin).toBe(false);
     expect(await handle.done).toBe("completed");
   });
 
   it("rejects isolated edit sessions unless the full autonomous worker gate is validated", () => {
-    const runtime = createGeminiCliRuntime();
+    const runtime = createAgyRuntime();
 
     expect(() =>
       runtime.startSession({
@@ -308,16 +286,16 @@ describe("Gemini CLI runtime", () => {
         })
       })
     ).toThrow(
-      "Gemini CLI isolated edit requires sessionResume, cancellation."
+      "AGY isolated edit requires sessionResume, cancellation."
     );
   });
 
   it("maps non-zero exit, cancellation, and timeout to lifecycle done statuses", async () => {
-    const failedChild = new FakeGeminiProcess();
-    const cancelledChild = new FakeGeminiProcess();
-    const timedOutChild = new FakeGeminiProcess();
+    const failedChild = new FakeAgyProcess();
+    const cancelledChild = new FakeAgyProcess();
+    const timedOutChild = new FakeAgyProcess();
     const children = [failedChild, cancelledChild, timedOutChild];
-    const runtime = createGeminiCliRuntime({
+    const runtime = createAgyRuntime({
       spawn: () => children.shift()!
     });
 

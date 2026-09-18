@@ -11,7 +11,8 @@ All notable changes to this local plugin are recorded here.
 - Made distribution verification work from standalone checkouts while retaining optional strict personal-marketplace validation, refreshed compatible dependency fixes, and excluded local environment files from Git.
 - Added workflow-specific native/provider orchestration policies, explicit sole-reviewer or unanimous-panel authority, artifact-bound votes, and validation against completed external runs.
 - Added native assignment preparation, matching active-session reuse for planning/implementation, per-slice implementation overrides, native completion evidence and independent native review through the existing integration path.
-- Added an optional AGY driver to the Gemini CLI adapter, with plan/accept-edits modes, sandboxing, result validation and conversation resumption. AGY write validation remains opt-in.
+- Replaced the Gemini CLI transport with the canonical `agy` provider and `providers.agy` configuration. AGY uses sandboxed plan/accept-edits modes, JSON result validation, and conversation resumption.
+- Migrated saved Gemini CLI selectors/configuration to AGY without carrying over old executable paths or write validation. Legacy sessions require a new AGY run. AGY implementation remains opt-in after a fresh live write proof.
 - Added operator guidance for economical model selection, bounded context, session reuse and CLI maintenance. Legacy workflows remain compatible.
 
 

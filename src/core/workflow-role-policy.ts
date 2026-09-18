@@ -32,7 +32,7 @@ export type WorkflowModelFamily =
   | "claude-sonnet"
   | "claude-haiku"
   | "codex-cli"
-  | "gemini-cli"
+  | "agy"
   | "ollama-glm-5.2"
   | "ollama-kimi-k2.7-code";
 
@@ -136,7 +136,7 @@ export function recommendRolePolicy(
     input.surface === "browser-flow"
   ) {
     return recommendation({
-      preferredModelFamilies: ["gemini-cli", "claude-sonnet", "codex-cli"],
+      preferredModelFamilies: ["agy", "claude-sonnet", "codex-cli"],
       requiredSeniorReview: true,
       seniorSignoffRequired: true,
       requiresIsolatedWorktree: true,
@@ -144,7 +144,7 @@ export function recommendRolePolicy(
       autonomy: "full_autonomous",
       defaultSurfaces: GEMINI_SURFACES,
       rationale:
-        "Gemini CLI is a full autonomous worker, with default preference for UI, UX, frontend, visual, and browser-flow work."
+        "Prefer AGY for UI, UX, frontend, visual, and browser-flow work when its required capabilities are validated. Implementation requires an AGY live write proof."
     });
   }
 

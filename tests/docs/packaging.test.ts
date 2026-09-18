@@ -25,7 +25,7 @@ describe("packaging and install docs", () => {
       "npm run smoke:claude-live",
       "npm run smoke:claude-live-matrix",
       "npm run smoke:providers-live",
-      "npm run smoke:gemini-write",
+      "npm run smoke:agy-write",
       "npm run smoke:codex-write",
       "Codex CLI",
       "codex-cli",
@@ -74,7 +74,7 @@ describe("packaging and install docs", () => {
       "claude-code-cli:opus",
       "claude-code-cli:sonnet",
       "claude-code-cli:haiku",
-      "gemini-cli",
+      "agy",
       "ollama-claude-code:glm-5.2",
       "ollama-claude-code:kimi-k2.7-code",
       "Codex remains the final authority"
@@ -94,11 +94,11 @@ describe("packaging and install docs", () => {
     expect(readme).toContain("cleanup");
     expect(readme).toContain("no provider ranking");
     expect(readme).toContain("--provider family:gemini");
-    expect(readme).toContain("--provider gemini-cli");
-    expect(readme).toContain("GEMINI_CLI_TRUST_WORKSPACE=true");
-    expect(readme).toContain("gemini-3-flash-preview");
+    expect(readme).toContain("--provider agy");
+    expect(readme).not.toContain("AGY_TRUST_WORKSPACE=true");
+    expect(readme).toContain("gemini-3.8-flash-high");
     expect(readme).toContain("frontend-engineer");
-    expect(readme).toContain("--approval-mode auto_edit");
+    expect(readme).toContain("--mode accept-edits");
     expect(readme).toContain("explicit read-only provider routing");
     expect(readme).toContain("no provider comparison, ranking, score, or long-context claim");
     expect(readme).toContain("absolute MCP config");

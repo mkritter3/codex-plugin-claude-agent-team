@@ -294,21 +294,18 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
             apiKeyEnv: config.providers.gemini.apiKeyEnv,
             capabilities: config.providers.gemini.capabilities
           },
-          geminiCli: {
+          agy: {
             enabled:
-              (config.providers.geminiCli ?? DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli)
+              (config.providers.agy ?? DEFAULT_AGENT_TEAM_CONFIG.providers.agy)
                 .enabled,
             executable:
-              (config.providers.geminiCli ?? DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli)
+              (config.providers.agy ?? DEFAULT_AGENT_TEAM_CONFIG.providers.agy)
                 .executable,
             hasModel:
-              (config.providers.geminiCli ?? DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli)
+              (config.providers.agy ?? DEFAULT_AGENT_TEAM_CONFIG.providers.agy)
                 .model !== undefined,
-            projectEnv:
-              (config.providers.geminiCli ?? DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli)
-                .projectEnv,
             capabilities:
-              (config.providers.geminiCli ?? DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli)
+              (config.providers.agy ?? DEFAULT_AGENT_TEAM_CONFIG.providers.agy)
                 .capabilities
           }
         }
@@ -458,9 +455,9 @@ export async function runDoctor(input: DoctorInput = {}): Promise<DoctorReport> 
 
   const cliAvailability = {
     claude: (await findExecutable("claude")) !== undefined,
-    gemini:
+    agy:
       (await findExecutable(
-        (config.providers.geminiCli ?? DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli)
+        (config.providers.agy ?? DEFAULT_AGENT_TEAM_CONFIG.providers.agy)
           .executable
       )) !== undefined,
     codex:

@@ -46,14 +46,14 @@ export function parseProviderSelector(
       source,
       value,
       kind: prefix as ProviderSelectorKind,
-      target
+      target: prefix === "family" && target === "gemini-cli" ? "agy" : target
     };
   }
   return {
     source,
     value,
     kind: "id",
-    target: value
+    target: value === "gemini-cli" ? "agy" : value
   };
 }
 

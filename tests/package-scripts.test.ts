@@ -25,8 +25,8 @@ describe("package scripts", () => {
     expect(packageJson.scripts?.["smoke:providers-live"]).toBe(
       "node scripts/live-smoke-readonly-providers.mjs"
     );
-    expect(packageJson.scripts?.["smoke:gemini-write"]).toBe(
-      "node scripts/live-smoke-gemini-write-validation.mjs"
+    expect(packageJson.scripts?.["smoke:agy-write"]).toBe(
+      "node scripts/live-smoke-agy-write-validation.mjs"
     );
     expect(packageJson.scripts?.["dogfood:live-app"]).toBe(
       "node scripts/live-dogfood-agent-team-app.mjs"
@@ -55,7 +55,7 @@ describe("package scripts", () => {
     expect(packageJson.scripts?.ci).not.toContain("smoke:claude-live");
     expect(packageJson.scripts?.ci).not.toContain("smoke:claude-live-matrix");
     expect(packageJson.scripts?.ci).not.toContain("smoke:providers-live");
-    expect(packageJson.scripts?.ci).not.toContain("smoke:gemini-write");
+    expect(packageJson.scripts?.ci).not.toContain("smoke:agy-write");
     expect(packageJson.scripts?.ci).not.toContain("dogfood:live-app");
     expect(packageJson.scripts?.ci).not.toContain("validate:workflow-live");
     const ci = packageJson.scripts?.ci ?? "";

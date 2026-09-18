@@ -68,7 +68,7 @@ No provider should make benchmark, model-quality, provider-ranking, or capabilit
 
 ## Provider Routing
 
-Honor explicit native/provider assignments first. Preserve the user-selected coordinator, including Astra for visual work. Native planning reuses the active model only when model and effort match; independent review remains separate. For legacy or unpinned advisory calls, the built-in provider order prefers Ollama-native Claude Code first for read-oriented roles, then Claude Code CLI, Ollama Cloud chat-completions, Gemini CLI, and Codex CLI. Use provider selectors and workspace policy instead of hard-coded credentials.
+Honor explicit native/provider assignments first. Preserve the user-selected coordinator, including Astra for visual work. Native planning reuses the active model only when model and effort match; independent review remains separate. For legacy or unpinned advisory calls, the built-in provider order prefers Ollama-native Claude Code first for read-oriented roles, then Claude Code CLI, Ollama Cloud chat-completions, AGY, and Codex CLI. Use provider selectors and workspace policy instead of hard-coded credentials.
 
 For Claude Code CLI profiles, omitting `providers.claudeCodeCli.profiles` inherits the built-in Opus profile. Set `profiles: []` intentionally disables that default senior-review profile.
 
@@ -77,7 +77,7 @@ Legacy provider defaults (the configured decision roster takes precedence):
 - Claude Code CLI Opus (`claude-code-cli:opus`): default read-only senior review profile for architecture, planning, high-complexity review, and final senior sign-off when Claude Code CLI is available.
 - Sonnet, Codex, or another write-validated senior implementer: bounded implementation in retained isolated worktrees.
 - Haiku or another fast low-risk profile: search-style reconnaissance, summarization, and documentation lookup.
-- Gemini: UI and UX implementation or review when write validation is enabled.
+- Gemini via AGY: UI and UX review; implementation only after AGY write validation. Use provider `agy` and confirm exact model IDs with `agy models`.
 - GLM 5.2 through Ollama-native Claude Code (`ollama-claude-code:glm-5.2`): preferred junior implementation or review when doctor shows local Ollama and Claude Code are ready and the provider is healthy; isolated implementation still requires normal write-mode policy.
 - Kimi K2.7 Code through Ollama-native Claude Code (`ollama-claude-code:kimi-k2.7-code`): research, review, or bounded junior implementation when doctor shows local Ollama and Claude Code are ready and the provider is healthy; isolated implementation still requires normal write-mode policy.
 

@@ -14,7 +14,7 @@ describe("provider runtime registry", () => {
       "openai-compatible",
       "ollama-claude-code",
       "gemini",
-      "gemini-cli",
+      "agy",
       "codex-cli"
     ]);
   });
@@ -40,8 +40,8 @@ describe("provider runtime registry", () => {
     expect(runtime?.descriptor().available).toBe(false);
   });
 
-  it("resolves the Gemini CLI runtime as OAuth and auto-enabled by default", () => {
-    const runtime = getProviderRuntime("gemini-cli");
+  it("resolves the AGY runtime as OAuth and auto-enabled by default", () => {
+    const runtime = getProviderRuntime("agy");
 
     expect(runtime?.descriptor().authMode).toBe("oauth");
     expect(runtime?.descriptor().available).toBe(true);

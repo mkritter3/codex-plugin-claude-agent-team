@@ -24,9 +24,9 @@ const execFileAsync = promisify(execFile);
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = dirname(scriptDir);
 const runtimePath = join(repoRoot, "dist", "index.js");
-const PROVIDER_ID = "gemini-cli";
-const PROVIDER_FAMILY = "family:gemini-cli";
-const DEFAULT_MODEL = "gemini-3-flash-preview";
+const PROVIDER_ID = "agy";
+const PROVIDER_FAMILY = "family:agy";
+const DEFAULT_MODEL = "gemini-3.8-flash-high";
 const PROOF_FILE = "index.html";
 const PROOF_TEXT = "Gemini UI write proof";
 
@@ -41,7 +41,7 @@ const TOOL_FLOW = [
 ];
 
 const KNOWN_LIMITATIONS = [
-  "This smoke proves isolated write containment for the explicitly configured Gemini CLI provider only.",
+  "This smoke proves isolated write containment for the explicitly configured AGY provider only.",
   "Live provider use is operator-triggered and is not part of CI.",
   "The proof fixture is disposable; successful runs still require Codex review before any production write-validation policy is broadened.",
   "This smoke does not prove model quality, provider ranking, broad UI excellence, or mid-flight steering."
@@ -95,7 +95,7 @@ function requireProviderSelectors() {
   for (const provider of providers) {
     if (provider !== PROVIDER_ID && provider !== PROVIDER_FAMILY) {
       throw new Error(
-        "Gemini write validation requires --provider gemini-cli or --provider family:gemini-cli."
+        "Gemini write validation requires --provider agy or --provider family:agy."
       );
     }
   }
@@ -129,14 +129,6 @@ async function assertRuntimeExists() {
     await access(runtimePath);
   } catch {
     throw new Error(`Missing ${runtimePath}. Run npm run build before Gemini write validation.`);
-  }
-}
-
-function assertTrustedWorkspaceEnv() {
-  if (process.env.GEMINI_CLI_TRUST_WORKSPACE !== "true") {
-    throw new Error(
-      "Gemini write validation requires GEMINI_CLI_TRUST_WORKSPACE=true for the disposable fixture."
-    );
   }
 }
 
@@ -191,12 +183,11 @@ async function createWriteValidationFixture() {
         writeMode: { enabled: true, requireIsolatedWorktree: true },
         auth: { allowApiKeyFallback: false },
         providers: {
-          geminiCli: {
+          agy: {
             enabled: true,
-            executable: "gemini",
+            executable: "agy",
             model: readValue("--model", DEFAULT_MODEL),
-            displayName: "Gemini CLI UI Worker",
-            projectEnv: "GOOGLE_CLOUD_PROJECT",
+            displayName: "AGY UI Worker",
             writeValidated: true,
             capabilities: {
               structuredOutput: true,
@@ -317,7 +308,7 @@ async function validateProvider(client, providerSelector, timeoutMs) {
   }
   const providerList = await callTool(client, "agent_team_list_providers", { cwd: fixture.root }, 30000);
   if (!providerHasWriteCapabilities(providerList)) {
-    throw new Error("gemini-cli did not expose all required autonomous worker capabilities.");
+    throw new Error("agy did not expose all required autonomous worker capabilities.");
   }
 
   const start = await callTool(
@@ -399,7 +390,6 @@ async function validateProvider(client, providerSelector, timeoutMs) {
 
 async function runLiveValidation(providerSelectors) {
   await assertRuntimeExists();
-  assertTrustedWorkspaceEnv();
   const timeoutMs = readPositiveNumber("--timeout-ms", 240000);
 
   const transport = new StdioClientTransport({

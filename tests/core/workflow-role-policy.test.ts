@@ -74,7 +74,7 @@ describe("recommendRolePolicy", () => {
     });
   });
 
-  it("treats Gemini CLI as a full autonomous worker with UI and frontend preference", () => {
+  it("treats AGY as a full autonomous worker with UI and frontend preference", () => {
     const policy = recommendRolePolicy(
       rolePolicy({
         role: "frontend-engineer",
@@ -84,9 +84,9 @@ describe("recommendRolePolicy", () => {
       })
     );
 
-    expect(policy.preferredModelFamily).toBe("gemini-cli");
+    expect(policy.preferredModelFamily).toBe("agy");
     expect(policy.preferredModelFamilies).toEqual([
-      "gemini-cli",
+      "agy",
       "claude-sonnet",
       "codex-cli"
     ]);

@@ -5,16 +5,15 @@ import {
 } from "../../../src/core/config.js";
 import type { AgentTeamConfig } from "../../../src/core/types.js";
 import {
-  GEMINI_CLI_PROVIDER_ID,
-  geminiCliProvider
-} from "../../../src/providers/gemini-cli/config.js";
+  AGY_PROVIDER_ID,
+  agyProvider
+} from "../../../src/providers/agy/config.js";
 
 function config(input: {
   readonly enabled?: boolean;
   readonly executable?: string;
   readonly model?: string;
   readonly displayName?: string;
-  readonly projectEnv?: string;
   readonly structuredOutput?: boolean;
   readonly longContext?: boolean;
   readonly reasoning?: boolean;
@@ -29,12 +28,11 @@ function config(input: {
     ...DEFAULT_AGENT_TEAM_CONFIG,
     providers: {
       ...DEFAULT_AGENT_TEAM_CONFIG.providers,
-      geminiCli: {
+      agy: {
         enabled: input.enabled ?? true,
-        executable: input.executable ?? "gemini",
+        executable: input.executable ?? "agy",
         model: input.model ?? "gemini-3-pro-preview",
-        displayName: input.displayName ?? "Gemini CLI",
-        projectEnv: input.projectEnv ?? "GOOGLE_CLOUD_PROJECT",
+        displayName: input.displayName ?? "AGY",
         writeValidated: input.writeValidated ?? false,
         capabilities: {
           structuredOutput: input.structuredOutput ?? true,
@@ -51,44 +49,41 @@ function config(input: {
   } as AgentTeamConfig;
 }
 
-describe("Gemini CLI provider config", () => {
+describe("AGY provider config", () => {
   it("is auto-enabled by default and separate from the API-key Gemini adapter", () => {
     expect(
-      geminiCliProvider(DEFAULT_AGENT_TEAM_CONFIG, { executableAvailable: true })
+      agyProvider(DEFAULT_AGENT_TEAM_CONFIG, { executableAvailable: true })
     ).toMatchObject({
-      id: GEMINI_CLI_PROVIDER_ID,
+      id: AGY_PROVIDER_ID,
       available: true,
       capabilities: [
         "structuredOutput",
         "longContext",
         "reasoning",
-        "tools",
         "sessionResume",
-        "cancellation",
-        "edits",
-        "workspaceIsolation"
+        "cancellation"
       ]
     });
     expect(DEFAULT_AGENT_TEAM_CONFIG.providers.gemini.enabled).toBe(false);
   });
 
   it("builds an OAuth descriptor without API-key env requirements", () => {
-    expect(geminiCliProvider(config())).toEqual(
+    expect(agyProvider(config())).toEqual(
       expect.objectContaining({
-        id: GEMINI_CLI_PROVIDER_ID,
-        displayName: "Gemini CLI",
+        id: AGY_PROVIDER_ID,
+        displayName: "AGY",
         authMode: "oauth",
         model: "gemini-3-pro-preview",
         capabilities: ["structuredOutput", "longContext", "reasoning"],
         available: true
       })
     );
-    expect(geminiCliProvider(config())).not.toHaveProperty("apiKeyEnv");
+    expect(agyProvider(config())).not.toHaveProperty("apiKeyEnv");
   });
 
   it("withholds write capabilities until explicitly write validated", () => {
     expect(
-      geminiCliProvider(
+      agyProvider(
         config({
           tools: true,
           edits: true,
@@ -98,17 +93,17 @@ describe("Gemini CLI provider config", () => {
         })
       )
     ).toMatchObject({
-      id: GEMINI_CLI_PROVIDER_ID,
+      id: AGY_PROVIDER_ID,
       available: false,
       warnings: [
-        "Gemini CLI provider declares write capabilities without writeValidated."
+        "AGY provider declares write capabilities without writeValidated."
       ]
     });
   });
 
   it("advertises autonomous worker capabilities only after write validation", () => {
     expect(
-      geminiCliProvider(
+      agyProvider(
         config({
           writeValidated: true,
           tools: true,
@@ -119,7 +114,7 @@ describe("Gemini CLI provider config", () => {
         })
       )
     ).toMatchObject({
-      id: GEMINI_CLI_PROVIDER_ID,
+      id: AGY_PROVIDER_ID,
       available: true,
       capabilities: [
         "structuredOutput",
@@ -136,14 +131,13 @@ describe("Gemini CLI provider config", () => {
 
   it("marks incomplete config unavailable while preserving doctor visibility", () => {
     expect(
-      geminiCliProvider({
+      agyProvider({
         ...DEFAULT_AGENT_TEAM_CONFIG,
         providers: {
           ...DEFAULT_AGENT_TEAM_CONFIG.providers,
-          geminiCli: {
+          agy: {
             enabled: true,
             executable: "",
-            projectEnv: "GOOGLE_CLOUD_PROJECT",
             writeValidated: false,
             capabilities: {
               structuredOutput: false,
@@ -159,23 +153,22 @@ describe("Gemini CLI provider config", () => {
         }
       })
     ).toMatchObject({
-      id: GEMINI_CLI_PROVIDER_ID,
+      id: AGY_PROVIDER_ID,
       available: false,
       warnings: [
-        "Gemini CLI provider is missing executable.",
-        "Gemini CLI provider declares no supported capabilities."
+        "AGY provider requires an AGY executable.",
+        "AGY provider declares no supported capabilities."
       ]
     });
   });
 
-  it("loads auto-enabled Gemini CLI config without inferring GEMINI_API_KEY fallback", async () => {
+  it("loads auto-enabled AGY config without inferring GEMINI_API_KEY fallback", async () => {
     await expect(loadAgentTeamConfig("/tmp/does-not-exist")).resolves.toMatchObject({
       providers: {
-        geminiCli: {
+        agy: {
           enabled: true,
-          executable: "gemini",
-          projectEnv: "GOOGLE_CLOUD_PROJECT",
-          writeValidated: true
+          executable: "agy",
+          writeValidated: false
         }
       }
     });

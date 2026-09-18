@@ -363,7 +363,7 @@ describe("runDoctor", () => {
       workspaceRoot: workspace,
       env: {},
       findExecutable: async (name) =>
-        name === "claude" || name === "gemini" || name === "codex"
+        name === "claude" || name === "agy" || name === "codex"
           ? `/usr/local/bin/${name}`
           : undefined,
       getVersion: async (path) => `${path} 1.0.0`,
@@ -908,15 +908,14 @@ describe("runDoctor", () => {
     });
   });
 
-  it("reports Gemini CLI OAuth readiness without requiring an API key", async () => {
+  it("reports AGY OAuth readiness without requiring an API key", async () => {
     const workspace = await tempWorkspace();
     await writeConfig(workspace, {
       providers: {
-        geminiCli: {
+        agy: {
           enabled: true,
-          executable: "gemini",
+          executable: "agy",
           model: "gemini-3-pro-preview",
-          projectEnv: "GOOGLE_CLOUD_PROJECT",
           capabilities: { structuredOutput: true, longContext: true, reasoning: true }
         }
       }
@@ -924,9 +923,9 @@ describe("runDoctor", () => {
 
     const report = await runDoctor({
       workspaceRoot: workspace,
-      env: { GOOGLE_CLOUD_PROJECT: "project-id", GEMINI_API_KEY: "ignored-provider-key" },
+      env: {},
       findExecutable: async (name) =>
-        name === "gemini" || name === "claude" || name === "codex" || name === "ollama"
+        name === "agy" || name === "claude" || name === "codex" || name === "ollama"
           ? `/usr/local/bin/${name}`
           : undefined,
       getVersion: async (path) => `${path} 1.0.0`,
@@ -939,22 +938,18 @@ describe("runDoctor", () => {
     });
 
     expect(report.ok).toBe(true);
-    expect(report.checks.find((check) => check.id === "gemini-cli-config")).toMatchObject({
+    expect(report.checks.find((check) => check.id === "agy-config")).toMatchObject({
       status: "pass",
       details: {
-        providerId: "gemini-cli",
+        providerId: "agy",
         hasModel: true,
-        executable: "gemini",
-        projectEnv: "GOOGLE_CLOUD_PROJECT"
+        executable: "agy",
       }
     });
-    expect(report.checks.find((check) => check.id === "gemini-cli-executable")).toMatchObject({
+    expect(report.checks.find((check) => check.id === "agy-executable")).toMatchObject({
       status: "pass"
     });
-    expect(report.checks.find((check) => check.id === "gemini-cli-project-env")).toMatchObject({
-      status: "pass",
-      details: { env: "GOOGLE_CLOUD_PROJECT", present: true }
-    });
+    expect(report.checks.find((check) => check.id === "agy-project-env")).toBeUndefined();
     expect(report.checks.find((check) => check.id === "auth-precedence")).toMatchObject({
       status: "pass"
     });

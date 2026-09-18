@@ -1,15 +1,16 @@
+import { isAgyExecutable } from "./agy.js";
 import type {
   AgentProviderDescriptor,
   AgentTeamConfig,
-  GeminiCliProviderConfig,
+  AgyProviderConfig,
   ProviderCapability
 } from "../../core/types.js";
 import { DEFAULT_AGENT_TEAM_CONFIG } from "../../core/config.js";
 
-export const GEMINI_CLI_PROVIDER_ID = "gemini-cli";
+export const AGY_PROVIDER_ID = "agy";
 
 function providerCapabilities(
-  provider: GeminiCliProviderConfig
+  provider: AgyProviderConfig
 ): readonly ProviderCapability[] {
   const capabilities: ProviderCapability[] = [];
   if (provider.capabilities.structuredOutput) {
@@ -24,10 +25,10 @@ function providerCapabilities(
   if (provider.writeValidated && provider.capabilities.tools) {
     capabilities.push("tools");
   }
-  if ((provider.writeValidated || provider.driver === "agy") && provider.capabilities.sessionResume) {
+  if (provider.capabilities.sessionResume) {
     capabilities.push("sessionResume");
   }
-  if ((provider.writeValidated || provider.driver === "agy") && provider.capabilities.cancellation) {
+  if (provider.capabilities.cancellation) {
     capabilities.push("cancellation");
   }
   if (provider.writeValidated && provider.capabilities.edits) {
@@ -39,37 +40,36 @@ function providerCapabilities(
   return capabilities;
 }
 
-function providerWarnings(provider: GeminiCliProviderConfig): readonly string[] {
+function providerWarnings(provider: AgyProviderConfig): readonly string[] {
   const warnings: string[] = [];
-  if (provider.executable.trim().length === 0) {
-    warnings.push("Gemini CLI provider is missing executable.");
+  if (!isAgyExecutable(provider.executable)) {
+    warnings.push("AGY provider requires an AGY executable.");
   }
   if (
     !provider.writeValidated &&
     (provider.capabilities.tools ||
       provider.capabilities.edits ||
-      (provider.driver !== "agy" && (provider.capabilities.sessionResume || provider.capabilities.cancellation)) ||
       provider.capabilities.workspaceIsolation)
   ) {
-    warnings.push("Gemini CLI provider declares write capabilities without writeValidated.");
+    warnings.push("AGY provider declares write capabilities without writeValidated.");
   }
   if (providerCapabilities(provider).length === 0) {
-    warnings.push("Gemini CLI provider declares no supported capabilities.");
+    warnings.push("AGY provider declares no supported capabilities.");
   }
   return warnings;
 }
 
-export function geminiCliProviderDescriptor(
+export function agyProviderDescriptor(
   config: AgentTeamConfig,
   options: { readonly executableAvailable?: boolean } = {}
 ): AgentProviderDescriptor {
   const provider =
-    config.providers.geminiCli ?? DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli;
+    config.providers.agy ?? DEFAULT_AGENT_TEAM_CONFIG.providers.agy;
   const capabilities = providerCapabilities(provider);
   const warnings = providerWarnings(provider);
   return {
-    id: GEMINI_CLI_PROVIDER_ID,
-    displayName: provider.displayName ?? "Gemini CLI",
+    id: AGY_PROVIDER_ID,
+    displayName: provider.displayName ?? "Gemini via AGY",
     authMode: "oauth",
     capabilities,
     available: (options.executableAvailable ?? true) && warnings.length === 0,
@@ -80,18 +80,18 @@ export function geminiCliProviderDescriptor(
           warnings: [
             ...warnings,
             ...(options.executableAvailable === false
-              ? [`Gemini CLI executable ${provider.executable} was not found on PATH.`]
+              ? [`AGY executable ${provider.executable} was not found on PATH.`]
               : [])
           ]
         })
   };
 }
 
-export function geminiCliProvider(
+export function agyProvider(
   config: AgentTeamConfig,
   options: { readonly executableAvailable?: boolean } = {}
 ): AgentProviderDescriptor | undefined {
   const provider =
-    config.providers.geminiCli ?? DEFAULT_AGENT_TEAM_CONFIG.providers.geminiCli;
-  return provider.enabled ? geminiCliProviderDescriptor(config, options) : undefined;
+    config.providers.agy ?? DEFAULT_AGENT_TEAM_CONFIG.providers.agy;
+  return provider.enabled ? agyProviderDescriptor(config, options) : undefined;
 }

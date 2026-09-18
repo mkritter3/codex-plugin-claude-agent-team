@@ -36,13 +36,13 @@ describe("recommendDelegation", () => {
     expect(recommendation.riskControls).toContain("read_only_required");
   });
 
-  it("treats Gemini CLI as a full UI and frontend worker when configured", () => {
+  it("treats AGY as a full UI and frontend worker when configured", () => {
     const recommendation = recommendDelegation({ workType: "ui-ux" });
 
     expect(recommendation.recommendedRoles).toEqual(
       expect.arrayContaining(["ui-ux-designer", "frontend-engineer"])
     );
-    expect(recommendation.providerPreferences).toContain("gemini-cli");
+    expect(recommendation.providerPreferences).toContain("agy");
     expect(recommendation.riskControls).toContain("isolated_worktree_required");
   });
 

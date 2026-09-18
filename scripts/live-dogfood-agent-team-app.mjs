@@ -50,7 +50,7 @@ const TOOL_FLOW = [
 
 const BASE_PROVIDER_SELECTORS = [
   "claude-code-cli:opus",
-  "gemini-cli",
+  "agy",
   "codex-cli",
   "ollama-claude-code:glm-5.2"
 ];
@@ -66,7 +66,7 @@ const SLICE_PROVIDER_PLAN = [
   {
     sliceId: "slice_ui",
     ownerRole: "frontend-engineer",
-    providerSelector: "gemini-cli",
+    providerSelector: "agy",
     files: ["index.html", "styles.css"]
   },
   {
@@ -282,10 +282,10 @@ async function writeFixtureConfig(root, allowedWorktreeRoot) {
               }
             ]
           },
-          geminiCli: {
+          agy: {
             enabled: true,
-            executable: "gemini",
-            model: readValue("--gemini-model", "gemini-3-flash-preview"),
+            executable: "agy",
+            model: readValue("--gemini-model", "gemini-3.8-flash-high"),
             displayName: "Gemini UI Worker",
             writeValidated: true,
             capabilities: {
@@ -351,10 +351,10 @@ async function writeFixtureConfig(root, allowedWorktreeRoot) {
           rolePins: {
             planner: "claude-code-cli:opus",
             "code-reviewer": "claude-code-cli:opus",
-            "frontend-engineer": "gemini-cli",
+            "frontend-engineer": "agy",
             "slice-implementer": "codex-cli"
           },
-          providerOrder: ["claude-code-cli:opus", "gemini-cli", "codex-cli"]
+          providerOrder: ["claude-code-cli:opus", "agy", "codex-cli"]
         },
         policy: {
           allowedRoles: [

@@ -67,11 +67,11 @@ describe("deriveSteeringMode", () => {
     });
   });
 
-  it("reports follow-up run for Gemini CLI autonomous workers without claiming live steering", () => {
+  it("reports follow-up run for AGY autonomous workers without claiming live steering", () => {
     expect(
       deriveSteeringMode(
         steeringInput({
-          providerId: "gemini-cli",
+          providerId: "agy",
           supportsCancellation: true
         })
       )
