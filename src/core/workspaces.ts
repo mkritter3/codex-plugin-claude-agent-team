@@ -153,7 +153,7 @@ export async function verifyRetainedWorktree(input: {
   } catch {
     throw new WorkspaceLeaseError("Retained worktree no longer exists; start a fresh isolated run.");
   }
-  const expectedSourceCwd = input.expectedSourceCwd === undefined ? undefined : await realpath(input.expectedSourceCwd);
+  const expectedSourceCwd = input.expectedSourceCwd === undefined ? undefined : await realpath(await gitSourceRoot(input.expectedSourceCwd, input.execFile ?? defaultExecFile));
   if (expectedSourceCwd !== undefined && sourceCwd !== expectedSourceCwd) {
     throw new WorkspaceLeaseError("Retained worktree source does not match this request workspace.");
   }

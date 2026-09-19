@@ -104,6 +104,7 @@ it("runs a linked AGY workflow continuation through exact-artifact independent a
     if ((await readRunSidecar(root, parentId)).status === "failed") break;
     await new Promise((resolve) => setTimeout(resolve, 5));
   }
+  await expect(manager.replyRun({ cwd: root, runId: parentId, message: "untracked bypass" })).rejects.toThrow("matching workflowId and sliceId");
   const child = await manager.replyRun({ cwd: root, runId: parentId, message: "continue exact scope", workflowId: "workflow_resume", sliceId: "slice" });
   expect(child).toMatchObject({ runId: "run_child_e2e", providerSessionId: "conversation-e2e" });
   const childCwd = child.executionCwd!;

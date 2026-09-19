@@ -363,8 +363,11 @@ export class AgentLifecycleManager {
       provider,
       ...(worktreeClaim === undefined ? {} : { worktreeClaim })
     });
-    if (worktreeClaim !== undefined && handle.providerProcessId !== undefined) await recordClaimedProviderProcess({ ...worktreeClaim, providerPid: handle.providerProcessId, ...(handle.providerProcessStartIdentity === undefined ? {} : { providerProcessStartIdentity: handle.providerProcessStartIdentity }) });
     this.observeCompletion(request.cwd, runId, handle, provider, worktreeClaim);
+    if (worktreeClaim !== undefined && handle.providerProcessId !== undefined) {
+      try { await recordClaimedProviderProcess({ ...worktreeClaim, providerPid: handle.providerProcessId, ...(handle.providerProcessStartIdentity === undefined ? {} : { providerProcessStartIdentity: handle.providerProcessStartIdentity }) }); }
+      catch (error) { await transitionRunSidecar(request.cwd, runId, (current) => ({ ...current, warnings: [...(current.warnings ?? []), `Provider process ownership metadata could not be recorded: ${error instanceof Error ? error.message : String(error)}`], updatedAt: this.now().toISOString() })); }
+    }
 
     return {
       runId,
@@ -483,6 +486,11 @@ export class AgentLifecycleManager {
     }
 
     const role = getRole(parent.role);
+    if (parent.workflowId !== undefined || parent.sliceId !== undefined || parent.writeScope !== undefined) {
+      if (request.workflowId !== parent.workflowId || request.sliceId !== parent.sliceId) {
+        throw new Error("Workflow-owned write continuation requires its matching workflowId and sliceId; start a fresh approved run if context is unavailable.");
+      }
+    }
     const parentLease = role.defaultReadOnly ? undefined : this.workspaceLeaseFromSidecar(parent);
     if (!role.defaultReadOnly && parentLease === undefined) {
       throw new Error(`Run ${request.runId} has no verified retained worktree metadata; start a fresh isolated run.`);
@@ -695,8 +703,11 @@ export class AgentLifecycleManager {
       provider,
       ...(worktreeClaim === undefined ? {} : { worktreeClaim })
     });
-    if (worktreeClaim !== undefined && handle.providerProcessId !== undefined) await recordClaimedProviderProcess({ ...worktreeClaim, providerPid: handle.providerProcessId, ...(handle.providerProcessStartIdentity === undefined ? {} : { providerProcessStartIdentity: handle.providerProcessStartIdentity }) });
     this.observeCompletion(request.cwd, runId, handle, provider, worktreeClaim);
+    if (worktreeClaim !== undefined && handle.providerProcessId !== undefined) {
+      try { await recordClaimedProviderProcess({ ...worktreeClaim, providerPid: handle.providerProcessId, ...(handle.providerProcessStartIdentity === undefined ? {} : { providerProcessStartIdentity: handle.providerProcessStartIdentity }) }); }
+      catch (error) { await transitionRunSidecar(request.cwd, runId, (current) => ({ ...current, warnings: [...(current.warnings ?? []), `Provider process ownership metadata could not be recorded: ${error instanceof Error ? error.message : String(error)}`], updatedAt: this.now().toISOString() })); }
+    }
 
     return {
       runId,

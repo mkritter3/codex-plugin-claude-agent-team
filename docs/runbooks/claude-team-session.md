@@ -948,3 +948,6 @@ Do not overwrite state by hand. Preserve the archive and re-run the relevant rea
 9. Gracefully finalize with `agent_team_wind_down_many`.
 10. Review sidecars, mailboxes, verdicts, logs, transcripts, diffs, changed files, and recovery records.
 11. Use `agent_team_cleanup` only after retained implementation worktree review.
+
+
+Retained-worktree ownership is conservative: when provider ownership identity is unknown or ambiguous, recovery stays blocked for an operator to verify the process stopped. There is no TTL expiry, lease stealing, or force bypass.

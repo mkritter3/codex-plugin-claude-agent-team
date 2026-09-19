@@ -227,6 +227,11 @@ describe("AGY runtime", () => {
       .resolves.toMatchObject({ ok: false, failureEvidence: { reason: "process_failed" } });
   });
 
+  it("fails closed when denied_actions is not an array", async () => {
+    const runtime = createAgyRuntime({ runCommand: async () => ({ ok: true, stdout: JSON.stringify({ status: "SUCCESS", response: "unsafe success", denied_actions: {} }), stderr: "", exitCode: 0 }) });
+    await expect(runtime.runPrint({ prompt: "Review", cwd: "/tmp/project", config: config() })).resolves.toMatchObject({ ok: false, failureEvidence: { reason: "denied_actions" } });
+  });
+
   it("fails closed when a single AGY output line exceeds the bounded buffer", async () => {
     const runtime = createAgyRuntime({
       maxOutputBytes: 32,

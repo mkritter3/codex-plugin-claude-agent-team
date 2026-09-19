@@ -61,6 +61,9 @@ export function decodeAgyResult(stdout: string): AgyDecodedResult | undefined {
   if (Array.isArray(value.denied_actions) && value.denied_actions.length > 0) {
     return { ...(conversationId === undefined ? {} : { conversationId }), failureEvidence: { reason: "denied_actions", deniedActions } };
   }
+  if (value.denied_actions !== undefined && !Array.isArray(value.denied_actions)) {
+    return { ...(conversationId === undefined ? {} : { conversationId }), failureEvidence: { reason: "denied_actions", details: ["AGY returned malformed denied_actions evidence."] } };
+  }
   if (value.status !== "SUCCESS" || typeof value.response !== "string") {
     return {
       ...(conversationId === undefined ? {} : { conversationId }),
