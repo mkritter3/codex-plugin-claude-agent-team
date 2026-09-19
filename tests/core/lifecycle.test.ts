@@ -1,4 +1,5 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -36,12 +37,14 @@ function fakeHandle(
   options: {
     readonly supportsStdin?: boolean;
     readonly writeSucceeds?: boolean;
+    readonly providerProcessId?: number;
   } = {}
 ): ProviderSessionHandle & {
   killed: boolean;
   forceKilled: boolean;
   stdin: string[];
   snapshotValue: ProviderSessionSnapshot;
+  providerProcessId?: number;
 } {
   const snapshotValue: ProviderSessionSnapshot = {
     providerSessionId: "session_123",
@@ -66,11 +69,20 @@ function fakeHandle(
     transcriptPath: "/tmp/transcript.jsonl",
     logPath: "/tmp/run.log"
   };
-  const handle = {
+  const handle: ProviderSessionHandle & {
+    killed: boolean;
+    forceKilled: boolean;
+    stdin: string[];
+    snapshotValue: ProviderSessionSnapshot;
+    providerProcessId?: number;
+  } = {
     killed: false,
     forceKilled: false,
     stdin: [] as string[],
     supportsStdin: options.supportsStdin ?? true,
+    ...(options.providerProcessId === undefined
+      ? {}
+      : { providerProcessId: options.providerProcessId }),
     snapshotValue,
     done,
     get providerSessionId() {
@@ -118,14 +130,22 @@ async function waitForSidecar(
   runId: string,
   predicate: (sidecar: RunSidecar) => boolean
 ): Promise<RunSidecar> {
+  return waitForSidecarAt(workspace, runId, predicate);
+}
+
+async function waitForSidecarAt(
+  workspaceRoot: string,
+  runId: string,
+  predicate: (sidecar: RunSidecar) => boolean
+): Promise<RunSidecar> {
   for (let attempt = 0; attempt < 20; attempt += 1) {
-    const sidecar = await readRunSidecar(workspace, runId);
+    const sidecar = await readRunSidecar(workspaceRoot, runId);
     if (predicate(sidecar)) {
       return sidecar;
     }
     await new Promise<void>((resolve) => setTimeout(resolve, 5));
   }
-  return readRunSidecar(workspace, runId);
+  return readRunSidecar(workspaceRoot, runId);
 }
 
 async function waitForMailboxRecord(
@@ -141,6 +161,20 @@ async function waitForMailboxRecord(
     await new Promise<void>((resolve) => setTimeout(resolve, 5));
   }
   return undefined;
+}
+
+async function waitForUnclaimed(sourceCwd: string, executionCwd: string): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    try {
+      await assertWorktreeUnclaimed(sourceCwd, executionCwd);
+      return;
+    } catch (error) {
+      lastError = error;
+      await new Promise<void>((resolve) => setTimeout(resolve, 5));
+    }
+  }
+  throw lastError;
 }
 
 let workspace: string;
@@ -648,7 +682,7 @@ describe("AgentLifecycleManager", () => {
         await new Promise<void>((resolve) => setTimeout(resolve, 5));
       }
     }
-    await expect(assertWorktreeUnclaimed(workspace, executionCwd)).resolves.toBeUndefined();
+    await expect(waitForUnclaimed(workspace, executionCwd)).resolves.toBeUndefined();
   });
 
   it("preserves terminal failure evidence when provider fails during cancellation", async () => {
@@ -2414,5 +2448,157 @@ describe("AgentLifecycleManager", () => {
       workspaceCleanup: "retained",
       warnings: [expect.stringContaining("git worktree remove failed")]
     });
+  });
+
+  it("keeps an initial write run observed and claimed when provider PID recording fails", async () => {
+    const done = deferred<ProviderSessionDoneStatus>();
+    const executionCwd = `${workspace}-pid-record-start`;
+    const handle = fakeHandle(done.promise, { providerProcessId: 42_001 });
+    const manager = new AgentLifecycleManager({
+      providers: [{ ...CLAUDE_CODE_CLI_PROVIDER, model: "claude-test-model" }],
+      config: {
+        ...DEFAULT_AGENT_TEAM_CONFIG,
+        writeMode: { enabled: true, requireIsolatedWorktree: true },
+        policy: { ...DEFAULT_AGENT_TEAM_CONFIG.policy, allowWriteMode: true }
+      },
+      createRunId: () => "run_pid_record_start",
+      allocateWorkspace: async () => ({
+        sourceCwd: workspace,
+        executionCwd,
+        branchName: "agent-team/run_pid_record_start",
+        baseRef: "HEAD",
+        isolation: "git-worktree",
+        retention: "retain-until-integrated",
+        cleanup: "retained"
+      }),
+      inspectWorkspace: async () => ({ changedFiles: [], statusSummary: [] }),
+      startSession: () => handle,
+      recordClaimedProviderProcess: async () => {
+        throw new Error("ownership metadata offline");
+      }
+    });
+
+    await expect(manager.startRun({
+      role: "slice-implementer",
+      task: "Implement the bounded repair.",
+      cwd: workspace
+    })).resolves.toMatchObject({ runId: "run_pid_record_start", status: "running" });
+    await expect(assertWorktreeUnclaimed(workspace, executionCwd)).rejects.toThrow("claimed by active run");
+    await expect(readRunSidecar(workspace, "run_pid_record_start")).resolves.toMatchObject({
+      warnings: [expect.stringContaining("ownership metadata offline")]
+    });
+
+    done.resolve("completed");
+    await expect(waitForSidecar("run_pid_record_start", (sidecar) => sidecar.status === "completed"))
+      .resolves.toMatchObject({ status: "completed" });
+    await expect(assertWorktreeUnclaimed(workspace, executionCwd)).resolves.toBeUndefined();
+  });
+
+  it("keeps a resumed write run observed and claimed when provider PID recording fails", async () => {
+    await writeFile(join(workspace, "README.md"), "fixture\n");
+    execFileSync("git", ["init", "-q", workspace]);
+    execFileSync("git", ["-C", workspace, "config", "user.email", "tests@example.invalid"]);
+    execFileSync("git", ["-C", workspace, "config", "user.name", "Lifecycle Tests"]);
+    execFileSync("git", ["-C", workspace, "add", "README.md"]);
+    execFileSync("git", ["-C", workspace, "commit", "-qm", "fixture"]);
+    const parentDone = deferred<ProviderSessionDoneStatus>();
+    const childDone = deferred<ProviderSessionDoneStatus>();
+    const parentHandle = fakeHandle(parentDone.promise);
+    const childHandle = fakeHandle(childDone.promise, { providerProcessId: 42_002 });
+    let starts = 0;
+    let ids = 0;
+    const manager = new AgentLifecycleManager({
+      providers: [{ ...CLAUDE_CODE_CLI_PROVIDER, model: "claude-test-model" }],
+      config: {
+        ...DEFAULT_AGENT_TEAM_CONFIG,
+        writeMode: { enabled: true, requireIsolatedWorktree: true },
+        policy: { ...DEFAULT_AGENT_TEAM_CONFIG.policy, allowWriteMode: true }
+      },
+      createRunId: () => (ids++ === 0 ? "run_pid_parent" : "run_pid_child"),
+      startSession: () => (starts++ === 0 ? parentHandle : childHandle),
+      recordClaimedProviderProcess: async () => {
+        throw new Error("ownership metadata offline");
+      },
+      recordProviderProcessWarning: async () => {
+        throw new Error("sidecar warning write unavailable");
+      }
+    });
+
+    await manager.startRun({
+      role: "slice-implementer",
+      task: "Implement the bounded repair.",
+      cwd: workspace,
+      provider: "claude-code-cli"
+    });
+    parentDone.resolve("failed");
+    const parent = await waitForSidecar("run_pid_parent", (sidecar) => sidecar.status === "failed");
+
+    await expect(manager.replyRun({
+      runId: "run_pid_parent",
+      cwd: workspace,
+      message: "Repair the reported failure."
+    })).resolves.toMatchObject({ runId: "run_pid_child", status: "running" });
+    const child = await readRunSidecar(workspace, "run_pid_child");
+    await expect(assertWorktreeUnclaimed(parent.sourceCwd!, child.executionCwd!)).rejects.toThrow("claimed by active run");
+    expect(child.warnings).not.toEqual(expect.arrayContaining([
+      expect.stringContaining("ownership metadata offline")
+    ]));
+
+    childDone.resolve("completed");
+    await expect(waitForSidecar("run_pid_child", (sidecar) => sidecar.status === "completed"))
+      .resolves.toMatchObject({ status: "completed" });
+    await expect(waitForUnclaimed(parent.sourceCwd!, child.executionCwd!)).resolves.toBeUndefined();
+  });
+
+  it("resumes a retained write run from a nested source directory using its canonical Git root", async () => {
+    const nested = join(workspace, "packages", "feature");
+    await mkdir(nested, { recursive: true });
+    await writeFile(join(workspace, "README.md"), "fixture\n");
+    execFileSync("git", ["init", "-q", workspace]);
+    execFileSync("git", ["-C", workspace, "config", "user.email", "tests@example.invalid"]);
+    execFileSync("git", ["-C", workspace, "config", "user.name", "Lifecycle Tests"]);
+    execFileSync("git", ["-C", workspace, "add", "README.md"]);
+    execFileSync("git", ["-C", workspace, "commit", "-qm", "fixture"]);
+    const parentDone = deferred<ProviderSessionDoneStatus>();
+    const childDone = deferred<ProviderSessionDoneStatus>();
+    const parentHandle = fakeHandle(parentDone.promise);
+    const childHandle = fakeHandle(childDone.promise);
+    let starts = 0;
+    let ids = 0;
+    const manager = new AgentLifecycleManager({
+      providers: [{ ...CLAUDE_CODE_CLI_PROVIDER, model: "claude-test-model" }],
+      config: {
+        ...DEFAULT_AGENT_TEAM_CONFIG,
+        writeMode: { enabled: true, requireIsolatedWorktree: true },
+        policy: { ...DEFAULT_AGENT_TEAM_CONFIG.policy, allowWriteMode: true }
+      },
+      createRunId: () => (ids++ === 0 ? "run_nested_parent" : "run_nested_child"),
+      startSession: () => (starts++ === 0 ? parentHandle : childHandle)
+    });
+
+    const started = await manager.startRun({
+      role: "slice-implementer",
+      task: "Implement the bounded repair.",
+      cwd: nested,
+      provider: "claude-code-cli"
+    });
+    parentDone.resolve("failed");
+    const parent = await waitForSidecarAt(nested, "run_nested_parent", (sidecar) => sidecar.status === "failed");
+    const resumed = await manager.replyRun({
+      runId: "run_nested_parent",
+      cwd: nested,
+      message: "Repair the reported failure."
+    });
+
+    expect(started.executionCwd).toBeDefined();
+    expect(resumed.executionCwd).toBe(started.executionCwd);
+    await expect(readRunSidecar(nested, "run_nested_child")).resolves.toMatchObject({
+      sourceCwd: await realpath(workspace),
+      executionCwd: started.executionCwd,
+      parentRunId: parent.runId
+    });
+    childDone.resolve("completed");
+    await expect(waitForSidecarAt(nested, "run_nested_child", (sidecar) => sidecar.status === "completed"))
+      .resolves.toMatchObject({ status: "completed" });
   });
 });

@@ -94,6 +94,11 @@ type CleanupWorkspace = typeof cleanupIsolatedWorktree;
 type InspectWorkspace = typeof inspectImplementationWorkspace;
 type PlanWorkspace = typeof planIsolatedWorktree;
 type AppendAudit = typeof appendAuditRecord;
+type RecordProviderProcessWarning = (
+  workspaceRoot: string,
+  runId: string,
+  warning: string
+) => Promise<void>;
 
 export interface AgentLifecycleDependencies {
   readonly providers?: readonly AgentProviderDescriptor[];
@@ -111,6 +116,8 @@ export interface AgentLifecycleDependencies {
   readonly cancelGraceMs?: number;
   readonly windDownGraceMs?: number;
   readonly sleep?: (ms: number) => Promise<void>;
+  readonly recordClaimedProviderProcess?: typeof recordClaimedProviderProcess;
+  readonly recordProviderProcessWarning?: RecordProviderProcessWarning;
 }
 
 interface ActiveRun {
@@ -160,6 +167,8 @@ export class AgentLifecycleManager {
   private readonly cancelGraceMs: number;
   private readonly windDownGraceMs: number;
   private readonly sleep: (ms: number) => Promise<void>;
+  private readonly recordClaimedProviderProcess: typeof recordClaimedProviderProcess;
+  private readonly recordProviderProcessWarning: RecordProviderProcessWarning;
 
   constructor(deps: AgentLifecycleDependencies = {}) {
     this.providers = deps.providers;
@@ -183,6 +192,14 @@ export class AgentLifecycleManager {
     this.cancelGraceMs = deps.cancelGraceMs ?? 250;
     this.windDownGraceMs = deps.windDownGraceMs ?? 250;
     this.sleep = deps.sleep ?? delay;
+    this.recordClaimedProviderProcess = deps.recordClaimedProviderProcess ?? recordClaimedProviderProcess;
+    this.recordProviderProcessWarning = deps.recordProviderProcessWarning ?? (async (workspaceRoot, runId, warning) => {
+      await transitionRunSidecar(workspaceRoot, runId, (current) => ({
+        ...current,
+        warnings: [...(current.warnings ?? []), warning],
+        updatedAt: this.now().toISOString()
+      }));
+    });
   }
 
   async startRun(request: AgentDispatchRequest): Promise<AgentStartResult> {
@@ -365,8 +382,11 @@ export class AgentLifecycleManager {
     });
     this.observeCompletion(request.cwd, runId, handle, provider, worktreeClaim);
     if (worktreeClaim !== undefined && handle.providerProcessId !== undefined) {
-      try { await recordClaimedProviderProcess({ ...worktreeClaim, providerPid: handle.providerProcessId, ...(handle.providerProcessStartIdentity === undefined ? {} : { providerProcessStartIdentity: handle.providerProcessStartIdentity }) }); }
-      catch (error) { await transitionRunSidecar(request.cwd, runId, (current) => ({ ...current, warnings: [...(current.warnings ?? []), `Provider process ownership metadata could not be recorded: ${error instanceof Error ? error.message : String(error)}`], updatedAt: this.now().toISOString() })); }
+      try { await this.recordClaimedProviderProcess({ ...worktreeClaim, providerPid: handle.providerProcessId, ...(handle.providerProcessStartIdentity === undefined ? {} : { providerProcessStartIdentity: handle.providerProcessStartIdentity }) }); }
+      catch (error) {
+        const warning = `Provider process ownership metadata could not be recorded: ${error instanceof Error ? error.message : String(error)}`;
+        try { await this.recordProviderProcessWarning(request.cwd, runId, warning); } catch { /* The observer already owns finalization. */ }
+      }
     }
 
     return {
@@ -705,8 +725,11 @@ export class AgentLifecycleManager {
     });
     this.observeCompletion(request.cwd, runId, handle, provider, worktreeClaim);
     if (worktreeClaim !== undefined && handle.providerProcessId !== undefined) {
-      try { await recordClaimedProviderProcess({ ...worktreeClaim, providerPid: handle.providerProcessId, ...(handle.providerProcessStartIdentity === undefined ? {} : { providerProcessStartIdentity: handle.providerProcessStartIdentity }) }); }
-      catch (error) { await transitionRunSidecar(request.cwd, runId, (current) => ({ ...current, warnings: [...(current.warnings ?? []), `Provider process ownership metadata could not be recorded: ${error instanceof Error ? error.message : String(error)}`], updatedAt: this.now().toISOString() })); }
+      try { await this.recordClaimedProviderProcess({ ...worktreeClaim, providerPid: handle.providerProcessId, ...(handle.providerProcessStartIdentity === undefined ? {} : { providerProcessStartIdentity: handle.providerProcessStartIdentity }) }); }
+      catch (error) {
+        const warning = `Provider process ownership metadata could not be recorded: ${error instanceof Error ? error.message : String(error)}`;
+        try { await this.recordProviderProcessWarning(request.cwd, runId, warning); } catch { /* The observer already owns finalization. */ }
+      }
     }
 
     return {
