@@ -92,6 +92,7 @@ export function buildRunSidecar(input: BuildRunSidecarInput): RunSidecar {
     runId: input.runId,
     role: input.role,
     provider: input.provider.id,
+    ...(input.provider.model === undefined ? {} : { model: input.provider.model }),
     status: input.status,
     createdAt: input.createdAt,
     updatedAt: input.updatedAt,

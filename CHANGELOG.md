@@ -4,6 +4,8 @@ All notable changes to this local plugin are recorded here.
 
 ## Unreleased
 
+- Persist the selected provider model when creating run records, so dispatch, background, and resumed runs retain the model required by approval verification. Exact provider/model and completed-run checks remain unchanged.
+
 - Require a workspace compatibility preflight before delegation: persist known config/routing migrations, update eligible draft workflow targets through MCP, preserve permissions and decision evidence, and detect stale running servers after plugin updates.
 
 - Made dispatch, lifecycle, routing, and runtime test fixtures independent of locally installed provider CLIs.
