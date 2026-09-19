@@ -64,3 +64,59 @@ describe("workflow reply continuation", () => {
     })).rejects.toThrow("lacks preserved scope");
   });
 });
+
+import { execFileSync } from "node:child_process";
+import { writeFile } from "node:fs/promises";
+import { AgentLifecycleManager } from "../../src/core/lifecycle.js";
+import { startWorkflowSlices } from "../../src/core/workflow-slices.js";
+import { reviewWorkflowSlice } from "../../src/core/workflow-review.js";
+import { readRunSidecar } from "../../src/core/state/run-store.js";
+import { DEFAULT_AGENT_TEAM_CONFIG } from "../../src/core/config.js";
+import type { AgentProviderDescriptor } from "../../src/core/types.js";
+import type { ProviderSessionDoneStatus, ProviderSessionHandle, ProviderSessionSnapshot } from "../../src/providers/types.js";
+
+function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>((inner) => { resolve = inner; }); return { promise, resolve }; }
+function handle(done: Promise<ProviderSessionDoneStatus>, sessionId: string): ProviderSessionHandle {
+  const snapshot: ProviderSessionSnapshot = { providerSessionId: sessionId, text: "<<<VERDICT>>>\nstatus: SHIP\nsummary: done\nrequired_changes:\n- none\nevidence:\n- test\nrisks:\n- none\n<<<END_VERDICT>>>", warnings: [], recentActivities: [], currentActivity: null, pendingOutboxRequests: [], lastStderr: [], transcriptPath: undefined, logPath: undefined };
+  return { providerSessionId: sessionId, done, recentActivities: [], currentActivity: null, lastStderr: [], transcriptPath: undefined, logPath: undefined, supportsStdin: false, kill() {}, forceKill() {}, snapshot: () => snapshot };
+}
+
+it("runs a linked AGY workflow continuation through exact-artifact independent approval", async () => {
+  const root = await mkdtemp(join(tmpdir(), "agent-team-e2e-workflow-"));
+  roots.push(root);
+  await writeFile(join(root, "tracked.txt"), "base\n");
+  execFileSync("git", ["init", "-q", root]);
+  execFileSync("git", ["-C", root, "config", "user.email", "test@example.invalid"]);
+  execFileSync("git", ["-C", root, "config", "user.name", "Test"]);
+  execFileSync("git", ["-C", root, "add", "."]); execFileSync("git", ["-C", root, "commit", "-qm", "base"]);
+  const initialWorkflow = record(root);
+  const workflow = { ...initialWorkflow, slices: initialWorkflow.slices.map((item) => { const { runIds: _runIds, ...rest } = item; return { ...rest, state: "ready" as const }; }) };
+  await writeWorkflowRecord(root, workflow);
+  const provider: AgentProviderDescriptor = { id: "agy", displayName: "AGY", authMode: "oauth", model: "gemini-3.8-flash-high", capabilities: ["structuredOutput", "sessionResume", "cancellation", "tools", "edits", "workspaceIsolation"], available: true };
+  const parentDone = deferred<ProviderSessionDoneStatus>(); const childDone = deferred<ProviderSessionDoneStatus>();
+  const started: ProviderSessionHandle[] = [handle(parentDone.promise, "conversation-e2e"), handle(childDone.promise, "conversation-e2e")];
+  const manager = new AgentLifecycleManager({ providers: [provider], config: { ...DEFAULT_AGENT_TEAM_CONFIG, writeMode: { enabled: true, requireIsolatedWorktree: true }, policy: { ...DEFAULT_AGENT_TEAM_CONFIG.policy, allowWriteMode: true } }, createRunId: (() => { const ids = ["run_parent_e2e", "run_child_e2e"]; return () => ids.shift()!; })(), startSession: () => started.shift()! });
+  const startedSlices = await startWorkflowSlices({ workspaceRoot: root, workflowId: "workflow_resume", concurrency: 1 }, { startRun: (request) => manager.startRun(request) });
+  const parentId = startedSlices.slices[0]!.status === "started" ? startedSlices.slices[0]!.run.runId : "";
+  expect(parentId).toBe("run_parent_e2e");
+  parentDone.resolve("failed");
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if ((await readRunSidecar(root, parentId)).status === "failed") break;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  const child = await manager.replyRun({ cwd: root, runId: parentId, message: "continue exact scope", workflowId: "workflow_resume", sliceId: "slice" });
+  expect(child).toMatchObject({ runId: "run_child_e2e", providerSessionId: "conversation-e2e" });
+  const childCwd = child.executionCwd!;
+  await writeFile(join(childCwd, "tracked.txt"), "child change\n");
+  childDone.resolve("completed");
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if ((await readRunSidecar(root, child.runId)).status === "completed") break;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  const childSidecar = await readRunSidecar(root, child.runId);
+  expect(childSidecar).toMatchObject({ status: "completed", workflowId: "workflow_resume", sliceId: "slice", writeScope: ["src"] });
+  const artifact = `sha256:${childSidecar.artifactFingerprint!}`;
+  await (await import("../../src/core/state/run-store.js")).writeRunSidecar(root, { runId: "run_review_independent", role: "code-reviewer", provider: "agy", model: "gemini-3.8-flash-high", status: "completed", createdAt: "2026-09-18T00:00:00.000Z", updatedAt: "2026-09-18T00:00:00.000Z", capabilitiesUsed: [], evidencePaths: [] });
+  const approved = await reviewWorkflowSlice({ workspaceRoot: root, workflowId: "workflow_resume", sliceId: "slice", implementationEvidence: { artifact, summary: "completed child", changedFiles: ["tracked.txt"], testsRun: ["test"], evidencePaths: [child.sidecarPath], sourceRunId: child.runId, worktreePath: childCwd }, authority: { artifact, votes: [{ memberId: "r", status: "approve", artifact, summary: "independent", execution: { kind: "provider-run", id: "run_review_independent", target: { kind: "provider", provider: "agy", model: "gemini-3.8-flash-high" } } }] }, codexDecision: { status: "approve", category: "technical", summary: "approved" }, verdicts: [{ reviewerRole: "code-reviewer", status: "approve", summary: "approved" }] });
+  expect(approved.workflow.slices).toEqual(expect.arrayContaining([expect.objectContaining({ state: "approved" })]));
+});
