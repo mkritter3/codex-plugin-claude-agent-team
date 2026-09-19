@@ -2491,7 +2491,7 @@ describe("AgentLifecycleManager", () => {
     done.resolve("completed");
     await expect(waitForSidecar("run_pid_record_start", (sidecar) => sidecar.status === "completed"))
       .resolves.toMatchObject({ status: "completed" });
-    await expect(assertWorktreeUnclaimed(workspace, executionCwd)).resolves.toBeUndefined();
+    await expect(waitForUnclaimed(workspace, executionCwd)).resolves.toBeUndefined();
   });
 
   it("keeps a resumed write run observed and claimed when provider PID recording fails", async () => {

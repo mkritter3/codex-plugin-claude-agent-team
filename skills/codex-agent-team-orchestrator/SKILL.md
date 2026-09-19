@@ -50,6 +50,7 @@ Run `agent_team_list_providers` and `agent_team_doctor` with the same explicit w
 2. Create a durable workflow with `agent_team_create_workflow`, then select planning/review decision makers and an implementation default with `agent_team_configure_orchestration`. Read [native and cross-provider orchestration](references/orchestration.md) for exact schemas and execution boundaries.
 3. Call `agent_team_prepare_assignments` for planning. Reuse a runtime-confirmed matching active model/effort; otherwise use host-native agents or the exact provider. Record their artifact-bound votes with `agent_team_plan_consensus`.
 4. Prepare implementation assignments. Use native host tools for native routes and `agent_team_start_slices` for provider routes, with bounded concurrency. Record native results through `agent_team_record_native_implementation`.
+   Initial `agent_team_start_slices` launches are not transactionally coupled to workflow writes: coordinate initial starts with other workflow mutations, and if state changes during launch, reconcile the returned run IDs before retrying.
 5. Monitor progress with `agent_team_status_many`, `agent_team_summary`, `agent_team_get_workflow`, or `agent_team_dashboard`.
 6. Steer in-flight agents with `agent_team_message_many` when their transport supports mailbox steering.
 7. Unblock dependency-gated slices with `agent_team_unblock_slice` and concrete dependency evidence.
