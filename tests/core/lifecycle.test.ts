@@ -165,13 +165,13 @@ async function waitForMailboxRecord(
 
 async function waitForUnclaimed(sourceCwd: string, executionCwd: string): Promise<void> {
   let lastError: unknown;
-  for (let attempt = 0; attempt < 20; attempt += 1) {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
     try {
       await assertWorktreeUnclaimed(sourceCwd, executionCwd);
       return;
     } catch (error) {
       lastError = error;
-      await new Promise<void>((resolve) => setTimeout(resolve, 5));
+      await new Promise<void>((resolve) => setTimeout(resolve, 20));
     }
   }
   throw lastError;
@@ -2532,6 +2532,7 @@ describe("AgentLifecycleManager", () => {
     });
     parentDone.resolve("failed");
     const parent = await waitForSidecar("run_pid_parent", (sidecar) => sidecar.status === "failed");
+    await waitForUnclaimed(parent.sourceCwd!, parent.executionCwd!);
 
     await expect(manager.replyRun({
       runId: "run_pid_parent",
@@ -2584,6 +2585,7 @@ describe("AgentLifecycleManager", () => {
     });
     parentDone.resolve("failed");
     const parent = await waitForSidecarAt(nested, "run_nested_parent", (sidecar) => sidecar.status === "failed");
+    await waitForUnclaimed(parent.sourceCwd!, parent.executionCwd!);
     const resumed = await manager.replyRun({
       runId: "run_nested_parent",
       cwd: nested,

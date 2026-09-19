@@ -71,11 +71,26 @@ import { AgentLifecycleManager } from "../../src/core/lifecycle.js";
 import { startWorkflowSlices } from "../../src/core/workflow-slices.js";
 import { reviewWorkflowSlice } from "../../src/core/workflow-review.js";
 import { readRunSidecar } from "../../src/core/state/run-store.js";
+import { assertWorktreeUnclaimed } from "../../src/core/worktree-ownership.js";
 import { DEFAULT_AGENT_TEAM_CONFIG } from "../../src/core/config.js";
 import type { AgentProviderDescriptor } from "../../src/core/types.js";
 import type { ProviderSessionDoneStatus, ProviderSessionHandle, ProviderSessionSnapshot } from "../../src/providers/types.js";
 
 function deferred<T>() { let resolve!: (value: T) => void; const promise = new Promise<T>((inner) => { resolve = inner; }); return { promise, resolve }; }
+async function waitForWorktreeRelease(root: string, runId: string): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const sidecar = await readRunSidecar(root, runId);
+    try {
+      await assertWorktreeUnclaimed(sidecar.sourceCwd!, sidecar.executionCwd!);
+      return;
+    } catch (error) {
+      lastError = error;
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+  }
+  throw lastError;
+}
 function handle(done: Promise<ProviderSessionDoneStatus>, sessionId: string): ProviderSessionHandle {
   const snapshot: ProviderSessionSnapshot = { providerSessionId: sessionId, text: "<<<VERDICT>>>\nstatus: SHIP\nsummary: done\nrequired_changes:\n- none\nevidence:\n- test\nrisks:\n- none\n<<<END_VERDICT>>>", warnings: [], recentActivities: [], currentActivity: null, pendingOutboxRequests: [], lastStderr: [], transcriptPath: undefined, logPath: undefined };
   return { providerSessionId: sessionId, done, recentActivities: [], currentActivity: null, lastStderr: [], transcriptPath: undefined, logPath: undefined, supportsStdin: false, kill() {}, forceKill() {}, snapshot: () => snapshot };
@@ -105,6 +120,7 @@ it("runs a linked AGY workflow continuation through exact-artifact independent a
     await new Promise((resolve) => setTimeout(resolve, 5));
   }
   await expect(manager.replyRun({ cwd: root, runId: parentId, message: "untracked bypass" })).rejects.toThrow("matching workflowId and sliceId");
+  await waitForWorktreeRelease(root, parentId);
   const child = await manager.replyRun({ cwd: root, runId: parentId, message: "continue exact scope", workflowId: "workflow_resume", sliceId: "slice" });
   expect(child).toMatchObject({ runId: "run_child_e2e", providerSessionId: "conversation-e2e" });
   const childCwd = child.executionCwd!;
@@ -114,6 +130,7 @@ it("runs a linked AGY workflow continuation through exact-artifact independent a
     if ((await readRunSidecar(root, child.runId)).status === "completed") break;
     await new Promise((resolve) => setTimeout(resolve, 5));
   }
+  await waitForWorktreeRelease(root, child.runId);
   const childSidecar = await readRunSidecar(root, child.runId);
   expect(childSidecar).toMatchObject({ status: "completed", workflowId: "workflow_resume", sliceId: "slice", writeScope: ["src"] });
   const artifact = `sha256:${childSidecar.artifactFingerprint!}`;
