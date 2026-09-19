@@ -1,5 +1,6 @@
 import { verifyProviderVotes } from "./orchestration/provider-evidence.js";
-import { readdir } from "node:fs/promises";
+import { readdir, realpath } from "node:fs/promises";
+import { resolve } from "node:path";
 import { listRoles } from "./roles.js";
 import { authorityEvidenceSchema, type AuthorityEvidence } from "./orchestration/contract.js";
 import { evaluateAuthority } from "./orchestration/authority.js";
@@ -430,6 +431,10 @@ async function assertNoLaterWorktreeDescendant(
     return cursor.runId;
   };
   const sourceRoot = rootId(source);
+  const canonicalPath = async (path: string): Promise<string> => {
+    try { return await realpath(path); } catch { return resolve(path); }
+  };
+  const sourceExecution = await canonicalPath(source.executionCwd);
   const isAncestorOfSource = (candidate: RunSidecar): boolean => {
     let cursor = source;
     const seen = new Set<string>();
@@ -443,7 +448,7 @@ async function assertNoLaterWorktreeDescendant(
     return false;
   };
   for (const candidate of runs) {
-    if (candidate.runId === source.runId || candidate.executionCwd !== source.executionCwd) continue;
+    if (candidate.runId === source.runId || candidate.executionCwd === undefined || await canonicalPath(candidate.executionCwd) !== sourceExecution) continue;
     let cursor = candidate;
     const seen = new Set<string>();
     while (cursor.parentRunId !== undefined && !seen.has(cursor.parentRunId)) {
