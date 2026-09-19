@@ -38,7 +38,10 @@ export async function startAgentTeamInParallel(
           task: run.task,
           cwd: run.cwd,
           ...(run.provider === undefined ? {} : { provider: run.provider }),
-          ...(run.timeoutMs === undefined ? {} : { timeoutMs: run.timeoutMs })
+          ...(run.timeoutMs === undefined ? {} : { timeoutMs: run.timeoutMs }),
+          ...(run.workflowId === undefined ? {} : { workflowId: run.workflowId }),
+          ...(run.sliceId === undefined ? {} : { sliceId: run.sliceId }),
+          ...(run.writeScope === undefined ? {} : { writeScope: run.writeScope })
         });
         const success: AgentParallelStartSuccess = {
           status: "started",

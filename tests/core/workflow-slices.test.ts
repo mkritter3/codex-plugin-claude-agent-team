@@ -20,6 +20,19 @@ import type { WorkflowRecord, WorkflowSlice } from "../../src/core/workflow-type
 
 let workspace: string;
 
+async function overwriteWorkflow(record: WorkflowRecord): Promise<void> {
+  try {
+    const current = await readWorkflowRecord(workspace, record.workflowId);
+    await writeWorkflowRecord(workspace, { ...record, ...(current.revision === undefined ? {} : { revision: current.revision }) });
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      await writeWorkflowRecord(workspace, record);
+      return;
+    }
+    throw error;
+  }
+}
+
 beforeEach(async () => {
   workspace = await mkdtemp(join(tmpdir(), "agent-team-workflow-slices-"));
 });
@@ -95,7 +108,7 @@ function workflowRecord(
 }
 
 async function seed(record: WorkflowRecord = workflowRecord()): Promise<void> {
-  await writeWorkflowRecord(workspace, record);
+  await overwriteWorkflow(record);
 }
 
 function startResult(runId: string, role: AgentStartResult["role"]): AgentStartResult {
@@ -153,7 +166,7 @@ describe("workflow slice orchestration", () => {
     ).rejects.toThrow("Workflow workflow_slices must be approved before starting slices");
     expect(called).toBe(false);
 
-    await writeWorkflowRecord(workspace, workflowRecord());
+    await overwriteWorkflow( workflowRecord());
     await expect(
       startWorkflowSlices(
         {

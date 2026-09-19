@@ -72,7 +72,9 @@ const replyInputSchema = {
   messageType,
   correlationId,
   provider,
-  timeoutMs
+  timeoutMs,
+  workflowId: z.string().regex(/^workflow_[A-Za-z0-9_-]+$/).optional(),
+  sliceId: z.string().min(1).optional()
 };
 
 const messageInputSchema = {

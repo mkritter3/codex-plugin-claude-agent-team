@@ -3960,7 +3960,7 @@ describe("MCP tool handlers", () => {
       runId: "run_corrupt_reply",
       role: "planner",
       provider: "claude-code-cli",
-      status: "awaiting-input",
+      status: "completed",
       createdAt: "2026-05-11T00:00:00.000Z",
       updatedAt: "2026-05-11T00:01:00.000Z",
       capabilitiesUsed: ["structuredOutput", "sessionResume"],

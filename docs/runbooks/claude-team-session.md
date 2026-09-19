@@ -498,7 +498,9 @@ For UI/UX review, use explicit role pins. Pin `frontend-engineer` only after AGY
 }
 ```
 
-AGY implementation runs use retained isolated worktrees and `--sandbox --mode accept-edits`; read-only runs use `--sandbox --mode plan`. The adapter parses JSON results, resumes with `--conversation`, and keeps permission checks enabled. Denied actions fail the run. If Gemini returns rate limits, timeouts, or provider-unavailable errors, provider health cooldowns cause normal default/family routing to avoid it temporarily while exact `agy` requests remain explicit probes.
+AGY implementation runs use retained isolated worktrees and `--sandbox --mode accept-edits`; read-only runs use `--sandbox --mode plan`. The adapter parses JSON results, resumes with `--conversation`, and keeps permission checks enabled. Denied actions fail the run and retain bounded denied-action evidence. To unblock one, review the evidence and add only a narrow supported AGY `command(prefix)` or `command(regex:...)` rule under the provider's documented precedence; see [AGY CLI permissions](https://antigravity.google/docs/permissions?tab=cli). AGY settings are documented as global, and no project-local scope or per-invocation setting was verified, so do not copy permissions, hooks, or secrets into a worktree and do not weaken sandbox/permission flags. If Gemini returns rate limits, timeouts, or provider-unavailable errors, provider health cooldowns cause normal default/family routing to avoid it temporarily while exact `agy` requests remain explicit probes.
+
+For a workflow implementation continuation, call `agent_team_reply` with both `workflowId` and `sliceId`. The parent run must already belong to that approved slice, retain its exact provider/model and isolated worktree, and have no active descendant. A blocked continuation records its reservation; inspect that child sidecar before retrying. If a retained worktree was removed, start a fresh isolated workflow run and preserve the old evidence rather than attempting session continuation.
 
 ## Codex CLI Subscription Provider
 

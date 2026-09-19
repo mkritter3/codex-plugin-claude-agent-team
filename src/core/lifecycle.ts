@@ -1,5 +1,7 @@
-import { mkdir, writeFile } from "node:fs/promises";
-import { dirname } from "node:path";
+import { mkdir, readdir, realpath, writeFile } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { hostname } from "node:os";
+import { dirname, resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import {
   listProviders,
@@ -18,6 +20,7 @@ import { DEFAULT_AGENT_TEAM_CONFIG } from "./config.js";
 import { PolicyViolationError } from "./errors.js";
 import {
   buildImplementationPrompt,
+  buildImplementationReplyPrompt,
   buildReplyPrompt,
   buildRolePrompt
 } from "./prompts.js";
@@ -43,6 +46,7 @@ import {
   mailboxPath,
   runLogPath,
   runSidecarPath,
+  runsDir,
   workspaceDiffPath
 } from "./state/paths.js";
 import {
@@ -57,9 +61,13 @@ import { parseVerdict } from "./verdict.js";
 import {
   allocateIsolatedWorktree,
   cleanupIsolatedWorktree,
+  fingerprintImplementationWorkspace,
   inspectImplementationWorkspace,
-  planIsolatedWorktree
+  planIsolatedWorktree,
+  verifyRetainedWorktree
 } from "./workspaces.js";
+import { assertWorktreeUnclaimed, claimWorktree, currentProcessStartIdentity, recordClaimedProviderProcess, releaseWorktreeClaim } from "./worktree-ownership.js";
+import { reserveWorkflowContinuation } from "./workflow-continuation.js";
 import type {
   AgentCleanupRequest,
   AgentCleanupResult,
@@ -109,6 +117,7 @@ interface ActiveRun {
   readonly handle: ProviderSessionHandle;
   readonly role: AgentDispatchRequest["role"];
   readonly provider: AgentProviderDescriptor;
+  readonly worktreeClaim?: { readonly sourceCwd: string; readonly executionCwd: string; readonly claimToken: string };
 }
 
 function activeKey(workspaceRoot: string, runId: string): string {
@@ -122,6 +131,16 @@ function mailboxPaths(workspaceRoot: string, runId: string) {
     control: mailboxPath(workspaceRoot, runId, "control"),
     events: mailboxPath(workspaceRoot, runId, "events")
   };
+}
+
+async function lineageRootRunId(workspaceRoot: string, sidecar: RunSidecar): Promise<string> {
+  let current = sidecar;
+  const seen = new Set<string>();
+  while (current.parentRunId !== undefined && !seen.has(current.parentRunId)) {
+    seen.add(current.runId);
+    current = await readRunSidecar(workspaceRoot, current.parentRunId);
+  }
+  return current.runId;
 }
 
 export class AgentLifecycleManager {
@@ -246,7 +265,8 @@ export class AgentLifecycleManager {
           role,
           task: request.task,
           sourceCwd: request.cwd,
-          executionCwd
+          executionCwd,
+          ...(request.writeScope === undefined ? {} : { writeScope: request.writeScope })
         });
     const promptDigest = hashPrompt(prompt);
     const logPath = runLogPath(request.cwd, runId);
@@ -260,7 +280,12 @@ export class AgentLifecycleManager {
       evidencePaths: [logPath],
       promptHash: promptDigest,
       logPath,
-      ...(lease === undefined ? {} : { workspaceLease: lease })
+      ...(lease === undefined ? {} : { workspaceLease: lease }),
+      ...(request.workflowId === undefined ? {} : { workspaceFields: {
+        ...(request.sliceId === undefined ? {} : { sliceId: request.sliceId }),
+        ...(request.writeScope === undefined ? {} : { writeScope: request.writeScope }),
+        workflowId: request.workflowId
+      } })
     });
 
     await writeRunSidecar(request.cwd, sidecar);
@@ -273,6 +298,32 @@ export class AgentLifecycleManager {
       payload: { task: request.task }
     });
 
+    let worktreeClaim = lease === undefined ? undefined : {
+      sourceCwd: lease.sourceCwd,
+      executionCwd: lease.executionCwd,
+      claimToken: randomUUID()
+    };
+    if (worktreeClaim !== undefined) {
+      let claimAcquired = false;
+      try {
+        const identity = await claimWorktree({ ...worktreeClaim, lineageRootRunId: runId, activeRunId: runId, host: hostname(), ownerPid: process.pid, ownerProcessStartIdentity: currentProcessStartIdentity(), claimedAt: createdAt });
+        worktreeClaim = { ...worktreeClaim, ...identity };
+        claimAcquired = true;
+        if (this.allocateWorkspace === allocateIsolatedWorktree) {
+          await verifyRetainedWorktree({
+            lease: lease!,
+            expectedSourceCwd: request.cwd,
+            allowedExecutionRoots: this.config.policy.allowedWorktreeRoots
+          });
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const verdict = blockedVerdict(`Retained worktree claim failed: ${message}`);
+        await finalizeRunSidecar({ workspaceRoot: request.cwd, runId, provider: provider.id, status: "failed", updatedAt: this.now().toISOString(), cleanup: "partial", verdict, outputSummary: verdict.summary, eventPayload: { reason: "worktree_claim_failed", message } });
+        if (claimAcquired) await releaseWorktreeClaim(worktreeClaim);
+        throw error;
+      }
+    }
     let handle: ProviderSessionHandle;
     try {
       handle = this.startProviderSession(provider, {
@@ -303,14 +354,17 @@ export class AgentLifecycleManager {
         outputSummary: verdict.summary,
         verdict
       });
+      if (worktreeClaim !== undefined) await releaseWorktreeClaim(worktreeClaim);
       throw error;
     }
     this.activeRuns.set(activeKey(request.cwd, runId), {
       handle,
       role: request.role,
-      provider
+      provider,
+      ...(worktreeClaim === undefined ? {} : { worktreeClaim })
     });
-    this.observeCompletion(request.cwd, runId, handle, provider);
+    if (worktreeClaim !== undefined && handle.providerProcessId !== undefined) await recordClaimedProviderProcess({ ...worktreeClaim, providerPid: handle.providerProcessId, ...(handle.providerProcessStartIdentity === undefined ? {} : { providerProcessStartIdentity: handle.providerProcessStartIdentity }) });
+    this.observeCompletion(request.cwd, runId, handle, provider, worktreeClaim);
 
     return {
       runId,
@@ -405,6 +459,9 @@ export class AgentLifecycleManager {
 
   async replyRun(request: AgentReplyRequest): Promise<AgentReplyResult> {
     const parent = await readRunSidecar(request.cwd, request.runId);
+    if (!isTerminalRunStatus(parent.status)) {
+      throw new Error(`Run ${request.runId} must be terminal before it can be resumed.`);
+    }
     if (parent.provider === "gemini-cli") {
       throw new Error("Legacy Gemini CLI sessions cannot be resumed through AGY. Start a new AGY run.");
     }
@@ -426,8 +483,21 @@ export class AgentLifecycleManager {
     }
 
     const role = getRole(parent.role);
-    if (!role.defaultReadOnly) {
-      throw new Error(`Role ${role.id} is not supported by background read-only runs.`);
+    const parentLease = role.defaultReadOnly ? undefined : this.workspaceLeaseFromSidecar(parent);
+    if (!role.defaultReadOnly && parentLease === undefined) {
+      throw new Error(`Run ${request.runId} has no verified retained worktree metadata; start a fresh isolated run.`);
+    }
+    if (!role.defaultReadOnly && (!this.config.writeMode.enabled || !this.config.writeMode.requireIsolatedWorktree)) {
+      throw new Error(`Role ${role.id} cannot resume because isolated write mode is disabled.`);
+    }
+    let verifiedLease = parentLease === undefined ? undefined : await verifyRetainedWorktree({
+      lease: parentLease,
+      expectedSourceCwd: request.cwd,
+      allowedExecutionRoots: this.config.policy.allowedWorktreeRoots
+    });
+    if (verifiedLease !== undefined) {
+      await assertWorktreeUnclaimed(verifiedLease.sourceCwd, verifiedLease.executionCwd);
+      await this.assertNoLegacyActiveLineage(request.cwd, parent, verifiedLease);
     }
 
     const provider = selectProvider({
@@ -439,16 +509,27 @@ export class AgentLifecycleManager {
           ...(this.env === undefined ? {} : { env: this.env })
         }),
       requestedProviderId: request.provider ?? parent.provider,
-      extraCapabilities: ["sessionResume"]
+      extraCapabilities: role.defaultReadOnly
+        ? ["sessionResume"]
+        : ["sessionResume", "cancellation", "tools", "edits", "workspaceIsolation"]
     });
+    if (provider.id !== parent.provider) {
+      throw new Error(`Run ${request.runId} can resume only with the same provider (${parent.provider}).`);
+    }
+    if (parent.model === undefined || parent.model.length === 0) {
+      throw new Error(`Run ${request.runId} has no recorded model; start a new run or repair its evidence before resuming.`);
+    }
+    if (provider.model !== parent.model) {
+      throw new Error(`Run ${request.runId} model changed from ${parent.model}; start a new run rather than substituting a model.`);
+    }
     const runId = this.createRunId();
     const createdAt = this.now().toISOString();
-
     const policyDecision = evaluateStartPolicy({
       config: this.config,
       roleId: parent.role,
       provider,
       executionPolicy: role.executionPolicy,
+      ...(verifiedLease === undefined ? {} : { plannedWorktreeRoot: verifiedLease.executionCwd }),
       requestedProvider: request.provider ?? parent.provider
     });
     if (this.config.policy.auditEnabled) {
@@ -471,6 +552,9 @@ export class AgentLifecycleManager {
         details: policyDecision.details
       });
     }
+    const workflowWriteScope = request.workflowId !== undefined && request.sliceId !== undefined
+      ? await reserveWorkflowContinuation({ workspaceRoot: request.cwd, workflowId: request.workflowId, sliceId: request.sliceId, parent, childRunId: runId, createdAt })
+      : undefined;
 
     if ((request.message?.trim() ?? "").length > 0) {
       const record = await this.appendUserInboxMessage({
@@ -485,13 +569,16 @@ export class AgentLifecycleManager {
       resumeSequence = record.sequence;
     }
 
-    const prompt = buildReplyPrompt({
+    const promptInput = {
       role,
       cwd: request.cwd,
       parentRunId: parent.runId,
       providerSessionId: parent.providerSessionId,
       message: resumeMessage
-    });
+    };
+    const prompt = verifiedLease === undefined
+      ? buildReplyPrompt(promptInput)
+      : buildImplementationReplyPrompt({ ...promptInput, executionCwd: verifiedLease.executionCwd, ...(workflowWriteScope === undefined ? {} : { writeScope: workflowWriteScope }) });
     const promptDigest = hashPrompt(prompt);
     const logPath = runLogPath(request.cwd, runId);
     const sidecar = buildRunSidecar({
@@ -507,7 +594,13 @@ export class AgentLifecycleManager {
       providerSessionId: parent.providerSessionId,
       parentRunId: parent.runId,
       resumedFromRunId: parent.runId,
-      ...(resumeSequence === undefined ? {} : { resumeSequence })
+      ...(resumeSequence === undefined ? {} : { resumeSequence }),
+      ...(verifiedLease === undefined ? {} : { workspaceLease: verifiedLease }),
+      ...(request.workflowId === undefined ? {} : { workspaceFields: {
+        ...(request.sliceId === undefined ? {} : { sliceId: request.sliceId }),
+        ...(workflowWriteScope === undefined ? {} : { writeScope: workflowWriteScope }),
+        workflowId: request.workflowId
+      } })
     });
 
     await writeRunSidecar(request.cwd, sidecar);
@@ -525,18 +618,55 @@ export class AgentLifecycleManager {
       }
     });
 
+    let worktreeClaim = verifiedLease === undefined ? undefined : {
+      sourceCwd: verifiedLease.sourceCwd,
+      executionCwd: verifiedLease.executionCwd,
+      claimToken: randomUUID()
+    };
+    if (worktreeClaim !== undefined) {
+      let claimAcquired = false;
+      try {
+        const claimedLease = verifiedLease;
+        if (claimedLease === undefined) throw new Error("Retained worktree metadata disappeared before claim.");
+        const identity = await claimWorktree({
+          ...worktreeClaim,
+          lineageRootRunId: await lineageRootRunId(request.cwd, parent),
+          activeRunId: runId,
+          host: hostname(),
+          ownerPid: process.pid,
+          ownerProcessStartIdentity: currentProcessStartIdentity(),
+          claimedAt: createdAt
+        });
+        worktreeClaim = { ...worktreeClaim, ...identity };
+        claimAcquired = true;
+        // The first verification only protects selection.  Recheck after the
+        // exclusive claim so a cleanup/replacement cannot race provider spawn.
+        verifiedLease = await verifyRetainedWorktree({
+          lease: claimedLease,
+          expectedSourceCwd: request.cwd,
+          allowedExecutionRoots: this.config.policy.allowedWorktreeRoots
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const verdict = blockedVerdict(`Retained worktree claim failed: ${message}`);
+        await finalizeRunSidecar({ workspaceRoot: request.cwd, runId, provider: provider.id, status: "failed", updatedAt: this.now().toISOString(), cleanup: "partial", verdict, outputSummary: verdict.summary, eventPayload: { reason: "worktree_claim_failed", message } });
+        if (claimAcquired) await releaseWorktreeClaim(worktreeClaim);
+        throw error;
+      }
+    }
     let handle: ProviderSessionHandle;
     try {
       handle = this.startProviderSession(provider, {
         prompt,
         providerId: provider.id,
-        cwd: request.cwd,
+        cwd: verifiedLease?.executionCwd ?? request.cwd,
         workspaceRoot: request.cwd,
         runId,
         roleId: parent.role,
         executionPolicy: role.executionPolicy,
         config: this.config,
         sessionId: parent.providerSessionId,
+        ...(role.defaultReadOnly ? {} : { permissionMode: "acceptEdits" as const }),
         ...(request.timeoutMs === undefined ? {} : { timeoutMs: request.timeoutMs }),
         ...(this.env === undefined ? {} : { env: this.env })
       });
@@ -555,15 +685,18 @@ export class AgentLifecycleManager {
         outputSummary: verdict.summary,
         verdict
       });
+      if (worktreeClaim !== undefined) await releaseWorktreeClaim(worktreeClaim);
       throw error;
     }
 
     this.activeRuns.set(activeKey(request.cwd, runId), {
       handle,
       role: parent.role,
-      provider
+      provider,
+      ...(worktreeClaim === undefined ? {} : { worktreeClaim })
     });
-    this.observeCompletion(request.cwd, runId, handle, provider);
+    if (worktreeClaim !== undefined && handle.providerProcessId !== undefined) await recordClaimedProviderProcess({ ...worktreeClaim, providerPid: handle.providerProcessId, ...(handle.providerProcessStartIdentity === undefined ? {} : { providerProcessStartIdentity: handle.providerProcessStartIdentity }) });
+    this.observeCompletion(request.cwd, runId, handle, provider, worktreeClaim);
 
     return {
       runId,
@@ -578,7 +711,8 @@ export class AgentLifecycleManager {
       mailboxPaths: mailboxPaths(request.cwd, runId),
       parentRunId: parent.runId,
       resumedFromRunId: parent.runId,
-      providerSessionId: parent.providerSessionId
+      providerSessionId: parent.providerSessionId,
+      ...(verifiedLease === undefined ? {} : { executionCwd: verifiedLease.executionCwd })
     };
   }
 
@@ -624,7 +758,7 @@ export class AgentLifecycleManager {
       cancellingSidecar
     );
     const cancelled = await transitionRunSidecar(workspaceRoot, runId, (current) => ({
-      ...current,
+      ...sidecarWithSnapshot(current, active.handle.snapshot()),
       ...implementationEvidence.sidecar,
       status: isTerminalRunStatus(current.status) ? current.status : "cancelled",
       updatedAt: this.now().toISOString(),
@@ -787,23 +921,36 @@ export class AgentLifecycleManager {
       return blocked("Implementation worktree is already removed.");
     }
 
+    let cleanupClaim = {
+      sourceCwd: lease.sourceCwd,
+      executionCwd: lease.executionCwd,
+      claimToken: randomUUID()
+    };
+    let cleanupClaimAcquired = false;
+
     try {
-      const removed = await this.cleanupWorkspace({ lease, force: true });
-      const updated = await transitionRunSidecar(request.cwd, request.runId, (current) => ({
-        ...current,
-        workspaceCleanup: removed.cleanup,
-        updatedAt: this.now().toISOString()
-      }));
-      await appendEventRecord(request.cwd, request.runId, {
-        role: updated.role,
-        provider: updated.provider,
-        messageType: "workspace_cleanup_removed",
-        correlationId: request.runId,
-        createdAt: this.now().toISOString(),
-        payload: {
-          executionCwd: removed.executionCwd
-        }
+      const identity = await claimWorktree({
+        ...cleanupClaim,
+        lineageRootRunId: await lineageRootRunId(request.cwd, sidecar),
+        activeRunId: `cleanup:${request.runId}`,
+        host: hostname(),
+        ownerPid: process.pid,
+        ownerProcessStartIdentity: currentProcessStartIdentity(),
+        claimedAt: requestedAt
       });
+      cleanupClaim = { ...cleanupClaim, ...identity };
+      cleanupClaimAcquired = true;
+      const verifiedLease = this.cleanupWorkspace === cleanupIsolatedWorktree
+        ? await verifyRetainedWorktree({
+            lease,
+            expectedSourceCwd: request.cwd,
+            allowedExecutionRoots: this.config.policy.allowedWorktreeRoots
+          })
+        : lease;
+      const lineage = await this.matchingWorktreeSidecars(request.cwd, verifiedLease);
+      await this.assertNoLegacyActiveLineage(request.cwd, sidecar, verifiedLease, lineage);
+      const removed = await this.cleanupWorkspace({ lease: verifiedLease, force: true });
+      const updated = await this.markLineageWorktreeRemoved(request.cwd, request.runId, removed.executionCwd, lineage);
 
       return {
         runId: request.runId,
@@ -814,6 +961,9 @@ export class AgentLifecycleManager {
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      if (message.startsWith("Retained worktree has nonterminal lineage run")) {
+        return blocked(message);
+      }
       const updated = await transitionRunSidecar(request.cwd, request.runId, (current) => ({
         ...current,
         updatedAt: this.now().toISOString(),
@@ -832,6 +982,8 @@ export class AgentLifecycleManager {
           : { workspaceCleanup: updated.workspaceCleanup }),
         message: `Implementation workspace cleanup failed: ${message}`
       };
+    } finally {
+      if (cleanupClaimAcquired) await releaseWorktreeClaim(cleanupClaim);
     }
   }
 
@@ -1075,6 +1227,9 @@ export class AgentLifecycleManager {
       const inspection = await this.inspectWorkspace({
         executionCwd: sidecar.executionCwd
       });
+      const artifactFingerprint = this.inspectWorkspace === inspectImplementationWorkspace
+        ? await fingerprintImplementationWorkspace({ executionCwd: sidecar.executionCwd })
+        : inspection.artifactFingerprint;
       let diffPath: string | undefined;
       if (inspection.diffText !== undefined) {
         diffPath = workspaceDiffPath(workspaceRoot, runId);
@@ -1087,6 +1242,7 @@ export class AgentLifecycleManager {
           changedFiles: inspection.changedFiles,
           workspaceStatus: inspection.statusSummary,
           workspaceCleanup: "retained",
+          ...(artifactFingerprint === undefined ? {} : { artifactFingerprint }),
           ...(diffPath === undefined ? {} : { workspaceDiffPath: diffPath })
         },
         evidencePaths: diffPath === undefined ? [] : [diffPath]
@@ -1119,15 +1275,92 @@ export class AgentLifecycleManager {
     return undefined;
   }
 
+  private async matchingWorktreeSidecars(
+    workspaceRoot: string,
+    lease: WorkspaceLease
+  ): Promise<readonly RunSidecar[]> {
+    let entries: readonly string[];
+    try {
+      entries = await readdir(runsDir(workspaceRoot));
+    } catch (error) {
+      if (error instanceof Error && "code" in error && error.code === "ENOENT") return [];
+      throw error;
+    }
+    const sidecars = await Promise.all(entries
+      .filter((entry) => entry.endsWith(".json"))
+      .map(async (entry) => readRunSidecar(workspaceRoot, entry.slice(0, -5))));
+    const targetIdentity = await this.leaseIdentity(lease);
+    const candidates = await Promise.all(sidecars.map(async (candidate) => {
+      const candidateLease = this.workspaceLeaseFromSidecar(candidate);
+      if (candidateLease === undefined) return undefined;
+      const candidateIdentity = await this.leaseIdentity(candidateLease);
+      return candidateIdentity === targetIdentity ? candidate : undefined;
+    }));
+    return candidates.filter((candidate): candidate is RunSidecar => candidate !== undefined);
+  }
+
+  private async leaseIdentity(lease: WorkspaceLease): Promise<string> {
+    const canonical = async (path: string): Promise<string> => {
+      try { return await realpath(path); } catch { return resolve(path); }
+    };
+    const [sourceCwd, executionCwd] = await Promise.all([canonical(lease.sourceCwd), canonical(lease.executionCwd)]);
+    return `${sourceCwd}\0${executionCwd}`;
+  }
+
+  private async assertNoLegacyActiveLineage(
+    workspaceRoot: string,
+    parent: RunSidecar,
+    lease: WorkspaceLease,
+    knownLineage?: readonly RunSidecar[]
+  ): Promise<void> {
+    const active = (knownLineage ?? await this.matchingWorktreeSidecars(workspaceRoot, lease))
+      .filter((candidate) => candidate.runId !== parent.runId && !isTerminalRunStatus(candidate.status));
+    if (active.length > 0) {
+      throw new Error(`Retained worktree has nonterminal lineage run ${active[0]!.runId}; verify and recover it before resume or cleanup.`);
+    }
+  }
+
+  private async markLineageWorktreeRemoved(
+    workspaceRoot: string,
+    cleanupRunId: string,
+    executionCwd: string,
+    matching: readonly RunSidecar[]
+  ): Promise<RunSidecar> {
+    let requested: RunSidecar | undefined;
+    await Promise.all(matching.map(async (candidate) => {
+      const updated = await transitionRunSidecar(workspaceRoot, candidate.runId, (current) => ({
+        ...current,
+        workspaceCleanup: "removed",
+        updatedAt: this.now().toISOString()
+      }));
+      await appendEventRecord(workspaceRoot, candidate.runId, {
+        role: updated.role,
+        provider: updated.provider,
+        messageType: "workspace_cleanup_removed",
+        correlationId: cleanupRunId,
+        createdAt: this.now().toISOString(),
+        payload: { executionCwd }
+      });
+      if (candidate.runId === cleanupRunId) requested = updated;
+    }));
+    if (requested === undefined) throw new Error(`Cleanup lineage did not contain run ${cleanupRunId}.`);
+    return requested;
+  }
+
   private observeCompletion(
     workspaceRoot: string,
     runId: string,
     handle: ProviderSessionHandle,
-    provider: AgentProviderDescriptor
+    provider: AgentProviderDescriptor,
+    worktreeClaim?: { readonly sourceCwd: string; readonly executionCwd: string; readonly claimToken: string }
   ): void {
     void handle.done
       .then(async (status) => {
         await this.completeRun(workspaceRoot, runId, handle.snapshot(), status, provider);
+        const finalized = await readRunSidecar(workspaceRoot, runId);
+        if (worktreeClaim !== undefined && isTerminalRunStatus(finalized.status)) {
+          await releaseWorktreeClaim(worktreeClaim);
+        }
       })
       .catch(() => {
         // The provider process may settle after its workspace has been removed
@@ -1164,9 +1397,41 @@ export class AgentLifecycleManager {
     try {
       const existing = await readRunSidecar(workspaceRoot, runId);
       if (isTerminalRunStatus(existing.status)) {
+        if (existing.status === "cancelled") {
+          const implementationEvidence = await this.implementationEvidence(workspaceRoot, runId, existing);
+          const finalized = await transitionRunSidecar(workspaceRoot, runId, (current) => ({
+            ...sidecarWithSnapshot(current, snapshot),
+            ...implementationEvidence.sidecar,
+            updatedAt: this.now().toISOString(),
+            evidencePaths: [...new Set([...current.evidencePaths, ...implementationEvidence.evidencePaths])],
+            ...(snapshot.failureEvidence === undefined ? {} : { failureEvidence: snapshot.failureEvidence })
+          }));
+          await appendEventRecord(workspaceRoot, runId, {
+            role: finalized.role,
+            provider: provider.id,
+            messageType: "cancelled_finalized",
+            correlationId: runId,
+            createdAt: this.now().toISOString(),
+            payload: {
+              ...(snapshot.providerSessionId === undefined ? {} : { providerSessionId: snapshot.providerSessionId }),
+              ...(snapshot.failureEvidence === undefined ? {} : { failureEvidence: snapshot.failureEvidence })
+            }
+          });
+        }
         return;
       }
       if (existing.status === "cancelling" && status === "interrupted") {
+        const finalized = await transitionRunSidecar(workspaceRoot, runId, (current) => ({
+          ...sidecarWithSnapshot(current, snapshot),
+          status: "cancelled",
+          cleanup: "partial",
+          updatedAt: this.now().toISOString(),
+          ...(snapshot.failureEvidence === undefined ? {} : { failureEvidence: snapshot.failureEvidence })
+        }));
+        await appendEventRecord(workspaceRoot, runId, {
+          role: finalized.role, provider: provider.id, messageType: "cancelled_finalized", correlationId: runId,
+          createdAt: this.now().toISOString(), payload: { status, cancellation: "interrupted" }
+        });
         return;
       }
       if (status === "completed") {
@@ -1188,7 +1453,10 @@ export class AgentLifecycleManager {
           snapshot,
           sidecarPatch: implementationEvidence.sidecar,
           evidencePaths: implementationEvidence.evidencePaths,
-          eventPayload: { verdict: verdict.status }
+          eventPayload: {
+            verdict: verdict.status,
+            ...(snapshot.failureEvidence === undefined ? {} : { failureEvidence: snapshot.failureEvidence })
+          }
         });
         return;
       }
@@ -1212,7 +1480,10 @@ export class AgentLifecycleManager {
           snapshot,
           sidecarPatch: implementationEvidence.sidecar,
           evidencePaths: implementationEvidence.evidencePaths,
-          eventPayload: { status }
+          eventPayload: {
+            status,
+            ...(snapshot.failureEvidence === undefined ? {} : { failureEvidence: snapshot.failureEvidence })
+          }
         });
         return;
       }
@@ -1235,7 +1506,10 @@ export class AgentLifecycleManager {
         snapshot,
         sidecarPatch: implementationEvidence.sidecar,
         evidencePaths: implementationEvidence.evidencePaths,
-        eventPayload: { status }
+        eventPayload: {
+          status,
+          ...(snapshot.failureEvidence === undefined ? {} : { failureEvidence: snapshot.failureEvidence })
+        }
       });
     } catch (error) {
       if (!(error instanceof InvalidRunTransitionError)) {

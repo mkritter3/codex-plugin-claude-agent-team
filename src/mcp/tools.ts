@@ -2330,6 +2330,15 @@ function parseReplyArgs(
   ) {
     return validationError("agent_team_reply timeoutMs must be a positive number.");
   }
+  if ((args.workflowId === undefined) !== (args.sliceId === undefined)) {
+    return validationError("agent_team_reply workflowId and sliceId must be provided together.");
+  }
+  if (args.workflowId !== undefined && (typeof args.workflowId !== "string" || args.workflowId.trim().length === 0)) {
+    return validationError("agent_team_reply workflowId must be a non-empty string.");
+  }
+  if (args.sliceId !== undefined && (typeof args.sliceId !== "string" || args.sliceId.trim().length === 0)) {
+    return validationError("agent_team_reply sliceId must be a non-empty string.");
+  }
 
   return {
     runId: args.runId,
@@ -2338,7 +2347,8 @@ function parseReplyArgs(
     ...(args.messageType === undefined ? {} : { messageType: args.messageType }),
     ...(args.correlationId === undefined ? {} : { correlationId: args.correlationId }),
     ...(args.provider === undefined ? {} : { provider: args.provider }),
-    ...(args.timeoutMs === undefined ? {} : { timeoutMs: args.timeoutMs })
+    ...(args.timeoutMs === undefined ? {} : { timeoutMs: args.timeoutMs }),
+    ...(args.workflowId === undefined || args.sliceId === undefined ? {} : { workflowId: args.workflowId, sliceId: args.sliceId })
   };
 }
 

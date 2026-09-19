@@ -27,6 +27,7 @@ export interface BuildRunSidecarInput {
   readonly promptHash?: string;
   readonly outputSummary?: string;
   readonly providerSessionId?: string;
+  readonly failureEvidence?: RunSidecar["failureEvidence"];
   readonly logPath?: string;
   readonly transcriptPath?: string;
   readonly verdict?: ParsedVerdict;
@@ -65,6 +66,7 @@ export interface FinalizeRunSidecarInput extends CompletionEvidenceAdditions {
   readonly cleanup: Exclude<RunSidecar["cleanup"], undefined>;
   readonly outputSummary?: string;
   readonly providerSessionId?: string;
+  readonly failureEvidence?: RunSidecar["failureEvidence"];
   readonly snapshot?: ProviderSessionSnapshot;
   readonly sidecarPatch?: Partial<RunSidecar>;
   readonly eventPayload: Record<string, unknown>;
@@ -104,6 +106,7 @@ export function buildRunSidecar(input: BuildRunSidecarInput): RunSidecar {
     ...(input.providerSessionId === undefined
       ? {}
       : { providerSessionId: input.providerSessionId }),
+    ...(input.failureEvidence === undefined ? {} : { failureEvidence: input.failureEvidence }),
     ...(input.logPath === undefined ? {} : { logPath: input.logPath }),
     ...(input.transcriptPath === undefined ? {} : { transcriptPath: input.transcriptPath }),
     ...(input.verdict === undefined ? {} : { verdict: input.verdict }),
@@ -174,7 +177,8 @@ export function sidecarWithSnapshot(
     ...(snapshot.transcriptPath === undefined
       ? {}
       : { transcriptPath: snapshot.transcriptPath }),
-    ...(snapshot.logPath === undefined ? {} : { logPath: snapshot.logPath })
+    ...(snapshot.logPath === undefined ? {} : { logPath: snapshot.logPath }),
+    ...(snapshot.failureEvidence === undefined ? {} : { failureEvidence: snapshot.failureEvidence })
   };
 }
 
@@ -215,6 +219,12 @@ export async function finalizeRunSidecar(
       ...(input.providerSessionId === undefined
         ? {}
         : { providerSessionId: input.providerSessionId }),
+      ...(input.failureEvidence === undefined
+        ? {}
+        : { failureEvidence: input.failureEvidence }),
+      ...(input.snapshot?.failureEvidence === undefined
+        ? {}
+        : { failureEvidence: input.snapshot.failureEvidence }),
       ...(logPath === undefined ? {} : { logPath }),
       ...(transcriptPath === undefined ? {} : { transcriptPath })
     };

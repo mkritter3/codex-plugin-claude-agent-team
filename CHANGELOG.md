@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Preserve bounded AGY denial/session evidence across failed dispatches and require terminal exact-provider/model continuations.
+- Retain AGY permission denials as actionable evidence; project-settings propagation remains intentionally unsupported because no scoped project settings mechanism has been verified.
+
 All notable changes to this local plugin are recorded here.
 
 ## Unreleased

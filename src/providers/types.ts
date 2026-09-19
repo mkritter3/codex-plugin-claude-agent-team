@@ -45,6 +45,14 @@ export interface ProviderPrintResult {
   readonly stdout: string;
   readonly stderr: string;
   readonly exitCode: number;
+  readonly failureEvidence?: ProviderFailureEvidence;
+}
+
+/** Bounded provider-native evidence that explains a failed run without changing its status. */
+export interface ProviderFailureEvidence {
+  readonly reason: string;
+  readonly deniedActions?: readonly string[];
+  readonly details?: readonly string[];
 }
 
 export interface ProviderStartSessionInput {
@@ -120,6 +128,9 @@ export interface ProviderSessionHandle {
   readonly lastStderr: readonly string[];
   readonly transcriptPath: string | undefined;
   readonly logPath: string | undefined;
+  readonly providerProcessId?: number;
+  /** Provider child birth time is unavailable on portable Node runtimes. */
+  readonly providerProcessStartIdentity?: string;
   readonly supportsStdin: boolean;
   kill(): void;
   forceKill(): void;
@@ -137,4 +148,7 @@ export interface ProviderSessionSnapshot {
   readonly lastStderr: readonly string[];
   readonly transcriptPath: string | undefined;
   readonly logPath: string | undefined;
+  readonly providerProcessId?: number;
+  readonly providerProcessStartIdentity?: string;
+  readonly failureEvidence?: ProviderFailureEvidence;
 }

@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
-import { buildAgyArgs, parseAgyResult, isAgyExecutable } from "./agy.js";
+import { buildAgyArgs, decodeAgyResult, parseAgyResult, isAgyExecutable } from "./agy.js";
 import { spawn as nodeSpawn } from "node:child_process";
-import { createInterface } from "node:readline";
+import { StringDecoder } from "node:string_decoder";
 import type { Readable, Writable } from "node:stream";
 import { promisify } from "node:util";
 import { appendBoundedLog } from "../../core/logs.js";
@@ -38,6 +38,7 @@ export interface AgyRuntimeOptions {
   readonly maxActivities?: number;
   readonly maxLogBytes?: number;
   readonly maxRotatedLogFiles?: number;
+  readonly maxOutputBytes?: number;
 }
 
 export { agyProvider };
@@ -45,6 +46,7 @@ export { agyProvider };
 const execFileAsync = promisify(execFile);
 const DEFAULT_MAX_LOG_BYTES = 1_048_576;
 const DEFAULT_MAX_ROTATED_LOG_FILES = 5;
+const DEFAULT_MAX_OUTPUT_BYTES = 262_144;
 
 interface SpawnOptions {
   readonly cwd: string;
@@ -54,6 +56,7 @@ interface SpawnOptions {
 }
 
 interface SpawnedAgyProcess {
+  readonly pid?: number;
   readonly stdout: Readable | null;
   readonly stderr: Readable | null;
   readonly stdin?: Writable | null;
@@ -81,7 +84,9 @@ function fail(message: string, details: Partial<ProviderPrintResult> = {}): Prov
     text: details.text ?? "",
     stdout: details.stdout ?? "",
     stderr: message,
-    exitCode: details.exitCode ?? 1
+    exitCode: details.exitCode ?? 1,
+    ...(details.sessionId === undefined ? {} : { sessionId: details.sessionId }),
+    ...(details.failureEvidence === undefined ? {} : { failureEvidence: details.failureEvidence })
   };
 }
 
@@ -204,20 +209,39 @@ export function createAgyRuntime(
           ...(input.timeoutMs === undefined ? {} : { timeoutMs: input.timeoutMs })
         }
       );
+      if (Buffer.byteLength(result.stdout, "utf8") > (options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES)) {
+        return fail("AGY output exceeded the configured safety limit.", {
+          stdout: result.stdout.slice(0, options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES),
+          exitCode: result.exitCode ?? 1,
+          failureEvidence: { reason: "output_too_large" }
+        });
+      }
       if (!result.ok) {
         const stderr = result.stderr.trim() || "AGY exited without stderr.";
+        const decoded = decodeAgyResult(result.stdout);
         return fail(`AGY request failed: ${stderr}`, {
           stdout: result.stdout,
-          exitCode: result.exitCode ?? 1
+          exitCode: result.exitCode ?? 1,
+          ...(decoded?.conversationId === undefined ? {} : { sessionId: decoded.conversationId }),
+          failureEvidence: decoded?.failureEvidence ?? { reason: "process_failed" }
         });
       }
 
       try {
-        const parsed = parseAgyResult(result.stdout);
+        const decoded = decodeAgyResult(result.stdout);
+        if (decoded?.failureEvidence !== undefined || decoded?.text === undefined) {
+          return fail("AGY did not complete successfully.", {
+            stdout: result.stdout,
+            stderr: result.stderr,
+            exitCode: result.exitCode ?? 1,
+            ...(decoded?.conversationId === undefined ? {} : { sessionId: decoded.conversationId }),
+            failureEvidence: decoded?.failureEvidence ?? { reason: "invalid_json" }
+          });
+        }
         return {
           ok: true,
-          text: parsed.text,
-          ...(parsed.conversationId === undefined ? {} : { sessionId: parsed.conversationId }),
+          text: decoded.text,
+          ...(decoded.conversationId === undefined ? {} : { sessionId: decoded.conversationId }),
           stdout: result.stdout,
           stderr: result.stderr,
           exitCode: result.exitCode ?? 0
@@ -240,17 +264,23 @@ export function createAgyRuntime(
       });
       const logPath = runLogPath(input.workspaceRoot, input.runId);
       const textChunks: string[] = [];
+      let outputBytes = 0;
+      let outputTooLarge = false;
+      const stdoutDecoder = new StringDecoder("utf8");
+      const stderrDecoder = new StringDecoder("utf8");
       let providerSessionId = input.sessionId;
       let agyText: string | undefined;
+      let failureEvidence: ProviderSessionSnapshot["failureEvidence"];
       const recentActivities: ProviderSessionActivity[] = [];
       const lastStderr: string[] = [];
-      const writes: Array<Promise<void>> = [];
       let writeQueue: Promise<void> = Promise.resolve();
+      let diagnosticsStopped = false;
       let currentActivity: ProviderSessionActivity | null = null;
       let timedOut = false;
       let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
 
       function write(text: string): void {
+        if (diagnosticsStopped) return;
         const nextWrite = writeQueue.then(() =>
           appendBoundedLog(logPath, text, {
             maxBytes: options.maxLogBytes ?? DEFAULT_MAX_LOG_BYTES,
@@ -258,7 +288,12 @@ export function createAgyRuntime(
           })
         );
         writeQueue = nextWrite.catch(() => undefined);
-        writes.push(nextWrite);
+      }
+
+      function stopDiagnosticsForOversizedOutput(): void {
+        if (diagnosticsStopped) return;
+        write("AGY output exceeded the bounded parser limit; diagnostics stopped.\n");
+        diagnosticsStopped = true;
       }
 
       function activity(type: ProviderSessionActivity["type"], summary: string): void {
@@ -293,27 +328,53 @@ export function createAgyRuntime(
       }
 
       if (child.stdout !== null) {
-        const stdout = createInterface({ input: child.stdout });
-        stdout.on("line", (line) => {
-          textChunks.push(line);
-          write(`${line}\n`);
-          activity("text", line);
+        child.stdout.on("data", (chunk: Buffer | string) => {
+          const text = stdoutDecoder.write(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+          const nextBytes = Buffer.byteLength(text, "utf8");
+          if (outputBytes + nextBytes > (options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES)) {
+            outputTooLarge = true;
+            stopDiagnosticsForOversizedOutput();
+          }
+          else { textChunks.push(text); outputBytes += nextBytes; }
+          write(text.slice(0, 4_000));
+          activity("text", text.slice(0, 1_000));
         });
       }
 
       if (child.stderr !== null) {
-        const stderr = createInterface({ input: child.stderr });
-        stderr.on("line", (line) => {
-          pushBounded(lastStderr, line, options.maxStderrLines ?? 10);
-          write(`${line}\n`);
-          activity("error", line);
+        child.stderr.on("data", (chunk: Buffer | string) => {
+          const text = stderrDecoder.write(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)).trim().slice(0, 1_000);
+          pushBounded(lastStderr, text, options.maxStderrLines ?? 10);
+          write(text);
+          activity("error", text);
         });
       }
 
       const done = new Promise<ProviderSessionDoneStatus>((resolve) => {
         child.on("close", (code, signal) => {
           clearTimeoutBudget();
-          void Promise.allSettled(writes).then(() => {
+          const finalStdout = stdoutDecoder.end();
+          if (finalStdout.length > 0) {
+            const bytes = Buffer.byteLength(finalStdout, "utf8");
+          if (outputBytes + bytes > (options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES)) {
+            outputTooLarge = true;
+            stopDiagnosticsForOversizedOutput();
+          }
+            else { textChunks.push(finalStdout); outputBytes += bytes; }
+          }
+          const finalStderr = stderrDecoder.end().trim().slice(0, 1_000);
+          if (finalStderr.length > 0) pushBounded(lastStderr, finalStderr, options.maxStderrLines ?? 10);
+          void writeQueue.then(() => {
+            const decoded = outputTooLarge ? undefined : decodeAgyResult(textChunks.join(""));
+            if (decoded?.conversationId !== undefined) {
+              if (input.sessionId !== undefined && decoded.conversationId !== input.sessionId) {
+                failureEvidence = { reason: "session_id_conflict", details: ["AGY returned a different conversation id while resuming."] };
+              } else {
+                providerSessionId = decoded.conversationId;
+              }
+            }
+            if (failureEvidence === undefined && decoded?.failureEvidence !== undefined) failureEvidence = decoded.failureEvidence;
+            if (outputTooLarge) failureEvidence = { reason: "output_too_large" };
             if (timedOut) {
               activity("error", "AGY session expired.");
               resolve("expired");
@@ -325,17 +386,21 @@ export function createAgyRuntime(
               return;
             }
             let completed = code === 0;
-            if (completed) {
+            if (!completed && failureEvidence === undefined) failureEvidence = { reason: "process_failed" };
+            if (completed && decoded === undefined && failureEvidence === undefined) {
+              failureEvidence = { reason: "invalid_json" };
+            }
+            if (completed && failureEvidence === undefined) {
               try {
-                const result = parseAgyResult(textChunks.join("\n"));
+                const result = parseAgyResult(textChunks.join(""));
                 agyText = result.text;
-                providerSessionId = result.conversationId ?? providerSessionId;
               } catch (error) {
                 completed = false;
                 agyText = "";
                 pushBounded(lastStderr, String(error), options.maxStderrLines ?? 10);
               }
             }
+            if (failureEvidence !== undefined) completed = false;
             activity(completed ? "result" : "error", completed ? "AGY session completed." : "AGY session failed.");
             resolve(completed ? "completed" : "failed");
           });
@@ -343,8 +408,12 @@ export function createAgyRuntime(
         child.on("error", (error) => {
           clearTimeoutBudget();
           pushBounded(lastStderr, error.message, options.maxStderrLines ?? 10);
+          failureEvidence = failureEvidence ?? { reason: "process_failed", details: [error.message.slice(0, 400)] };
           write(`${error.message}\n`);
-          void Promise.allSettled(writes).then(() => resolve(timedOut ? "expired" : "failed"));
+          // An error from a live child (for example, a signal delivery error)
+          // is not termination. Hold lifecycle ownership until close confirms
+          // it stopped; only a proven spawn failure has no pid to wait for.
+          if (child.pid === undefined) void writeQueue.then(() => resolve(timedOut ? "expired" : "failed"));
         });
       });
 
@@ -357,7 +426,10 @@ export function createAgyRuntime(
         pendingOutboxRequests: [],
         lastStderr: [...lastStderr],
         transcriptPath: undefined,
-        logPath
+        logPath,
+        ...(child.pid === undefined ? {} : { providerProcessId: child.pid }),
+        ...(child.pid === undefined ? {} : { providerProcessStartIdentity: "unknown" }),
+        ...(failureEvidence === undefined ? {} : { failureEvidence })
       });
 
       return {
@@ -374,6 +446,8 @@ export function createAgyRuntime(
         },
         transcriptPath: undefined,
         logPath,
+        ...(child.pid === undefined ? {} : { providerProcessId: child.pid }),
+        ...(child.pid === undefined ? {} : { providerProcessStartIdentity: "unknown" }),
         supportsStdin: false,
         kill() {
           child.kill(process.platform === "win32" ? undefined : "SIGTERM");

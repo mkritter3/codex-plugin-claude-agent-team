@@ -19,6 +19,7 @@ export interface BuildImplementationPromptInput {
   readonly task: string;
   readonly sourceCwd: string;
   readonly executionCwd: string;
+  readonly writeScope?: readonly string[];
 }
 
 function readOnlyRules(role: AgentRole): readonly string[] {
@@ -102,7 +103,31 @@ export function buildImplementationPrompt(input: BuildImplementationPromptInput)
     "- Do not modify the source workspace.",
     "- Do not create commits.",
     "- Keep changes scoped to the requested slice.",
+    ...(input.writeScope === undefined ? [] : [`- Approved write scope: ${input.writeScope.join(", ")}.`]),
     "- Run focused verification when the repository provides it.",
+    ...verdictProtocol()
+  ].join("\n");
+}
+
+export function buildImplementationReplyPrompt(
+  input: BuildReplyPromptInput & { readonly executionCwd: string; readonly writeScope?: readonly string[] }
+): string {
+  return [
+    `Role: ${input.role.displayName}`,
+    `Role id: ${input.role.id}`,
+    `Source workspace: ${input.cwd}`,
+    `Execution workspace: ${input.executionCwd}`,
+    `Parent run: ${input.parentRunId}`,
+    `Provider session: ${input.providerSessionId}`,
+    "",
+    "This is a resumed continuation in the verified retained isolated worktree.",
+    "Only modify files inside the execution workspace. Do not create commits.",
+    ...(input.writeScope === undefined ? [] : [`Approved write scope (unchanged): ${input.writeScope.join(", ")}.`]),
+    "",
+    "New message:",
+    input.message,
+    "",
+    "Operating constraints:",
     ...verdictProtocol()
   ].join("\n");
 }

@@ -130,6 +130,7 @@ export async function dispatchReadOnlyAgent(
     readonly logPath?: string;
     readonly outputSummary?: string;
     readonly providerSessionId?: string;
+    readonly failureEvidence?: import("../providers/types.js").ProviderFailureEvidence;
     readonly cleanup?: "complete" | "partial" | "not-needed";
     readonly eventPayload: Record<string, unknown>;
     readonly eventCreatedAt?: string;
@@ -147,6 +148,7 @@ export async function dispatchReadOnlyAgent(
       ...(input.providerSessionId === undefined
         ? {}
         : { providerSessionId: input.providerSessionId }),
+      ...(input.failureEvidence === undefined ? {} : { failureEvidence: input.failureEvidence }),
       eventPayload: input.eventPayload,
       ...(input.eventCreatedAt === undefined ? {} : { eventCreatedAt: input.eventCreatedAt })
     });
@@ -317,7 +319,14 @@ export async function dispatchReadOnlyAgent(
       verdict,
       logPath,
       outputSummary: verdict.summary,
-      eventPayload: { exitCode: providerResult.exitCode }
+      eventPayload: {
+        exitCode: providerResult.exitCode,
+        ...(providerResult.failureEvidence === undefined
+          ? {}
+          : { failureEvidence: providerResult.failureEvidence })
+      },
+      ...(providerResult.sessionId === undefined ? {} : { providerSessionId: providerResult.sessionId }),
+      ...(providerResult.failureEvidence === undefined ? {} : { failureEvidence: providerResult.failureEvidence })
     });
   }
 

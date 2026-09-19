@@ -12,6 +12,19 @@ import type { WorkflowRecord, WorkflowSlice } from "../../src/core/workflow-type
 
 let workspace: string;
 
+async function overwriteWorkflow(record: WorkflowRecord): Promise<void> {
+  try {
+    const current = await readWorkflowRecord(workspace, record.workflowId);
+    await writeWorkflowRecord(workspace, { ...record, ...(current.revision === undefined ? {} : { revision: current.revision }) });
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      await writeWorkflowRecord(workspace, record);
+      return;
+    }
+    throw error;
+  }
+}
+
 beforeEach(async () => {
   workspace = await mkdtemp(join(tmpdir(), "agent-team-workflow-integration-evidence-"));
 });
@@ -102,7 +115,7 @@ function workflowRecord(overrides: Partial<WorkflowRecord> = {}): WorkflowRecord
 }
 
 async function seed(record: WorkflowRecord = workflowRecord()): Promise<void> {
-  await writeWorkflowRecord(workspace, record);
+  await overwriteWorkflow(record);
 }
 
 describe("workflow integration evidence", () => {
@@ -193,7 +206,7 @@ describe("workflow integration evidence", () => {
       "Workflow workflow_integration_evidence must be approved before recording integration evidence"
     );
 
-    await writeWorkflowRecord(workspace, workflowRecord());
+    await overwriteWorkflow( workflowRecord());
     await expect(
       recordWorkflowIntegration({
         ...validInput,
@@ -201,7 +214,7 @@ describe("workflow integration evidence", () => {
       })
     ).rejects.toThrow("Unknown workflow slice id: slice_missing");
 
-    await writeWorkflowRecord(workspace, {
+    await overwriteWorkflow( {
       ...workflowRecord(),
       slices: [approvedSlice({ sliceId: "slice_foundation", state: "needs-revision" })]
     });
@@ -209,7 +222,7 @@ describe("workflow integration evidence", () => {
       "Workflow slice slice_foundation is needs-revision, not approved"
     );
 
-    await writeWorkflowRecord(workspace, {
+    await overwriteWorkflow( {
       ...workflowRecord(),
       integrationQueue: []
     });
@@ -217,7 +230,7 @@ describe("workflow integration evidence", () => {
       "Workflow slice slice_foundation must be queued before recording integration evidence"
     );
 
-    await writeWorkflowRecord(workspace, workflowRecord());
+    await overwriteWorkflow( workflowRecord());
     await expect(
       recordWorkflowIntegration({
         ...validInput,

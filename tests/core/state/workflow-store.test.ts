@@ -119,7 +119,7 @@ describe("workflow-store", () => {
 
     await writeWorkflowRecord(workspace, record);
 
-    await expect(readWorkflowRecord(workspace, "workflow_123")).resolves.toEqual(record);
+    await expect(readWorkflowRecord(workspace, "workflow_123")).resolves.toMatchObject(record);
     expect(workflowRecordPath(workspace, "workflow_123")).toBe(
       join(workspace, ".agent-team", "workflows", "workflow_123.json")
     );
@@ -191,7 +191,7 @@ describe("workflow-store", () => {
 
     await writeWorkflowRecord(workspace, record);
 
-    await expect(readWorkflowRecord(workspace, "workflow_slice_evidence")).resolves.toEqual(record);
+    await expect(readWorkflowRecord(workspace, "workflow_slice_evidence")).resolves.toMatchObject(record);
   });
 
   it("lists workflow records sorted by created time then workflow id", async () => {
@@ -203,7 +203,7 @@ describe("workflow-store", () => {
     await writeWorkflowRecord(workspace, firstB);
     await writeWorkflowRecord(workspace, firstA);
 
-    await expect(listWorkflowRecords(workspace)).resolves.toEqual([firstA, firstB, latest]);
+    await expect(listWorkflowRecords(workspace)).resolves.toMatchObject([firstA, firstB, latest]);
   });
 
   it("returns an empty list when no workflows directory exists", async () => {

@@ -51,6 +51,7 @@ class FakeAgyProcess extends EventEmitter {
   readonly stderr = new PassThrough();
   readonly stdin = new PassThrough();
   readonly signals: Array<NodeJS.Signals | undefined> = [];
+  readonly pid = 4242;
   killed = false;
 
   kill(signal?: NodeJS.Signals): boolean {
@@ -184,6 +185,93 @@ describe("AGY runtime", () => {
       stderr: "AGY request failed: not logged in",
       exitCode: 1
     });
+  });
+
+  it("preserves a valid conversation id and denied-action evidence when AGY exits nonzero", async () => {
+    const runtime = createAgyRuntime({
+      runCommand: async () => ({
+        ok: false,
+        stdout: JSON.stringify({
+          status: "SUCCESS",
+          response: "partial work",
+          conversation_id: "agy-denied-session",
+          denied_actions: [{ action: "command", display_name: "RunCommand" }, 42]
+        }),
+        stderr: "permission denied",
+        exitCode: 1
+      })
+    });
+
+    await expect(runtime.runPrint({ prompt: "Review", cwd: "/tmp/project", config: config() }))
+      .resolves.toMatchObject({
+        ok: false,
+        sessionId: "agy-denied-session",
+        failureEvidence: {
+          reason: "denied_actions",
+          deniedActions: ["RunCommand (command)", "[unparseable denied action]"]
+        }
+      });
+  });
+
+  it("does not invent AGY metadata from malformed output", async () => {
+    const runtime = createAgyRuntime({
+      runCommand: async () => ({
+        ok: false,
+        stdout: '{"conversation_id":"not-complete",',
+        stderr: "failed",
+        exitCode: 1
+      })
+    });
+
+    await expect(runtime.runPrint({ prompt: "Review", cwd: "/tmp/project", config: config() }))
+      .resolves.toMatchObject({ ok: false, failureEvidence: { reason: "process_failed" } });
+  });
+
+  it("fails closed when a single AGY output line exceeds the bounded buffer", async () => {
+    const runtime = createAgyRuntime({
+      maxOutputBytes: 32,
+      runCommand: async () => ({ ok: true, stdout: JSON.stringify({ status: "SUCCESS", response: "x".repeat(100) }), stderr: "", exitCode: 0 })
+    });
+    await expect(runtime.runPrint({ prompt: "Review", cwd: "/tmp/project", config: config() }))
+      .resolves.toMatchObject({ ok: false, failureEvidence: { reason: "output_too_large" } });
+  });
+
+  it("fails closed for an oversized stdout chunk without a newline", async () => {
+    const child = new FakeAgyProcess();
+    const runtime = createAgyRuntime({ maxOutputBytes: 32, spawn: () => child });
+    const handle = runtime.startSession({ prompt: "Review", cwd: "/tmp/project", workspaceRoot: "/tmp/project", runId: "run_large_chunk", config: config() });
+    child.stdout.write("x".repeat(1_000));
+    child.close(0);
+    await expect(handle.done).resolves.toBe("failed");
+    expect(handle.snapshot().failureEvidence).toMatchObject({ reason: "output_too_large" });
+  });
+
+  it("preserves split UTF-8 response text across stdout chunks", async () => {
+    const child = new FakeAgyProcess();
+    const runtime = createAgyRuntime({ spawn: () => child });
+    const handle = runtime.startSession({ prompt: "Review", cwd: "/tmp/project", workspaceRoot: "/tmp/project", runId: "run_utf8", config: config() });
+    const output = Buffer.from(JSON.stringify({ status: "SUCCESS", response: "café" }), "utf8");
+    const split = output.indexOf(Buffer.from("é")) + 1;
+    child.stdout.write(output.subarray(0, split));
+    child.stdout.write(output.subarray(split));
+    child.close(0);
+    await expect(handle.done).resolves.toBe("completed");
+    expect(handle.snapshot().text).toBe("café");
+    expect(handle).toMatchObject({ providerProcessId: 4242, providerProcessStartIdentity: "unknown" });
+  });
+
+  it("does not settle a live-PID session on an error before close confirms exit", async () => {
+    const child = new FakeAgyProcess();
+    const runtime = createAgyRuntime({ spawn: () => child });
+    const handle = runtime.startSession({ prompt: "Review", cwd: "/tmp/project", workspaceRoot: "/tmp/project", runId: "run_live_pid_error", config: config() });
+    child.emit("error", new Error("signal delivery failed"));
+    await expect(Promise.race([
+      handle.done.then(() => "settled"),
+      new Promise<string>((resolve) => setTimeout(() => resolve("pending"), 5))
+    ])).resolves.toBe("pending");
+    child.close(1);
+    await expect(handle.done).resolves.toBe("failed");
+    expect(handle.snapshot().failureEvidence).toMatchObject({ reason: "process_failed" });
   });
 
   it("starts read-only sessions in AGY sandboxed plan mode", async () => {
@@ -334,5 +422,24 @@ describe("AGY runtime", () => {
     await new Promise((resolve) => setTimeout(resolve, 5));
     timedOutChild.close(null, "SIGTERM");
     await expect(timedOut.done).resolves.toBe("expired" satisfies ProviderSessionDoneStatus);
+  });
+
+  it("keeps the requested session id when a resumed AGY response returns a conflicting id", async () => {
+    const child = new FakeAgyProcess();
+    const runtime = createAgyRuntime({ spawn: () => child });
+    const handle = runtime.startSession({
+      prompt: "Continue", cwd: "/tmp/project", workspaceRoot: "/tmp/project",
+      runId: "run_conflict", sessionId: "requested-session", config: config()
+    });
+    child.stdout.write(JSON.stringify({
+      status: "SUCCESS", response: "done", conversation_id: "unexpected-session"
+    }) + "\n");
+    child.close(0);
+
+    await expect(handle.done).resolves.toBe("failed");
+    expect(handle.snapshot()).toMatchObject({
+      providerSessionId: "requested-session",
+      failureEvidence: { reason: "session_id_conflict" }
+    });
   });
 });

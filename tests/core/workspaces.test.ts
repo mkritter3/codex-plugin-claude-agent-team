@@ -1,3 +1,5 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
@@ -5,11 +7,41 @@ import {
   allocateIsolatedWorktree,
   cleanupIsolatedWorktree,
   inspectGitWorktreeSupport,
-  inspectImplementationWorkspace
+  inspectImplementationWorkspace,
+  fingerprintImplementationWorkspace
 } from "../../src/core/workspaces.js";
 import { workspaceDiffPath } from "../../src/core/state/paths.js";
 
 describe("isolated workspace leases", () => {
+  it("fingerprints HEAD, staged/unstaged tracked diff, and untracked contents", async () => {
+    const root = await mkdtemp(join(tmpdir(), "agent-team-fingerprint-"));
+    try {
+      await writeFile(join(root, "untracked.txt"), "first");
+      let staged = "staged-change";
+      let unstaged = "unstaged-change";
+      const fingerprint = async () => fingerprintImplementationWorkspace({
+        executionCwd: root,
+        execFile: async (_file, args) => {
+          if (args.includes("rev-parse")) return { stdout: "head-a\n", stderr: "" };
+          if (args.includes("diff") && args.includes("--cached")) return { stdout: staged, stderr: "" };
+          if (args.includes("diff")) return { stdout: unstaged, stderr: "" };
+          return { stdout: "untracked.txt\0", stderr: "" };
+        }
+      });
+      const initial = await fingerprint();
+      staged = "different-index-with-working-tree-reverted";
+      expect(await fingerprint()).not.toBe(initial);
+      staged = "staged-change";
+      unstaged = ""; // Working-tree reversion must not erase the staged identity.
+      const stagedOnly = await fingerprint();
+      staged = "different-staged-content";
+      expect(await fingerprint()).not.toBe(stagedOnly);
+      await writeFile(join(root, "untracked.txt"), "second");
+      expect(await fingerprint()).not.toBe(initial);
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
   it("allocates a retained git worktree outside the source checkout", async () => {
     const calls: Array<{ file: string; args: readonly string[] }> = [];
     const lease = await allocateIsolatedWorktree({

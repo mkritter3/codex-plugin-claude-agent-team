@@ -1,4 +1,4 @@
-import type { ProviderSessionActivity } from "../providers/types.js";
+import type { ProviderFailureEvidence, ProviderSessionActivity } from "../providers/types.js";
 import type { SeniorReviewPolicyConfig } from "./workflow-types.js";
 
 export const PROVIDER_CAPABILITIES = [
@@ -291,6 +291,7 @@ export interface ImplementationWorkspaceInspection {
   readonly changedFiles: readonly string[];
   readonly statusSummary: readonly string[];
   readonly diffText?: string;
+  readonly artifactFingerprint?: string;
 }
 
 export interface ProviderSelectionRequest {
@@ -346,6 +347,9 @@ export interface AgentDispatchRequest {
   readonly cwd: string;
   readonly provider?: string;
   readonly timeoutMs?: number;
+  readonly workflowId?: string;
+  readonly sliceId?: string;
+  readonly writeScope?: readonly string[];
 }
 
 export interface AgentDispatchResult {
@@ -396,6 +400,9 @@ export interface AgentParallelStartRun {
   readonly provider?: string;
   readonly timeoutMs?: number;
   readonly correlationId?: string;
+  readonly workflowId?: string;
+  readonly sliceId?: string;
+  readonly writeScope?: readonly string[];
 }
 
 export interface AgentParallelStartRequest {
@@ -522,6 +529,10 @@ export interface AgentTeamSummaryEvidence {
   readonly workspaceStatus?: readonly string[];
   readonly evidencePaths?: readonly string[];
   readonly changedFiles?: readonly string[];
+  readonly workflowId?: string;
+  readonly sliceId?: string;
+  readonly writeScope?: readonly string[];
+  readonly artifactFingerprint?: string;
   readonly verdict?: ParsedVerdict;
 }
 
@@ -899,6 +910,8 @@ export interface AgentReplyRequest {
   readonly correlationId?: string;
   readonly provider?: string;
   readonly timeoutMs?: number;
+  readonly workflowId?: string;
+  readonly sliceId?: string;
 }
 
 export interface AgentReplyResult extends AgentStartResult {
@@ -948,6 +961,7 @@ export interface RunSidecar {
   readonly capabilitiesUsed: readonly ProviderCapability[];
   readonly evidencePaths: readonly string[];
   readonly providerSessionId?: string;
+  readonly failureEvidence?: ProviderFailureEvidence;
   readonly sourceCwd?: string;
   readonly executionCwd?: string;
   readonly workspaceBranchName?: string;
@@ -980,6 +994,10 @@ export interface RunSidecar {
   readonly logPath?: string;
   readonly verdict?: ParsedVerdict;
   readonly changedFiles?: readonly string[];
+  readonly workflowId?: string;
+  readonly sliceId?: string;
+  readonly writeScope?: readonly string[];
+  readonly artifactFingerprint?: string;
 }
 
 export type MailboxKind = "inbox" | "outbox" | "control" | "events";

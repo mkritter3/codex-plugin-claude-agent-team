@@ -40,6 +40,8 @@ Before the first delegation in a workspace, after a plugin update, or when reope
 
 Follow [workspace configuration migration](references/workspace-configuration.md). Apply known mechanical migrations to the actual workspace files, preserving user overrides and permissions; compatibility aliases alone leave stale instructions on disk. Check saved draft workflow targets too. Keep a reviewable diff or local backup, and report the changed fields without exposing credentials. Do not replace the whole config with a default template.
 
+For a workflow slice continuation, send `agent_team_reply` with paired `workflowId` and `sliceId`. Resume only a terminal, recorded run in its retained worktree and exact provider/model. A blocked or reserved child must be inspected before retrying. A removed retained worktree requires a fresh isolated start; never relabel a new worktree as a continuation.
+
 Run `agent_team_list_providers` and `agent_team_doctor` with the same explicit workspace `cwd` after edits and before dispatch. Gemini subscription runs must resolve to `agy`; if the live server still advertises `gemini-cli`, reload the plugin or start a new Codex session before continuing. An unavailable pinned model or a change in decision authority requires resolving that choice, not silently substituting a model. Repeat this check when workspace configuration changes, not on every status poll.
 
 ## Direct MCP Orchestration Loop

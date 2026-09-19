@@ -1,8 +1,13 @@
 import { verifyProviderVotes } from "./orchestration/provider-evidence.js";
+import { readdir } from "node:fs/promises";
 import { listRoles } from "./roles.js";
 import { authorityEvidenceSchema, type AuthorityEvidence } from "./orchestration/contract.js";
 import { evaluateAuthority } from "./orchestration/authority.js";
 import { isSafeRunId, isSafeWorkflowId } from "./state/paths.js";
+import { runsDir } from "./state/paths.js";
+import { readRunSidecar } from "./state/run-store.js";
+import { fingerprintImplementationWorkspace } from "./workspaces.js";
+import type { RunSidecar } from "./types.js";
 import {
   readWorkflowRecord,
   writeWorkflowRecord
@@ -395,6 +400,91 @@ function reviewerRunIds(verdicts: readonly WorkflowReviewerVerdict[]): readonly 
   return runIds.length === 0 ? undefined : runIds;
 }
 
+function sameScope(left: readonly string[] | undefined, right: readonly string[]): boolean {
+  return left !== undefined && left.length === right.length && left.every((path, index) => path === right[index]);
+}
+
+async function assertNoLaterWorktreeDescendant(
+  workspaceRoot: string,
+  source: RunSidecar
+): Promise<void> {
+  if (source.executionCwd === undefined) return;
+  let runIds: readonly string[];
+  try {
+    runIds = (await readdir(runsDir(workspaceRoot))).filter((entry) => entry.endsWith(".json")).map((entry) => entry.slice(0, -5));
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") return;
+    throw error;
+  }
+  const runs = await Promise.all(runIds.map((runId) => readRunSidecar(workspaceRoot, runId)));
+  const byId = new Map(runs.map((run) => [run.runId, run]));
+  const rootId = (run: RunSidecar): string => {
+    let cursor = run;
+    const seen = new Set<string>();
+    while (cursor.parentRunId !== undefined && !seen.has(cursor.parentRunId)) {
+      seen.add(cursor.parentRunId);
+      const parent = byId.get(cursor.parentRunId);
+      if (parent === undefined) break;
+      cursor = parent;
+    }
+    return cursor.runId;
+  };
+  const sourceRoot = rootId(source);
+  const isAncestorOfSource = (candidate: RunSidecar): boolean => {
+    let cursor = source;
+    const seen = new Set<string>();
+    while (cursor.parentRunId !== undefined && !seen.has(cursor.parentRunId)) {
+      if (cursor.parentRunId === candidate.runId) return true;
+      seen.add(cursor.parentRunId);
+      const parent = byId.get(cursor.parentRunId);
+      if (parent === undefined) break;
+      cursor = parent;
+    }
+    return false;
+  };
+  for (const candidate of runs) {
+    if (candidate.runId === source.runId || candidate.executionCwd !== source.executionCwd) continue;
+    let cursor = candidate;
+    const seen = new Set<string>();
+    while (cursor.parentRunId !== undefined && !seen.has(cursor.parentRunId)) {
+      if (cursor.parentRunId === source.runId) {
+        throw new Error(`implementationEvidence.sourceRunId is superseded by later descendant ${candidate.runId}; review the latest unchanged artifact.`);
+      }
+      seen.add(cursor.parentRunId);
+      const parent = byId.get(cursor.parentRunId);
+      if (parent === undefined) break;
+      cursor = parent;
+    }
+    if (rootId(candidate) === sourceRoot && !isAncestorOfSource(candidate)) {
+      throw new Error(`implementationEvidence.sourceRunId is superseded by later lineage run ${candidate.runId}; review the latest unchanged artifact.`);
+    }
+  }
+}
+
+async function validateExternalImplementationSource(input: {
+  readonly workspaceRoot: string;
+  readonly record: WorkflowRecord;
+  readonly slice: WorkflowSlice;
+  readonly evidence: WorkflowSliceImplementationEvidence;
+}): Promise<void> {
+  const sourceRunId = input.evidence.sourceRunId;
+  if (sourceRunId === undefined) throw new Error("External implementation evidence requires sourceRunId from the workflow slice");
+  if (!(input.slice.runIds ?? []).includes(sourceRunId)) throw new Error("implementationEvidence.sourceRunId must belong to this workflow slice");
+  const source = await readRunSidecar(input.workspaceRoot, sourceRunId);
+  const target = input.slice.implementationTarget ?? input.record.orchestration!.implementation;
+  if (source.status !== "completed") throw new Error("implementationEvidence.sourceRunId must reference a completed run");
+  if (target.kind !== "provider" || source.provider !== target.provider || source.model !== target.model) throw new Error("implementationEvidence.sourceRunId does not match the selected implementation provider and model");
+  if (source.workflowId !== input.record.workflowId || source.sliceId !== input.slice.sliceId || !sameScope(source.writeScope, input.slice.writeScope)) throw new Error("implementationEvidence.sourceRunId does not preserve the approved workflow scope; start a fresh approved run.");
+  if (input.evidence.worktreePath !== undefined && source.executionCwd !== input.evidence.worktreePath) throw new Error("implementation evidence worktree does not match its completed source run");
+  if (source.executionCwd === undefined || source.artifactFingerprint === undefined) throw new Error("implementationEvidence.sourceRunId has no immutable workspace fingerprint; start a fresh approved run.");
+  if (input.evidence.artifact !== `sha256:${source.artifactFingerprint}`) throw new Error("External implementation artifact must equal sha256:<source workspace fingerprint>.");
+  const reservedDescendant = (input.slice.runEvidence ?? []).find((run) => run.runId !== sourceRunId && run.parentRunId === sourceRunId);
+  if (reservedDescendant !== undefined) throw new Error(`implementationEvidence.sourceRunId is superseded by reserved descendant ${reservedDescendant.runId}; inspect and review the latest artifact.`);
+  await assertNoLaterWorktreeDescendant(input.workspaceRoot, source);
+  const current = await fingerprintImplementationWorkspace({ executionCwd: source.executionCwd });
+  if (current !== source.artifactFingerprint) throw new Error("implementation artifact changed after finalization; rerun implementation and review the latest artifact.");
+}
+
 export async function reviewWorkflowSlice(input: ReviewWorkflowSliceInput): Promise<{
   readonly workflow: WorkflowView;
 }> {
@@ -424,8 +514,12 @@ export async function reviewWorkflowSlice(input: ReviewWorkflowSliceInput): Prom
     slice.implementationEvidence,
     timestamp
   );
+  if (record.orchestration !== undefined && implementationEvidence !== undefined && slice.nativeImplementation === undefined) await validateExternalImplementationSource({ workspaceRoot: input.workspaceRoot, record, slice, evidence: implementationEvidence });
   if (decision.status === "approve" && implementationEvidence === undefined) {
     throw new Error("implementation evidence is required before approving a slice");
+  }
+  if (record.orchestration !== undefined && slice.nativeImplementation === undefined && implementationEvidence?.sourceRunId === undefined) {
+    throw new Error("External implementation evidence requires sourceRunId from the workflow slice");
   }
   const seniorEvidence = normalizeSeniorEvidence(input.seniorReviewerEvidence, record, timestamp);
   const explicitEscalations = normalizeUserEscalations(

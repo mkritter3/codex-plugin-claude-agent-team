@@ -257,7 +257,10 @@ export async function startWorkflowSlices(
         cwd: input.workspaceRoot,
         correlationId: slice.sliceId,
         ...(providers.get(slice.sliceId) === undefined && input.provider === undefined ? {} : { provider: providers.get(slice.sliceId) ?? input.provider! }),
-        ...(input.timeoutMs === undefined ? {} : { timeoutMs: input.timeoutMs })
+        ...(input.timeoutMs === undefined ? {} : { timeoutMs: input.timeoutMs }),
+        workflowId: record.workflowId,
+        sliceId: slice.sliceId,
+        writeScope: slice.writeScope
       }))
     },
     deps

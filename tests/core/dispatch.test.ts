@@ -1062,6 +1062,26 @@ describe("dispatchReadOnlyAgent", () => {
     );
   });
 
+  it("persists provider session and bounded failure evidence from a synchronous failed dispatch", async () => {
+    const result = await dispatchReadOnlyAgent(
+      { role: "planner", task: "Review", cwd: workspace, provider: "claude-code-cli" },
+      {
+        providers: [CLAUDE_CODE_CLI_PROVIDER],
+        createRunId: () => "run_sync_failure_evidence",
+        runtimes: [claudeRuntime(async () => ({
+          ok: false, sessionId: "session_recoverable", text: "", stdout: "{}", stderr: "denied", exitCode: 1,
+          failureEvidence: { reason: "denied_actions", deniedActions: ["git push"] }
+        }))]
+      }
+    );
+
+    expect(result.status).toBe("failed");
+    await expect(readRunSidecar(workspace, "run_sync_failure_evidence")).resolves.toMatchObject({
+      providerSessionId: "session_recoverable",
+      failureEvidence: { reason: "denied_actions", deniedActions: ["git push"] }
+    });
+  });
+
   it("keeps synchronous dispatch semantics for provider print runs", async () => {
     let resolvePrint: (value: Awaited<ReturnType<AgentProviderRuntime["runPrint"]>>) => void;
     let returned = false;

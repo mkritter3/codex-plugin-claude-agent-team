@@ -176,6 +176,7 @@ export interface WorkflowSliceRunEvidence {
   readonly executionCwd?: string;
   readonly transcriptPath?: string;
   readonly mailboxPaths?: WorkflowSliceRunMailboxPaths;
+  readonly parentRunId?: string;
 }
 
 export interface WorkflowSliceRunMailboxPaths {
@@ -304,6 +305,7 @@ export interface WorkflowCodexRationale {
 }
 
 export interface WorkflowRecord {
+  readonly revision?: number;
   readonly orchestration?: OrchestrationPolicy;
   readonly workflowId: string;
   readonly name?: string;

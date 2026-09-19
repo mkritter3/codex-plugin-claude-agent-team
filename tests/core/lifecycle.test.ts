@@ -7,6 +7,7 @@ import { AgentLifecycleManager } from "../../src/core/lifecycle.js";
 import { readAuditRecords } from "../../src/core/state/audit-store.js";
 import { readMailboxRecords } from "../../src/core/state/mailbox-store.js";
 import { readRunSidecar, writeRunSidecar } from "../../src/core/state/run-store.js";
+import { assertWorktreeUnclaimed } from "../../src/core/worktree-ownership.js";
 import type {
   AgentProviderDescriptor,
   MailboxRecord,
@@ -587,7 +588,7 @@ describe("AgentLifecycleManager", () => {
 
     const result = await manager.cancelRun(workspace, "run_life_4");
     done.resolve("completed");
-    await flushMicrotasks();
+    await waitForMailboxRecord("run_life_4", (record) => record.messageType === "cancelled_finalized");
 
     expect(handle.killed).toBe(true);
     expect(handle.forceKilled).toBe(true);
@@ -599,6 +600,55 @@ describe("AgentLifecycleManager", () => {
     await expect(readMailboxRecords(workspace, "run_life_4", "control")).resolves.toMatchObject([
       { messageType: "cancel_requested" }
     ]);
+  });
+
+  it("keeps a cancelled write-run claim until its delayed provider exit settles", async () => {
+    const done = deferred<ProviderSessionDoneStatus>();
+    const handle = fakeHandle(done.promise);
+    const executionCwd = `${workspace}-cancel-claimed-worktree`;
+    const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER],
+      config: {
+        ...DEFAULT_AGENT_TEAM_CONFIG,
+        writeMode: { enabled: true, requireIsolatedWorktree: true }
+      },
+      createRunId: () => "run_cancel_claimed",
+      cancelGraceMs: 0,
+      allocateWorkspace: async () => ({
+        sourceCwd: workspace,
+        executionCwd,
+        branchName: "agent-team/run_cancel_claimed",
+        baseRef: "HEAD",
+        isolation: "git-worktree",
+        retention: "retain-until-integrated",
+        cleanup: "retained"
+      }),
+      startSession: () => handle
+    });
+    await manager.startRun({ cwd: workspace, role: "slice-implementer", task: "Write safely." });
+    await manager.cancelRun(workspace, "run_cancel_claimed");
+    await expect(assertWorktreeUnclaimed(workspace, executionCwd)).rejects.toThrow("run_cancel_claimed");
+    await expect(readRunSidecar(workspace, "run_cancel_claimed")).resolves.toMatchObject({ status: "cancelled" });
+
+    handle.snapshotValue = {
+      ...handle.snapshotValue,
+      providerSessionId: "session_only_after_exit",
+      failureEvidence: { reason: "process_failed", details: ["late provider evidence"] }
+    };
+    done.resolve("interrupted");
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      try {
+        await assertWorktreeUnclaimed(workspace, executionCwd);
+        await expect(readRunSidecar(workspace, "run_cancel_claimed")).resolves.toMatchObject({
+          providerSessionId: "session_only_after_exit",
+          failureEvidence: { reason: "process_failed" }
+        });
+        return;
+      } catch {
+        await new Promise<void>((resolve) => setTimeout(resolve, 5));
+      }
+    }
+    await expect(assertWorktreeUnclaimed(workspace, executionCwd)).resolves.toBeUndefined();
   });
 
   it("preserves terminal failure evidence when provider fails during cancellation", async () => {
@@ -650,6 +700,7 @@ describe("AgentLifecycleManager", () => {
     await manager.startRun({ role: "planner", task: "Review", cwd: workspace });
 
     const result = await manager.cancelRun(workspace, "run_cancel_interrupted");
+    await waitForMailboxRecord("run_cancel_interrupted", (record) => record.messageType === "cancelled_finalized");
 
     expect(handle.killed).toBe(true);
     expect(handle.forceKilled).toBe(true);
@@ -1132,7 +1183,8 @@ describe("AgentLifecycleManager", () => {
       updatedAt: "2026-05-11T00:00:00.000Z",
       capabilitiesUsed: ["structuredOutput", "sessionResume"],
       evidencePaths: [],
-      providerSessionId: "session_parent_reply"
+      providerSessionId: "session_parent_reply",
+      model: "claude-test-model"
     };
     await writeRunSidecar(workspace, parent);
     const done = deferred<ProviderSessionDoneStatus>();
@@ -1149,7 +1201,7 @@ describe("AgentLifecycleManager", () => {
     }> = [];
     const order: string[] = [];
     const manager = new AgentLifecycleManager({
-      providers: [CLAUDE_CODE_CLI_PROVIDER],
+      providers: [{ ...CLAUDE_CODE_CLI_PROVIDER, model: "claude-test-model" }],
       createRunId: () => "run_reply_child",
       now: () => new Date("2026-05-11T00:02:00.000Z"),
       appendAudit: async (root, input) => {
@@ -1242,12 +1294,13 @@ describe("AgentLifecycleManager", () => {
       updatedAt: "2026-05-11T00:00:00.000Z",
       capabilitiesUsed: ["structuredOutput", "sessionResume"],
       evidencePaths: [],
-      providerSessionId: "session_parent_reply_blocked"
+      providerSessionId: "session_parent_reply_blocked",
+      model: "claude-test-model"
     };
     await writeRunSidecar(workspace, parent);
     let started = false;
     const manager = new AgentLifecycleManager({
-      providers: [CLAUDE_CODE_CLI_PROVIDER],
+      providers: [{ ...CLAUDE_CODE_CLI_PROVIDER, model: "claude-test-model" }],
       config: {
         ...DEFAULT_AGENT_TEAM_CONFIG,
         policy: {
@@ -1327,6 +1380,30 @@ describe("AgentLifecycleManager", () => {
         message: "Continue"
       })
     ).rejects.toThrow("provider session id");
+  });
+
+  it("requires a terminal parent, its exact provider, and its exact recorded model before resuming", async () => {
+    const base: Omit<RunSidecar, "runId" | "status"> = {
+      role: "planner", provider: "claude-code-cli", model: "claude-test-model",
+      createdAt: "2026-05-11T00:00:00.000Z", updatedAt: "2026-05-11T00:00:00.000Z",
+      capabilitiesUsed: ["structuredOutput", "sessionResume"], evidencePaths: [], providerSessionId: "session"
+    };
+    await writeRunSidecar(workspace, { ...base, runId: "run_active_parent", status: "running" });
+    await writeRunSidecar(workspace, { ...base, runId: "run_exact_parent", status: "completed" });
+    let started = false;
+    const otherProvider = { ...CLAUDE_CODE_CLI_PROVIDER, id: "other", model: "claude-test-model" };
+    const manager = new AgentLifecycleManager({
+      providers: [CLAUDE_CODE_CLI_PROVIDER, otherProvider],
+      startSession: () => { started = true; throw new Error("should not start"); }
+    });
+
+    await expect(manager.replyRun({ cwd: workspace, runId: "run_active_parent", message: "Continue" }))
+      .rejects.toThrow("terminal");
+    await expect(manager.replyRun({ cwd: workspace, runId: "run_exact_parent", message: "Continue", provider: "other" }))
+      .rejects.toThrow("same provider");
+    await expect(manager.replyRun({ cwd: workspace, runId: "run_exact_parent", message: "Continue" }))
+      .rejects.toThrow("model changed");
+    expect(started).toBe(false);
   });
 
   it("rejects slice implementer runs when write mode is disabled", async () => {
@@ -2004,7 +2081,7 @@ describe("AgentLifecycleManager", () => {
       status: "completed",
       createdAt: "2026-05-11T00:00:00.000Z",
       updatedAt: "2026-05-11T00:10:00.000Z",
-      capabilitiesUsed: ["structuredOutput", "edits", "workspaceIsolation"],
+      capabilitiesUsed: ["structuredOutput", "edits", "workspaceIsolation"] as const,
       evidencePaths: [join(workspace, ".agent-team", "logs", "run_cleanup_success.log")],
       sourceCwd: workspace,
       executionCwd: `${workspace}-cleanup-worktree`,
@@ -2071,6 +2148,84 @@ describe("AgentLifecycleManager", () => {
           }
         })
       ])
+    );
+  });
+
+  it("refuses cleanup under its exclusive claim while a retained-worktree descendant is nonterminal", async () => {
+    const leaseFields = {
+      sourceCwd: workspace,
+      executionCwd: `${workspace}-shared-worktree`,
+      workspaceIsolation: "git-worktree" as const,
+      workspaceRetention: "retain-until-integrated" as const,
+      workspaceCleanup: "retained" as const
+    };
+    const base = {
+      role: "slice-implementer" as const,
+      provider: "claude-code-cli",
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:00:00.000Z",
+      capabilitiesUsed: ["structuredOutput", "edits", "workspaceIsolation"] as const,
+      evidencePaths: [] as const,
+      ...leaseFields
+    };
+    await writeRunSidecar(workspace, { ...base, runId: "run_cleanup_root", status: "completed" });
+    await writeRunSidecar(workspace, {
+      ...base,
+      runId: "run_cleanup_child",
+      status: "running",
+      parentRunId: "run_cleanup_root"
+    });
+    let cleanupCalled = false;
+    const manager = new AgentLifecycleManager({
+      cleanupWorkspace: async () => {
+        cleanupCalled = true;
+        throw new Error("must not remove an active descendant");
+      }
+    });
+
+    await expect(manager.cleanupRunWorkspace({
+      cwd: workspace,
+      runId: "run_cleanup_root",
+      force: true
+    })).resolves.toMatchObject({ status: "blocked", message: expect.stringContaining("run_cleanup_child") });
+    expect(cleanupCalled).toBe(false);
+    await expect(readRunSidecar(workspace, "run_cleanup_root")).resolves.toMatchObject({ workspaceCleanup: "retained" });
+  });
+
+  it("marks every terminal retained-worktree lineage sidecar removed after cleanup", async () => {
+    const executionCwd = `${workspace}-lineage-worktree`;
+    const base = {
+      role: "slice-implementer" as const,
+      provider: "claude-code-cli",
+      status: "completed" as const,
+      createdAt: "2026-05-11T00:00:00.000Z",
+      updatedAt: "2026-05-11T00:00:00.000Z",
+      capabilitiesUsed: ["structuredOutput", "edits", "workspaceIsolation"] as const,
+      evidencePaths: [],
+      sourceCwd: workspace,
+      executionCwd,
+      workspaceIsolation: "git-worktree" as const,
+      workspaceRetention: "retain-until-integrated" as const,
+      workspaceCleanup: "retained" as const
+    };
+    await writeRunSidecar(workspace, { ...base, runId: "run_cleanup_lineage_root" });
+    await writeRunSidecar(workspace, {
+      ...base,
+      runId: "run_cleanup_lineage_child",
+      parentRunId: "run_cleanup_lineage_root"
+    });
+    const manager = new AgentLifecycleManager({
+      cleanupWorkspace: async ({ lease }) => ({ ...lease, cleanup: "removed" })
+    });
+    await expect(manager.cleanupRunWorkspace({
+      cwd: workspace,
+      runId: "run_cleanup_lineage_root",
+      force: true
+    })).resolves.toMatchObject({ status: "removed" });
+    await expect(readRunSidecar(workspace, "run_cleanup_lineage_root")).resolves.toMatchObject({ workspaceCleanup: "removed" });
+    await expect(readRunSidecar(workspace, "run_cleanup_lineage_child")).resolves.toMatchObject({ workspaceCleanup: "removed" });
+    await expect(readMailboxRecords(workspace, "run_cleanup_lineage_child", "events")).resolves.toEqual(
+      expect.arrayContaining([expect.objectContaining({ messageType: "workspace_cleanup_removed" })])
     );
   });
 

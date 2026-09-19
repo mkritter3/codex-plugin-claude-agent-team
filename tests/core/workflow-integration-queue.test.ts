@@ -12,6 +12,19 @@ import type { WorkflowRecord, WorkflowSlice } from "../../src/core/workflow-type
 
 let workspace: string;
 
+async function overwriteWorkflow(record: WorkflowRecord): Promise<void> {
+  try {
+    const current = await readWorkflowRecord(workspace, record.workflowId);
+    await writeWorkflowRecord(workspace, { ...record, ...(current.revision === undefined ? {} : { revision: current.revision }) });
+  } catch (error) {
+    if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+      await writeWorkflowRecord(workspace, record);
+      return;
+    }
+    throw error;
+  }
+}
+
 beforeEach(async () => {
   workspace = await mkdtemp(join(tmpdir(), "agent-team-workflow-integration-"));
 });
@@ -119,7 +132,7 @@ function workflowRecord(overrides: Partial<WorkflowRecord> = {}): WorkflowRecord
 }
 
 async function seed(record: WorkflowRecord = workflowRecord()): Promise<void> {
-  await writeWorkflowRecord(workspace, record);
+  await overwriteWorkflow(record);
 }
 
 describe("workflow integration queue", () => {
@@ -236,7 +249,7 @@ describe("workflow integration queue", () => {
       })
     ).rejects.toThrow("Workflow workflow_integration must be approved before building an integration queue");
 
-    await writeWorkflowRecord(workspace, workflowRecord());
+    await overwriteWorkflow( workflowRecord());
     await expect(
       buildWorkflowIntegrationQueue({
         workspaceRoot: workspace,
@@ -254,7 +267,7 @@ describe("workflow integration queue", () => {
     ).rejects.toThrow("Workflow slice slice_revision is needs-revision, not approved");
 
     const { implementationEvidence: _implementationEvidence, ...sliceWithoutEvidence } = approvedSlice();
-    await writeWorkflowRecord(workspace, {
+    await overwriteWorkflow( {
       ...workflowRecord(),
       slices: [sliceWithoutEvidence]
     });
@@ -265,7 +278,7 @@ describe("workflow integration queue", () => {
       })
     ).rejects.toThrow("Workflow slice slice_core requires implementation evidence before integration queueing");
 
-    await writeWorkflowRecord(workspace, {
+    await overwriteWorkflow( {
       ...workflowRecord(),
       slices: [
         approvedSlice({
@@ -298,7 +311,7 @@ describe("workflow integration queue", () => {
       queue: [expect.objectContaining({ sliceId: "slice_docs" })]
     });
 
-    await writeWorkflowRecord(workspace, {
+    await overwriteWorkflow( {
       ...workflowRecord(),
       slices: [
         approvedSlice({

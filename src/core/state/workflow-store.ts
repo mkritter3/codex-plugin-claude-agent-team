@@ -1,7 +1,8 @@
-import { readdir } from "node:fs/promises";
+import { mkdir, readdir, rmdir } from "node:fs/promises";
+import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
 import { authorityEvidenceSchema, modelTargetSchema, nativeImplementationSchema, orchestrationPolicySchema } from "../orchestration/contract.js";
-import { basename, join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { StateCorruptionError } from "../errors.js";
 import { readJsonFile, writeJsonAtomic } from "./atomic-json.js";
 import {
@@ -59,6 +60,7 @@ import {
 } from "../workflow-types.js";
 
 const WORKFLOW_RECORD_KEYS = new Set([
+  "revision",
   "orchestration",
   "workflowId",
   "name",
@@ -113,6 +115,7 @@ const SLICE_RUN_EVIDENCE_KEYS = new Set([
   "executionCwd",
   "transcriptPath",
   "mailboxPaths"
+  ,"parentRunId"
 ]);
 const SLICE_RUN_MAILBOX_PATH_KEYS = new Set(["inbox", "outbox", "control", "events"]);
 const SLICE_START_FAILURE_EVIDENCE_KEYS = new Set(["failedAt", "error"]);
@@ -520,6 +523,9 @@ function parseSliceRunEvidence(
     evidence.mailboxPaths === undefined
       ? undefined
       : parseSliceRunMailboxPaths(evidence.mailboxPaths, path, `${field}.mailboxPaths`);
+  const parentRunId = evidence.parentRunId === undefined
+    ? undefined
+    : expectNonEmptyString(evidence.parentRunId, path, `${field}.parentRunId`);
   return {
     runId: expectNonEmptyString(evidence.runId, path, `${field}.runId`),
     startedAt: expectNonEmptyString(evidence.startedAt, path, `${field}.startedAt`),
@@ -529,7 +535,8 @@ function parseSliceRunEvidence(
     logPath: expectNonEmptyString(evidence.logPath, path, `${field}.logPath`),
     ...(executionCwd === undefined ? {} : { executionCwd }),
     ...(transcriptPath === undefined ? {} : { transcriptPath }),
-    ...(mailboxPaths === undefined ? {} : { mailboxPaths })
+    ...(mailboxPaths === undefined ? {} : { mailboxPaths }),
+    ...(parentRunId === undefined ? {} : { parentRunId })
   };
 }
 
@@ -1084,6 +1091,7 @@ function parseWorkflowRecord(value: unknown, path: string): WorkflowRecord {
   assertKnownKeys(value, path, WORKFLOW_RECORD_KEYS, "record");
 
   const workflowId = expectNonEmptyString(value.workflowId, path, "workflowId");
+  const revision = value.revision === undefined ? undefined : expectPositiveInteger(value.revision, path, "revision");
   if (!isSafeWorkflowId(workflowId)) {
     throw corruption(path, "workflowId is not a safe workflow id");
   }
@@ -1114,6 +1122,7 @@ function parseWorkflowRecord(value: unknown, path: string): WorkflowRecord {
         );
 
   return {
+    ...(revision === undefined ? {} : { revision }),
     workflowId,
     ...(value.orchestration === undefined ? {} : { orchestration: parseContract(orchestrationPolicySchema, value.orchestration, path) }),
     ...(name === undefined ? {} : { name }),
@@ -1151,7 +1160,26 @@ export async function writeWorkflowRecord(
   record: WorkflowRecord
 ): Promise<void> {
   const path = workflowRecordPath(workspaceRoot, record.workflowId);
-  await writeJsonAtomic(path, parseWorkflowRecord(record, path));
+  const lock = `${path}.lock`;
+  await mkdir(dirname(lock), { recursive: true });
+  const started = Date.now();
+  while (true) {
+    try { await mkdir(lock); break; } catch (error) {
+      if (!(error instanceof Error && "code" in error && error.code === "EEXIST")) throw error;
+      if (Date.now() - started > 5_000) throw new Error(`Timed out acquiring workflow lock: ${lock}`);
+      await delay(10);
+    }
+  }
+  try {
+    let current: WorkflowRecord | undefined;
+    try { current = await readWorkflowRecordPath(path); } catch (error) {
+      if (!(error instanceof Error && "code" in error && error.code === "ENOENT")) throw error;
+    }
+    if (current !== undefined && record.revision !== current.revision) throw new Error(`Workflow ${record.workflowId} changed concurrently; reload before writing.`);
+    await writeJsonAtomic(path, parseWorkflowRecord({ ...record, revision: (current?.revision ?? 0) + 1 }, path));
+  } finally {
+    await rmdir(lock).catch(() => undefined);
+  }
 }
 
 export async function readWorkflowRecord(

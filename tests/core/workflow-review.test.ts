@@ -295,8 +295,9 @@ describe("workflow slice review consensus", () => {
       })
     ).rejects.toThrow("implementation evidence is required before approving a slice");
 
+    const recordBeforePolicyUpdate = await readWorkflowRecord(workspace, "workflow_review");
     await writeWorkflowRecord(workspace, {
-      ...workflowRecord(),
+      ...recordBeforePolicyUpdate,
       seniorReview: {
         opusPlanning: { mode: "required-when-available" },
         opusImplementation: { mode: "required-blocking" }
@@ -358,7 +359,11 @@ describe("workflow slice review consensus", () => {
       ])
     );
 
-    await writeWorkflowRecord(workspace, workflowRecord());
+    const recordBeforeSecurityCase = await readWorkflowRecord(workspace, "workflow_review");
+    await writeWorkflowRecord(workspace, {
+      ...workflowRecord(),
+      ...(recordBeforeSecurityCase.revision === undefined ? {} : { revision: recordBeforeSecurityCase.revision })
+    });
     const blocked = await reviewWorkflowSlice({
       workspaceRoot: workspace,
       workflowId: "workflow_review",
@@ -439,7 +444,11 @@ describe("workflow slice review consensus", () => {
       ])
     );
 
-    await writeWorkflowRecord(workspace, workflowRecord());
+    const recordBeforeEscalationCase = await readWorkflowRecord(workspace, "workflow_review");
+    await writeWorkflowRecord(workspace, {
+      ...workflowRecord(),
+      ...(recordBeforeEscalationCase.revision === undefined ? {} : { revision: recordBeforeEscalationCase.revision })
+    });
     await expect(
       reviewWorkflowSlice({
         workspaceRoot: workspace,
